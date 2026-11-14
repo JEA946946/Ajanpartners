@@ -6,6 +6,7 @@ import {
 import CloseIcon from '@mui/icons-material/Close';
 import { useTranslation } from 'react-i18next';
 import api from '../services/api';
+import { formatNumber } from '../utils/format';
 
 interface Txn { id: string; description: string; date?: string; debit: string; credit: string; currency?: string; }
 interface Bill {
@@ -23,7 +24,7 @@ interface Props {
 }
 
 const amountOf = (t: Txn) => (parseFloat(t.credit || '0') || parseFloat(t.debit || '0')) || 0;
-const money = (n: number) => n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const money = (n: number) => formatNumber(n);
 
 /**
  * Match bank transactions against supplier invoices with both sides editable and
@@ -67,7 +68,7 @@ const MatchToBillsDialog: React.FC<Props> = ({ open, initialTxns, allTxns, linke
 
   const txnTotal = selTxns.reduce((s, x) => s + amountOf(x), 0);
   const billTotal = selBills.reduce((s, b) => s + parseFloat(b.balance_due), 0);
-  const currency = selTxns[0]?.currency || '';
+  const currency = 'kr.';
   const diff = Math.round((txnTotal - billTotal) * 100) / 100;
 
   const txnAddOptions = allTxns.filter(x => !linkedIds.has(x.id) && !selTxns.some(s => s.id === x.id));

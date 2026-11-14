@@ -6,6 +6,7 @@ import {
 } from '@mui/material';
 import { useTranslation } from 'react-i18next';
 import api from '../services/api';
+import { formatNumber } from '../utils/format';
 
 interface Supplier { id: string; code: string; name: string; }
 interface Account { id: string; code: string; name: string; }
@@ -35,7 +36,7 @@ const supLabel = (s: Supplier) => `${s.code} — ${s.name}`;
  * Saves via PUT /bills/:id (which already supports supplier_id + lines).
  */
 const BillEditDialog: React.FC<Props> = ({ open, billId, onClose, onSaved }) => {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [supplierId, setSupplierId] = useState<string>('');
@@ -150,7 +151,7 @@ const BillEditDialog: React.FC<Props> = ({ open, billId, onClose, onSaved }) => 
                         />
                       </TableCell>
                       <TableCell align="right" sx={{ fontFamily: 'monospace' }}>
-                        {parseFloat(line.amount || '0').toLocaleString(i18n.language, { minimumFractionDigits: 2 })}
+                        {formatNumber(line.amount || '0')}
                       </TableCell>
                     </TableRow>
                   ))}

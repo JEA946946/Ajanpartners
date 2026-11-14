@@ -1,275 +1,289 @@
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
-  Box, Typography, Button, Table, TableBody, TableCell, TableContainer,
-  TableHead, TableRow, Paper, TextField, Card, CardContent, Divider,
+  Box, Typography, Button, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper,
+  TextField, Card, CardContent, Chip, Alert, MenuItem, Dialog, DialogTitle, DialogContent, DialogActions,
+  List, ListItemButton, ListItemText,
 } from '@mui/material';
-import {
-  Download as DownloadIcon, Assessment as ReportIcon,
-} from '@mui/icons-material';
+import { Lock as LockIcon, Download as DownloadIcon } from '@mui/icons-material';
 import { useTranslation } from 'react-i18next';
 import api from '../services/api';
+import { exportToCSV } from '../utils/csvExport';
+import { formatDate, formatMoney, formatNumber } from '../utils/format';
 
-interface TaxReportLine {
-  tax_code: string;
-  tax_name: string;
-  rate: string;
-  taxable_amount: string;
-  tax_amount: string;
+interface VatPeriod {
+  start: string; end: string; name: string; deadline: string;
+  status: 'open' | 'draft' | 'filed'; settled: boolean; momstilsvar: string | null;
+}
+interface VatField { key: string; name: string; amount: string; amount_kr: string }
+interface ReconRow { field: string; account_code: string; account_name: string; booked: string; from_vat_codes: string; manual: string }
+interface VatReturn {
+  id: string; status: string; settlement_entry: string | null; filed_at: string | null; filed_by: string;
+  receipt_number: string;
+}
+interface VatReportData {
+  start: string; end: string; deadline: string; fields: VatField[]; reconciliation: ReconRow[];
+  account_balances: Record<string, string>; return: VatReturn | null;
 }
 
-interface TaxReportData {
-  date_from: string;
-  date_to: string;
-  sales: TaxReportLine[];
-  purchases: TaxReportLine[];
-  total_sales_tax: string;
-  total_purchase_tax: string;
-  tax_payable: string;
-}
-
-const exportToCSV = (filename: string, headers: string[], rows: string[][]) => {
-  const csvContent = [
-    headers.join(','),
-    ...rows.map(row => row.map(cell => `"${(cell || '').replace(/"/g, '""')}"`).join(',')),
-  ].join('\n');
-  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = filename;
-  link.click();
-  URL.revokeObjectURL(url);
-};
+const MOMS_KEYS = ['salgsmoms', 'moms_varekoeb_udland', 'moms_ydelseskoeb_udland', 'koebsmoms'];
+const AFGIFT_KEYS = ['olie_flaskegasafgift', 'elafgift', 'naturgas_bygasafgift', 'kulafgift', 'co2_afgift', 'vandafgift'];
 
 const TaxReport: React.FC = () => {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
+  const [year, setYear] = useState(new Date().getFullYear());
+  const [vatPeriod, setVatPeriod] = useState('');
+  const [periods, setPeriods] = useState<VatPeriod[]>([]);
+  const [selected, setSelected] = useState<VatPeriod | null>(null);
+  const [report, setReport] = useState<VatReportData | null>(null);
+  const [message, setMessage] = useState<{ type: 'success' | 'error' | 'info'; text: string } | null>(null);
+  const [fileOpen, setFileOpen] = useState(false);
+  const [receipt, setReceipt] = useState('');
+  const [busy, setBusy] = useState(false);
 
-  const [dateFrom, setDateFrom] = useState('');
-  const [dateTo, setDateTo] = useState('');
-  const [report, setReport] = useState<TaxReportData | null>(null);
-  const [loading, setLoading] = useState(false);
-
-  const fetchReport = async () => {
-    if (!dateFrom || !dateTo) {
-      alert(t('taxReport.errorDateRange'));
-      return;
-    }
-    setLoading(true);
-    try {
-      const params = new URLSearchParams();
-      params.set('date_from', dateFrom);
-      params.set('date_to', dateTo);
-      const res = await api.get(`/reports/tax?${params.toString()}`);
+  const loadPeriods = useCallback(() => {
+    api.get(`/vat/periods?year=${year}`).then(res => {
       if (res.data.success) {
-        const d = res.data.data;
-        // Map backend shape to frontend shape
-        const mapRow = (row: any): TaxReportLine => {
-          const rate = parseFloat(row.rate || '0');
-          const taxAmount = parseFloat(row.amount || '0');
-          const taxableAmount = rate > 0 ? taxAmount / (rate / 100) : 0;
-          return {
-            tax_code: row.tax_code,
-            tax_name: row.tax_name,
-            rate: row.rate,
-            taxable_amount: taxableAmount.toFixed(2),
-            tax_amount: taxAmount.toFixed(2),
-          };
-        };
-        setReport({
-          date_from: d.period?.date_from || dateFrom,
-          date_to: d.period?.date_to || dateTo,
-          sales: (d.tax_collected?.rows || d.sales || []).map(mapRow),
-          purchases: (d.tax_paid?.rows || d.purchases || []).map(mapRow),
-          total_sales_tax: d.tax_collected?.total || d.total_sales_tax || '0',
-          total_purchase_tax: d.tax_paid?.total || d.total_purchase_tax || '0',
-          tax_payable: d.net_tax_payable || d.tax_payable || '0',
-        });
+        setVatPeriod(res.data.data.vat_period);
+        setPeriods(res.data.data.periods || []);
       }
-    } catch (err: any) {
-      alert(err.response?.data?.message || t('taxReport.errorFetch'));
+    }).catch(e => setMessage({ type: 'error', text: e?.response?.data?.message || t('vat.loadError', 'Momsperioderne kunne ikke hentes') }));
+  }, [year, t]);
+
+  const loadReport = useCallback((p: VatPeriod) => {
+    api.get(`/vat/report?start=${p.start}&end=${p.end}`).then(res => {
+      if (res.data.success) setReport(res.data.data);
+    }).catch(e => setMessage({ type: 'error', text: e?.response?.data?.message || t('vat.reportError', 'Momsangivelsen kunne ikke beregnes') }));
+  }, [t]);
+
+  useEffect(() => { loadPeriods(); }, [loadPeriods]);
+  useEffect(() => { if (selected) loadReport(selected); }, [selected, loadReport]);
+
+  const act = async (path: string, body: Record<string, string> = {}) => {
+    if (!selected) return;
+    setBusy(true);
+    setMessage(null);
+    try {
+      const res = await api.post(`/vat/${path}`, { start: selected.start, end: selected.end, ...body });
+      setMessage({ type: 'success', text: res.data.message });
+      loadPeriods();
+      loadReport(selected);
+    } catch (e: any) {
+      setMessage({ type: 'error', text: e?.response?.data?.message || t('vat.actionError', 'Handlingen mislykkedes') });
     } finally {
-      setLoading(false);
+      setBusy(false);
     }
   };
 
-  const handleExportCSV = () => {
-    if (!report) return;
-    const rows: string[][] = [];
-    rows.push([`--- ${t('taxReport.salesTax')} ---`, '', '', '', '']);
-    report.sales.forEach(line => {
-      rows.push([line.tax_code, line.tax_name, line.rate + '%', line.taxable_amount, line.tax_amount]);
-    });
-    rows.push([t('taxReport.totalSalesTax'), '', '', '', report.total_sales_tax]);
-    rows.push(['', '', '', '', '']);
-    rows.push([`--- ${t('taxReport.purchaseTax')} ---`, '', '', '', '']);
-    report.purchases.forEach(line => {
-      rows.push([line.tax_code, line.tax_name, line.rate + '%', line.taxable_amount, line.tax_amount]);
-    });
-    rows.push([t('taxReport.totalPurchaseTax'), '', '', '', report.total_purchase_tax]);
-    rows.push(['', '', '', '', '']);
-    rows.push([t('taxReport.taxPayable'), '', '', '', report.tax_payable]);
-
-    exportToCSV(
-      `momsrapport_${dateFrom}_${dateTo}.csv`,
-      [t('taxReport.taxCode'), t('common.name'), t('taxReport.rate'), t('taxReport.taxableAmount'), t('taxReport.taxAmount')],
-      rows,
-    );
+  const statusChip = (p: { status: string; settled: boolean }) => {
+    if (p.status === 'filed') return <Chip size="small" color="success" icon={<LockIcon />} label={t('vat.statusFiled', 'Angivet og låst')} />;
+    if (p.settled) return <Chip size="small" color="warning" label={t('vat.statusSettled', 'Afregning bogført')} />;
+    return <Chip size="small" variant="outlined" label={t('vat.statusOpen', 'Åben')} />;
   };
 
-  const renderTaxTable = (title: string, lines: TaxReportLine[], total: string, totalLabel: string, color: string, bgColor: string) => (
+  const fieldRows = (keys: string[]) => (report?.fields || []).filter(f => keys.includes(f.key));
+  const rubrikRows = () => (report?.fields || []).filter(f => f.key.startsWith('rubrik_'));
+  const tilsvar = report?.fields.find(f => f.key === 'momstilsvar');
+  const filed = report?.return?.status === 'filed';
+  const settled = !!report?.return?.settlement_entry;
+
+  const exportCsv = () => {
+    if (!report) return;
+    exportToCSV(`moms_${report.start}_${report.end}.csv`,
+      [t('vat.field', 'Felt'), t('vat.exact', 'Beløb'), t('vat.wholeKr', 'Hele kroner')],
+      report.fields.map(f => [f.name, f.amount, f.amount_kr]));
+  };
+
+  const fieldTable = (title: string, rows: VatField[], hint?: string) => (
     <Card sx={{ mb: 2 }}>
       <CardContent>
-        <Typography variant="subtitle1" sx={{ fontWeight: 600, color, mb: 1 }}>{title}</Typography>
-        <TableContainer component={Paper} variant="outlined">
-          <Table size="small">
-            <TableHead>
-              <TableRow sx={{ bgcolor: '#f5f5f5' }}>
-                <TableCell sx={{ fontWeight: 600 }}>{t('taxReport.taxCode')}</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>{t('common.name')}</TableCell>
-                <TableCell align="right" sx={{ fontWeight: 600 }}>{t('taxReport.rate')} (%)</TableCell>
-                <TableCell align="right" sx={{ fontWeight: 600 }}>{t('taxReport.taxableAmount')}</TableCell>
-                <TableCell align="right" sx={{ fontWeight: 600 }}>{t('taxReport.taxAmount')}</TableCell>
+        <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>{title}</Typography>
+        {hint && <Typography variant="caption" color="text.secondary">{hint}</Typography>}
+        <Table size="small" sx={{ mt: 1 }}>
+          <TableHead>
+            <TableRow>
+              <TableCell sx={{ fontWeight: 600 }}>{t('vat.field', 'Felt')}</TableCell>
+              <TableCell align="right" sx={{ fontWeight: 600 }}>{t('vat.exact', 'Beløb')}</TableCell>
+              <TableCell align="right" sx={{ fontWeight: 600 }}>{t('vat.toTastSelv', 'Til TastSelv (hele kr.)')}</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {rows.map(f => (
+              <TableRow key={f.key}>
+                <TableCell>{f.name}</TableCell>
+                <TableCell align="right">{formatNumber(f.amount)}</TableCell>
+                <TableCell align="right" sx={{ fontWeight: 600, fontFamily: 'monospace' }}>{formatNumber(f.amount_kr).replace(/,00$/, '')}</TableCell>
               </TableRow>
-            </TableHead>
-            <TableBody>
-              {lines.map((line, i) => (
-                <TableRow key={i} hover>
-                  <TableCell>
-                    <Typography variant="body2" sx={{ fontFamily: 'monospace', fontWeight: 500 }}>
-                      {line.tax_code}
-                    </Typography>
-                  </TableCell>
-                  <TableCell>{line.tax_name}</TableCell>
-                  <TableCell align="right">{parseFloat(line.rate).toFixed(2)}%</TableCell>
-                  <TableCell align="right">
-                    {parseFloat(line.taxable_amount).toLocaleString(i18n.language, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                  </TableCell>
-                  <TableCell align="right" sx={{ fontWeight: 500 }}>
-                    {parseFloat(line.tax_amount).toLocaleString(i18n.language, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                  </TableCell>
-                </TableRow>
-              ))}
-              {lines.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={5} align="center" sx={{ py: 3 }}>
-                    <Typography variant="body2" color="text.secondary">{t('taxReport.noEntries')}</Typography>
-                  </TableCell>
-                </TableRow>
-              )}
-              <TableRow sx={{ bgcolor: bgColor }}>
-                <TableCell colSpan={4} sx={{ fontWeight: 700 }}>{totalLabel}</TableCell>
-                <TableCell align="right" sx={{ fontWeight: 700 }}>
-                  {parseFloat(total).toLocaleString(i18n.language, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </TableCell>
-              </TableRow>
-            </TableBody>
-          </Table>
-        </TableContainer>
+            ))}
+          </TableBody>
+        </Table>
       </CardContent>
     </Card>
   );
 
   return (
     <Box>
-      {/* Header */}
-      <Typography variant="h5" sx={{ fontWeight: 600, mb: 2 }}>{t('taxReport.title')}</Typography>
+      <Typography variant="h5" sx={{ fontWeight: 600, mb: 1 }}>{t('vat.title', 'Momsangivelse')}</Typography>
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+        {t('vat.intro', 'Momsangivelsen beregnes ud fra momskontiene (salgsmoms, købsmoms, moms af køb i udlandet og energiafgifter) og rubrikkerne A, B og C ud fra momskoderne på posteringerne. Bogfør momsafregningen, indberet beløbene på Skats TastSelv Erhverv i hele kroner, og markér derefter perioden som angivet. En angivet periode er låst: der kan ikke længere bogføres i den.')}
+      </Typography>
 
-      {/* Filters */}
-      <Paper sx={{ p: 1.5, mb: 2, display: 'flex', gap: 1.5, alignItems: 'center', flexWrap: 'wrap' }}>
-        <TextField
-          label={t('common.from')} type="date" value={dateFrom} size="small"
-          onChange={e => setDateFrom(e.target.value)}
-          InputLabelProps={{ shrink: true }} sx={{ width: 170 }}
-        />
-        <TextField
-          label={t('common.to')} type="date" value={dateTo} size="small"
-          onChange={e => setDateTo(e.target.value)}
-          InputLabelProps={{ shrink: true }} sx={{ width: 170 }}
-        />
-        <Button
-          variant="contained"
-          startIcon={<ReportIcon />}
-          onClick={fetchReport}
-          disabled={loading}
-          sx={{ bgcolor: '#2e7d32' }}
-        >
-          {loading ? t('taxReport.generating') : t('taxReport.generate')}
-        </Button>
-        {report && (
-          <Button
-            variant="outlined"
-            startIcon={<DownloadIcon />}
-            onClick={handleExportCSV}
-            color="secondary"
-            sx={{ ml: 'auto' }}
-          >
-            {t('common.exportCsv')}
-          </Button>
-        )}
-      </Paper>
+      {message && <Alert severity={message.type} sx={{ mb: 2 }} onClose={() => setMessage(null)}>{message.text}</Alert>}
 
-      {/* Report Content */}
-      {report && (
-        <Box>
-          {/* Sales Tax */}
-          {renderTaxTable(t('taxReport.salesTax'), report.sales, report.total_sales_tax, t('taxReport.totalSalesTax'), '#2e7d32', '#e8f5e9')}
+      {vatPeriod === 'none' && (
+        <Alert severity="info">{t('vat.notRegistered', 'Kunden er ikke momsregistreret.')}</Alert>
+      )}
 
-          {/* Purchase Tax */}
-          {renderTaxTable(t('taxReport.purchaseTax'), report.purchases, report.total_purchase_tax, t('taxReport.totalPurchaseTax'), '#1976d2', '#e3f2fd')}
-
-          {/* Summary */}
-          <Card sx={{ border: '2px solid #1565c0' }}>
+      {vatPeriod !== 'none' && (
+        <Box sx={{ display: 'flex', gap: 2, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+          <Card sx={{ width: 300, flexShrink: 0 }}>
             <CardContent>
-              <Typography variant="subtitle1" sx={{ fontWeight: 600, color: '#1565c0', mb: 1.5 }}>
-                {t('taxReport.summary')}
+              <TextField select size="small" fullWidth label={t('vat.year', 'År')} value={year}
+                onChange={e => { setYear(Number(e.target.value)); setSelected(null); setReport(null); }}>
+                {[0, 1, 2, 3].map(d => new Date().getFullYear() + 1 - d).map(y => <MenuItem key={y} value={y}>{y}</MenuItem>)}
+              </TextField>
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
+                {t('vat.periodType', 'Momsperiode: {{type}}', {
+                  type: ({ month: t('vat.month', 'måned'), quarter: t('vat.quarter', 'kvartal'), half: t('vat.half', 'halvår') } as Record<string, string>)[vatPeriod] || vatPeriod,
+                })}
               </Typography>
-              <Box sx={{ display: 'flex', gap: 2, mb: 1.5 }}>
-                <Card sx={{ flex: 1, bgcolor: '#e8f5e9' }}>
-                  <CardContent sx={{ textAlign: 'center', py: 1.5, '&:last-child': { pb: 1.5 } }}>
-                    <Typography variant="caption" color="text.secondary">{t('taxReport.totalSalesTax')}</Typography>
-                    <Typography variant="h6" sx={{ fontWeight: 700, color: '#2e7d32' }}>
-                      {parseFloat(report.total_sales_tax).toLocaleString(i18n.language, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </Typography>
-                  </CardContent>
-                </Card>
-                <Card sx={{ flex: 1, bgcolor: '#e3f2fd' }}>
-                  <CardContent sx={{ textAlign: 'center', py: 1.5, '&:last-child': { pb: 1.5 } }}>
-                    <Typography variant="caption" color="text.secondary">{t('taxReport.totalPurchaseTax')}</Typography>
-                    <Typography variant="h6" sx={{ fontWeight: 700, color: '#1976d2' }}>
-                      {parseFloat(report.total_purchase_tax).toLocaleString(i18n.language, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </Typography>
-                  </CardContent>
-                </Card>
-              </Box>
-              <Divider sx={{ mb: 1.5 }} />
-              <Card sx={{ bgcolor: '#f5f5f5' }}>
-                <CardContent sx={{ textAlign: 'center', py: 2, '&:last-child': { pb: 2 } }}>
-                  <Typography variant="caption" color="text.secondary">{t('taxReport.taxPayable')}</Typography>
-                  <Typography
-                    variant="h5"
-                    sx={{
-                      fontWeight: 700,
-                      color: parseFloat(report.tax_payable) >= 0 ? '#d32f2f' : '#2e7d32',
-                    }}
-                  >
-                    {parseFloat(report.tax_payable).toLocaleString(i18n.language, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    <Typography component="span" variant="caption" color="text.secondary" sx={{ ml: 0.5 }}>MAD</Typography>
-                  </Typography>
-                </CardContent>
-              </Card>
+              <List dense>
+                {periods.map(p => (
+                  <ListItemButton key={p.start} selected={selected?.start === p.start} onClick={() => setSelected(p)}>
+                    <ListItemText
+                      primary={p.name}
+                      secondary={t('vat.deadline', 'Frist {{date}}', { date: formatDate(p.deadline) })}
+                    />
+                    {statusChip(p)}
+                  </ListItemButton>
+                ))}
+              </List>
             </CardContent>
           </Card>
+
+          <Box sx={{ flex: 1, minWidth: 360 }}>
+            {!report && <Typography color="text.secondary">{t('vat.choosePeriod', 'Vælg en momsperiode.')}</Typography>}
+            {report && (
+              <>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2, flexWrap: 'wrap' }}>
+                  <Typography variant="h6">
+                    {formatDate(report.start)} – {formatDate(report.end)}
+                  </Typography>
+                  {statusChip({ status: report.return?.status || 'open', settled })}
+                  <Typography variant="body2" color="text.secondary">
+                    {t('vat.deadline', 'Frist {{date}}', { date: formatDate(report.deadline) })}
+                  </Typography>
+                  <Box sx={{ ml: 'auto', display: 'flex', gap: 1 }}>
+                    <Button size="small" startIcon={<DownloadIcon />} onClick={exportCsv}>{t('common.exportCsv')}</Button>
+                    {!filed && !settled && (
+                      <Button size="small" variant="contained" disabled={busy} onClick={() => act('settle')}>
+                        {t('vat.settle', 'Bogfør momsafregning')}
+                      </Button>
+                    )}
+                    {!filed && settled && (
+                      <>
+                        <Button size="small" color="inherit" disabled={busy} onClick={() => act('unsettle')}>
+                          {t('vat.unsettle', 'Fjern afregning')}
+                        </Button>
+                        <Button size="small" variant="contained" color="success" disabled={busy} onClick={() => setFileOpen(true)}>
+                          {t('vat.markFiled', 'Markér som angivet')}
+                        </Button>
+                      </>
+                    )}
+                  </Box>
+                </Box>
+
+                {filed && (
+                  <Alert severity="success" icon={<LockIcon />} sx={{ mb: 2 }}>
+                    {t('vat.filedInfo', 'Angivet {{date}} af {{by}}{{receipt}}. Perioden er låst; rettelser bogføres i en åben periode og angives som en ændring hos Skat.', {
+                      date: report.return?.filed_at ? formatDate(report.return.filed_at) : '',
+                      by: report.return?.filed_by || '',
+                      receipt: report.return?.receipt_number ? ` (${t('vat.receipt', 'kvittering')} ${report.return.receipt_number})` : '',
+                    })}
+                  </Alert>
+                )}
+                {settled && !filed && (
+                  <Alert severity="info" sx={{ mb: 2 }}>
+                    {t('vat.settledInfo', 'Momsafregningen er bogført ({{entry}}): momskontiene er nulstillet mod momsafregningskontoen. Indtast felterne nedenfor på TastSelv Erhverv i hele kroner.', {
+                      entry: report.return?.settlement_entry,
+                    })}
+                  </Alert>
+                )}
+
+                {tilsvar && (
+                  <Card sx={{ mb: 2, bgcolor: parseFloat(tilsvar.amount) >= 0 ? '#fff3e0' : '#e8f5e9' }}>
+                    <CardContent sx={{ textAlign: 'center' }}>
+                      <Typography variant="caption" color="text.secondary">{tilsvar.name}</Typography>
+                      <Typography variant="h4" sx={{ fontWeight: 700 }}>{formatMoney(tilsvar.amount_kr)}</Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        {parseFloat(tilsvar.amount) >= 0 ? t('vat.toPay', 'Skal betales til Skat') : t('vat.toReceive', 'Tilgode hos Skat')}
+                        {' · '}{t('vat.exactAmount', 'præcist {{amount}}', { amount: formatMoney(tilsvar.amount) })}
+                      </Typography>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {fieldTable(t('vat.vatFields', 'Moms'), fieldRows(MOMS_KEYS))}
+                {fieldTable(t('vat.dutyFields', 'Energiafgifter (godtgørelse)'), fieldRows(AFGIFT_KEYS))}
+                {fieldTable(t('vat.rubrikFields', 'Rubrikker (værdi uden moms)'), rubrikRows(),
+                  t('vat.rubrikHint', 'Rubrik A: køb i andre EU-lande. Rubrik B: salg til andre EU-lande (B-varer, der skal indberettes, indberettes også til EU-salg uden moms). Rubrik C: andre leverancer uden moms.'))}
+
+                <Card>
+                  <CardContent>
+                    <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>{t('vat.reconciliation', 'Afstemning mod saldobalancen')}</Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      {t('vat.reconHint', 'Bogført = bevægelsen på momskontoen i perioden (uden momsafregningen). "Uden momskode" er manuelle posteringer på momskontoen; de skal kunne forklares.')}
+                    </Typography>
+                    <TableContainer component={Paper} variant="outlined" sx={{ mt: 1 }}>
+                      <Table size="small">
+                        <TableHead>
+                          <TableRow sx={{ bgcolor: '#f5f5f5' }}>
+                            <TableCell sx={{ fontWeight: 600 }}>{t('common.account')}</TableCell>
+                            <TableCell align="right" sx={{ fontWeight: 600 }}>{t('vat.booked', 'Bogført')}</TableCell>
+                            <TableCell align="right" sx={{ fontWeight: 600 }}>{t('vat.fromCodes', 'Fra momskoder')}</TableCell>
+                            <TableCell align="right" sx={{ fontWeight: 600 }}>{t('vat.manual', 'Uden momskode')}</TableCell>
+                            <TableCell align="right" sx={{ fontWeight: 600 }}>{t('vat.balanceAtEnd', 'Saldo pr. {{date}}', { date: formatDate(report.end) })}</TableCell>
+                          </TableRow>
+                        </TableHead>
+                        <TableBody>
+                          {report.reconciliation.map(r => (
+                            <TableRow key={r.account_code}>
+                              <TableCell><Box component="span" sx={{ fontFamily: 'monospace', mr: 1 }}>{r.account_code}</Box>{r.account_name}</TableCell>
+                              <TableCell align="right">{formatNumber(r.booked)}</TableCell>
+                              <TableCell align="right">{formatNumber(r.from_vat_codes)}</TableCell>
+                              <TableCell align="right" sx={{ color: parseFloat(r.manual) ? 'warning.main' : 'inherit', fontWeight: parseFloat(r.manual) ? 600 : 400 }}>
+                                {formatNumber(r.manual)}
+                              </TableCell>
+                              <TableCell align="right">{formatNumber(report.account_balances[r.account_code] || '0')}</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </TableContainer>
+                  </CardContent>
+                </Card>
+              </>
+            )}
+          </Box>
         </Box>
       )}
 
-      {/* Empty state */}
-      {!report && !loading && (
-        <Paper sx={{ p: 4, textAlign: 'center' }}>
-          <Typography variant="body2" color="text.secondary">
-            {t('taxReport.emptyState')}
+      <Dialog open={fileOpen} onClose={() => setFileOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle>{t('vat.fileTitle', 'Markér perioden som angivet')}</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" sx={{ mb: 2 }}>
+            {t('vat.fileText', 'Gør det, når angivelsen er indberettet på TastSelv Erhverv. Perioden låses derefter, så ingen posteringer kan dateres i den.')}
           </Typography>
-        </Paper>
-      )}
+          <TextField fullWidth size="small" label={t('vat.receiptNumber', 'Kvitteringsnummer fra Skat (valgfrit)')}
+            value={receipt} onChange={e => setReceipt(e.target.value)} />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setFileOpen(false)}>{t('common.cancel')}</Button>
+          <Button variant="contained" color="success" disabled={busy}
+            onClick={async () => { setFileOpen(false); await act('file', { receipt_number: receipt }); setReceipt(''); }}>
+            {t('vat.confirmFile', 'Angivet – lås perioden')}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };

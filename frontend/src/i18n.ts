@@ -4,7 +4,6 @@ import LanguageDetector from 'i18next-browser-languagedetector';
 
 import da from './locales/da.json';
 import en from './locales/en.json';
-import fr from './locales/fr.json';
 
 i18n
   .use(LanguageDetector)
@@ -13,11 +12,11 @@ i18n
     resources: {
       da: { translation: da },
       en: { translation: en },
-      fr: { translation: fr },
     },
-    // English for any browser language without its own file (Arabic, German…);
-    // Danish here showed Danish to everyone who had not picked a language.
-    fallbackLng: 'en',
+    // Dansk er standard; engelsk er andet sprog. Andre browsersprog får dansk.
+    fallbackLng: 'da',
+    supportedLngs: ['da', 'en'],
+    nonExplicitSupportedLngs: true,
     detection: {
       order: ['localStorage', 'navigator'],
       lookupLocalStorage: 'i18nextLng',

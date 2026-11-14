@@ -14,6 +14,13 @@ Django 5.2 + DRF backend (`backend/`), React 18 + MUI 5 + Vite frontend (`fronte
 - Kunder oprettes med `tenancy.services.create_client` (skema + migrationer + `seed_accounts --template` + en AccessGrant-anmodning). Kunden godkender adgangen ved første login (`/onboarding`).
 - Bilag gemmes pr. skema (`TenantFileSystemStorage`, `MEDIA_ROOT/<schema>/`).
 
+## Sikkerhed
+- Adgangskoder: Djangos validatorer (min. 10 tegn m.m.). Brug `validate_password` ved alle oprettelser/skift.
+- To-faktor (TOTP): `tenancy/mfa.py`, `tenancy/auth_views.py` (`/auth/login` → `mfa_required` + `/auth/mfa/verify`, `/me/mfa/*`, `/me/password`). Obligatorisk for `FirmStaff` (`FIRM_MFA_REQUIRED`, håndhæves i `IsFirmStaff`/`IsFirmPartner` og i middleware ved kundeadgang). Tests, der ikke tester MFA, bruger `@override_settings(FIRM_MFA_REQUIRED=False)`.
+- Revisorhusets læsning logges i `FirmAuditLog` (`read`, én pr. medarbejder/kunde/time), skrivning altid.
+- "Eksportér alt": `tenancy/export.py` (SAF-T 2.1 pr. år, saldobalancer, bilag, audit-log, manifest). `/api/v1/export-all` og `/api/firm/clients/<slug>/export-all`.
+- Opbevaring: `retention_report` (månedligt) laver en opgave til en partner; intet slettes automatisk.
+
 ## Admin-portalen
 - Backend: `firm/` → `/api/firm/...` (public). Frontend: `frontend/src/admin/` (route `/admin/*`), API-klient `firmApi` i `services/api.ts`.
 - Tal fra en kundes bøger kræver aktiv grant (`active_grant`). Stamdata gør ikke.
@@ -34,5 +41,8 @@ Django 5.2 + DRF backend (`backend/`), React 18 + MUI 5 + Vite frontend (`fronte
   - `.venv/bin/python manage.py migrate_schemas --shared` (public) og `migrate_schemas` (alle kunder).
   - `.venv/bin/python manage.py bootstrap_firm --partner-email … --partner-password …`.
   - Tests: `.venv/bin/python manage.py test <moduler>` (django-tenants: brug `django_tenants.test.cases.TenantTestCase` for tenant-tests).
+- Hele testsuiten: `TEST_DB_NAME=test_ap_main .venv/bin/python manage.py test --noinput` (≈190 tests, ca. 3 min).
+- Lokalt: backend `manage.py runserver 8011` (8001 bruges af et andet projekt), frontend `BOOKKEEPING_API_URL=http://localhost:8011 npm run dev` → http://localhost:5174.
 - Frontend: `cd frontend && npm run lint && npm run build`.
+- Dokumentation: `docs/systembeskrivelse.md`, `docs/brugervejledning.md`, `docs/udlevering.md`, `docs/compliance-bogforingsloven.md`.
 - Opbevaring: Bogføringsloven kræver 5 år. Kunder slettes aldrig, de arkiveres (`archive_client`, read-only, `auto_drop_schema = False`).

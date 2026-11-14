@@ -1,0 +1,80 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: ajanpartners
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+    env:
+      DJANGO_SETTINGS_MODULE: config.settings.local
+      DB_HOST: localhost
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      DB_NAME: ajanpartners
+      TEST_DB_NAME: test_ajanpartners
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+      - run: pip install -r requirements.txt
+      - name: Migrationer er opdaterede
+        run: python manage.py makemigrations --check --dry-run
+      - name: Django system check
+        run: python manage.py check
+      - name: Tests
+        run: python manage.py test --noinput
+      # Testene omfatter officiel validering: e-faktura mod UBL 2.1 XSD, EN 16931-, Peppol BIS 3.0- og
+      # OIOUBL 2.1-schematron (einvoice.tests_schematron, saxonche) og SAF-T mod Erhvervsstyrelsens XSD.
+      - name: Officiel e-faktura- og SAF-T-validering (eksplicit, fejler hvis den springes over)
+        run: |
+          python -c "from einvoice.validation import validate; assert validate.available(), 'saxonche/artefakter mangler'"
+          python manage.py test einvoice.tests_schematron saft --noinput
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npx tsc --noEmit
+      - run: npm run build
+
+  shell:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: shellcheck af drift-scripts
+        run: shellcheck -s sh infra/*.sh
+      - name: docker compose-konfiguration
+        run: docker compose --env-file .env.example -f docker-compose.yml -f docker-compose.server.yml config -q

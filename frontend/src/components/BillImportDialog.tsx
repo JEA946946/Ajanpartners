@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -67,10 +67,6 @@ const BillImportDialog: React.FC<BillImportDialogProps> = ({ open, onClose, onSu
 
   // Suppliers from bookkeeping DB
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
-  // CMR suppliers
-  const [cmrSuppliers, setCmrSuppliers] = useState<Supplier[]>([]);
-  const [cmrLoading, setCmrLoading] = useState(false);
-  const [cmrFetched, setCmrFetched] = useState(false);
 
   useEffect(() => {
     if (open) {
@@ -84,12 +80,7 @@ const BillImportDialog: React.FC<BillImportDialogProps> = ({ open, onClose, onSu
     }
   }, [open]);
 
-  const allSuppliers = useMemo(() => {
-    const map = new Map<string, Supplier>();
-    suppliers.forEach(s => map.set(s.id, s));
-    cmrSuppliers.forEach(s => { if (!map.has(s.id)) map.set(s.id, s); });
-    return Array.from(map.values());
-  }, [suppliers, cmrSuppliers]);
+  const allSuppliers = suppliers;
 
   const handleClose = () => {
     setStep('upload');
@@ -98,8 +89,6 @@ const BillImportDialog: React.FC<BillImportDialogProps> = ({ open, onClose, onSu
     setSummary(null);
     setError('');
     setResult(null);
-    setCmrFetched(false);
-    setCmrSuppliers([]);
     onClose();
   };
 
@@ -138,23 +127,6 @@ const BillImportDialog: React.FC<BillImportDialogProps> = ({ open, onClose, onSu
     }
   };
 
-  const handleFetchCmr = async () => {
-    setCmrLoading(true);
-    try {
-      const res = await api.get('/cmr/suppliers');
-      if (res.data.success) {
-        const mapped = res.data.data.suppliers.map((s: any) => ({
-          id: s.id,
-          code: '',
-          name: s.company_name || s.name,
-        }));
-        setCmrSuppliers(mapped);
-        setCmrFetched(true);
-      }
-    } catch { /* ignore */ }
-    finally { setCmrLoading(false); }
-  };
-
   const handleSupplierChange = (rowIndex: number, supplier: Supplier | null) => {
     setRows(prev => prev.map((r, i) => {
       if (i !== rowIndex) return r;
@@ -191,7 +163,19 @@ const BillImportDialog: React.FC<BillImportDialogProps> = ({ open, onClose, onSu
     }
   };
 
-  const DISPLAY_COLS = ['supplier', 'document_type', 'document_no', 'booking_ref', 'traveler', 'travel_date', 'invoice_date', 'due_date', 'currency', 'amount', 'status', 'notes'];
+  const DISPLAY_COLS = ['supplier', 'document_type', 'document_no', 'invoice_date', 'due_date', 'currency', 'amount', 'account', 'tax_code', 'status', 'notes'];
+  const COL_LABELS: Record<string, string> = {
+    document_type: t('bills.importColType', 'Type'),
+    document_no: t('bills.importColNumber', 'Bilagsnr.'),
+    invoice_date: t('bills.importColDate', 'Fakturadato'),
+    due_date: t('bills.importColDueDate', 'Forfald'),
+    currency: t('bills.importColCurrency', 'Valuta'),
+    amount: t('bills.importColAmount', 'Beløb'),
+    account: t('bills.importColAccount', 'Konto'),
+    tax_code: t('bills.importColTaxCode', 'Momskode'),
+    status: t('bills.importColStatus', 'Status'),
+    notes: t('bills.importColNotes', 'Bemærkninger'),
+  };
 
   const unmappedCount = rows.filter(r => !r.data.supplier_id && r.status !== 'error').length;
 
@@ -241,19 +225,6 @@ const BillImportDialog: React.FC<BillImportDialogProps> = ({ open, onClose, onSu
               </Alert>
             )}
 
-            <Box sx={{ display: 'flex', gap: 1, mb: 2, alignItems: 'center' }}>
-              {!cmrFetched && (
-                <Button
-                  variant="outlined" size="small" onClick={handleFetchCmr}
-                  disabled={cmrLoading} color="success"
-                >
-                  {cmrLoading ? t('common.loading') : t('bills.fetchCmrSuppliers')}
-                </Button>
-              )}
-              {cmrFetched && (
-                <Chip label={`CMR: ${cmrSuppliers.length} ${t('suppliers.title').toLowerCase()}`} color="success" size="small" />
-              )}
-            </Box>
 
             {/* Preview table */}
             <TableContainer component={Paper} variant="outlined" sx={{ maxHeight: 450 }}>
@@ -263,7 +234,7 @@ const BillImportDialog: React.FC<BillImportDialogProps> = ({ open, onClose, onSu
                     <TableCell>#</TableCell>
                     <TableCell sx={{ minWidth: 220 }}>{t('bills.supplier')}</TableCell>
                     {DISPLAY_COLS.slice(1).map(col => (
-                      <TableCell key={col} sx={{ whiteSpace: 'nowrap', fontSize: '12px' }}>{col}</TableCell>
+                      <TableCell key={col} sx={{ whiteSpace: 'nowrap', fontSize: '12px' }}>{COL_LABELS[col] || col}</TableCell>
                     ))}
                   </TableRow>
                 </TableHead>

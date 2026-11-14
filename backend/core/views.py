@@ -64,8 +64,40 @@ def _tax_code_dict(tc):
         "account_id": str(tc.account_id),
         "account_code": tc.account.code if tc.account else None,
         "account_name": tc.account.name if tc.account else None,
+        "input_account_id": str(tc.input_account_id) if tc.input_account_id else None,
+        "input_account_code": tc.input_account.code if tc.input_account_id else None,
+        "deduction_rate": str(tc.deduction_rate),
+        "reverse_charge": tc.reverse_charge,
+        "rubrik": tc.rubrik,
+        "energy_tax": tc.energy_tax,
+        "invoice_text": tc.invoice_text,
+        "standard_code": tc.standard_code,
         "is_active": tc.is_active,
     }
+
+
+_TAX_EXTRA = ("reverse_charge", "rubrik", "energy_tax", "invoice_text", "standard_code")
+
+
+def _tax_extra(tc, data):
+    """Sæt de danske momsfelter fra request-data. Returnerer en fejltekst eller None."""
+    for field in _TAX_EXTRA:
+        if field in data:
+            setattr(tc, field, data[field] if field != "energy_tax" else bool(data[field]))
+    if "deduction_rate" in data:
+        try:
+            rate = Decimal(str(data["deduction_rate"]))
+        except Exception:
+            return "Ugyldig fradragsprocent"
+        if not 0 <= rate <= 100:
+            return "Fradragsprocenten skal være mellem 0 og 100"
+        tc.deduction_rate = rate
+    if "input_account_id" in data:
+        tc.input_account = Account.objects.filter(id=data["input_account_id"]).first() \
+            if data["input_account_id"] else None
+    if tc.reverse_charge and tc.input_account_id is None:
+        return "En kode med omvendt betalingspligt skal have en fradragskonto (købsmoms)"
+    return None
 
 
 def _allocation_dict(alloc):
@@ -262,6 +294,16 @@ def _settings_dict(settings_obj):
         "logo1": settings_obj.logo1,
         "logo2": settings_obj.logo2,
         "logo3": settings_obj.logo3,
+        "bank_reg_no": settings_obj.bank_reg_no,
+        "bank_account_no": settings_obj.bank_account_no,
+        "iban": settings_obj.iban,
+        "bic": settings_obj.bic,
+        "fi_creditor_no": settings_obj.fi_creditor_no,
+        "gln": settings_obj.gln,
+        "default_payment_terms": settings_obj.default_payment_terms,
+        "invoice_footer": settings_obj.invoice_footer,
+        "reminder_fee": str(settings_obj.reminder_fee),
+        "reminder_interval_days": settings_obj.reminder_interval_days,
     }
 
 
@@ -281,6 +323,17 @@ def _user_dict(user, tenant=None):
         "is_active": bool(user.is_active and (m.is_active if m else True)),
         "role": m.role if m else None,
     }
+
+
+def _password_error(password, user):
+    """Djangos validatorer (settings.AUTH_PASSWORD_VALIDATORS) – None når koden er god nok."""
+    from django.contrib.auth.password_validation import validate_password
+    from django.core.exceptions import ValidationError
+    try:
+        validate_password(password, user)
+    except ValidationError as e:
+        return " ".join(e.messages)
+    return None
 
 
 def _client_users(tenant):
@@ -305,7 +358,7 @@ def _owned_only_by(user, tenant):
 @permission_classes([RoleWriteAccess])
 def tax_codes_list_create(request):
     if request.method == "GET":
-        qs = TaxCode.objects.select_related("account").all()
+        qs = TaxCode.objects.select_related("account", "input_account").all()
         return Response({
             "success": True,
             "data": {"tax_codes": [_tax_code_dict(tc) for tc in qs]},
@@ -334,7 +387,7 @@ def tax_codes_list_create(request):
             status=status.HTTP_400_BAD_REQUEST,
         )
 
-    tc = TaxCode.objects.create(
+    tc = TaxCode(
         code=data["code"],
         name=data["name"],
         rate=Decimal(str(data["rate"])),
@@ -342,6 +395,10 @@ def tax_codes_list_create(request):
         account=account,
         is_active=data.get("is_active", True),
     )
+    err = _tax_extra(tc, data)
+    if err:
+        return Response({"success": False, "message": err}, status=status.HTTP_400_BAD_REQUEST)
+    tc.save()
     log_action(request.user, "create", "TaxCode", tc.id, ip=_get_client_ip(request))
     return Response({
         "success": True,
@@ -392,6 +449,9 @@ def tax_codes_detail(request, pk):
                 )
         if "is_active" in data:
             tc.is_active = data["is_active"]
+        err = _tax_extra(tc, data)
+        if err:
+            return Response({"success": False, "message": err}, status=status.HTTP_400_BAD_REQUEST)
         tc.save()
         log_action(request.user, "update", "TaxCode", tc.id, ip=_get_client_ip(request))
         return Response({
@@ -1307,7 +1367,7 @@ def documents_detail(request, pk):
 
 
 def _document_locked(doc):
-    """A pièce of a validated entry stays (Loi 9-88: kept 10 years)."""
+    """Bilaget til en valideret postering bevares (Bogføringsloven § 10: opbevares i 5 år)."""
     entries = [doc.journal_entry] if doc.journal_entry_id else []
     for rel in ("invoice", "bill", "expense"):
         obj = getattr(doc, rel)
@@ -1409,93 +1469,6 @@ def document_link(request, pk):
 # 21-27  Reports
 # =============================================================================
 
-@api_view(["GET"])
-@permission_classes([RoleWriteAccess])
-def report_tax(request):
-    """Tax report for a period: tax collected (sales) vs tax paid (purchases)."""
-    date_from = request.query_params.get("date_from")
-    date_to = request.query_params.get("date_to")
-
-    if not date_from or not date_to:
-        return Response(
-            {"success": False, "message": "date_from and date_to are required"},
-            status=status.HTTP_400_BAD_REQUEST,
-        )
-
-    tax_codes = TaxCode.objects.select_related("account").filter(is_active=True)
-
-    filters = {
-        "journal_entry__is_posted": True,
-        "journal_entry__date__gte": date_from,
-        "journal_entry__date__lte": date_to,
-    }
-
-    collected_rows = []
-    paid_rows = []
-    total_collected = Decimal("0")
-    total_paid = Decimal("0")
-
-    # One row per tax ACCOUNT, counted once. A "both" code used to be added to
-    # collected (cr − dr) AND to paid (dr − cr), so the net came out doubled, and
-    # two codes sharing an account counted it twice. A sales-only account is
-    # collected, a purchase-only one paid; a shared or "both" account goes on the
-    # side its balance is on. Net payable is then simply credits − debits.
-    by_account = {}
-    for tc in tax_codes:
-        entry = by_account.setdefault(tc.account_id, {"account": tc.account, "codes": []})
-        entry["codes"].append(tc)
-
-    for entry in by_account.values():
-        acct, codes = entry["account"], entry["codes"]
-        totals = JournalEntryLine.objects.in_mad().filter(
-            account=acct, **filters,
-        ).aggregate(total_debit=Sum("debit"), total_credit=Sum("credit"))
-
-        dr = totals["total_debit"] or Decimal("0")
-        cr = totals["total_credit"] or Decimal("0")
-
-        if dr == 0 and cr == 0:
-            continue
-
-        row = {
-            "tax_code": ", ".join(tc.code for tc in codes),
-            "tax_name": ", ".join(tc.name for tc in codes),
-            "rate": ", ".join(str(tc.rate) for tc in codes),
-            "account_code": acct.code,
-            "debit": str(dr),
-            "credit": str(cr),
-        }
-
-        types = {tc.type for tc in codes}
-        if types == {"sales"}:
-            side = "collected"
-        elif types == {"purchase"}:
-            side = "paid"
-        else:
-            side = "collected" if cr - dr >= 0 else "paid"
-
-        if side == "collected":
-            amount = cr - dr
-            row["amount"] = str(amount)
-            collected_rows.append(row)
-            total_collected += amount
-        else:
-            amount = dr - cr
-            row["amount"] = str(amount)
-            paid_rows.append(row)
-            total_paid += amount
-
-    net_tax = total_collected - total_paid
-
-    return Response({
-        "success": True,
-        "data": {
-            "period": {"date_from": date_from, "date_to": date_to},
-            "tax_collected": {"rows": collected_rows, "total": str(total_collected)},
-            "tax_paid": {"rows": paid_rows, "total": str(total_paid)},
-            "net_tax_payable": str(net_tax),
-        },
-    })
 
 
 @api_view(["GET"])
@@ -1517,13 +1490,12 @@ def report_cash_flow(request):
         "journal_entry__date__lte": date_to,
     }
 
-    # Cash/bank accounts (514x banks, 516x cash)
+    # Bank- og kassekonti
     cash_accounts = Account.objects.filter(chart.treasury_q(), is_active=True)
     cash_account_ids = set(str(a.id) for a in cash_accounts)
 
-    # Get all posted journal entries that touch cash accounts in the period.
-    # Euros not exchanged yet have no dirham value and stay out.
-    cash_lines = JournalEntryLine.objects.in_mad().filter(
+    # Alle bogførte linjer på likvidkonti i perioden (DKK).
+    cash_lines = JournalEntryLine.objects.in_base().filter(
         account__in=cash_accounts, **filters,
     ).select_related("journal_entry", "account")
 
@@ -1596,9 +1568,9 @@ def report_cash_flow(request):
     })
 
 
-# Payment term used to age open items: Loi 69-21 sets 60 days when nothing else
-# is agreed.
-PAYMENT_TERM_DAYS = 60
+# Betalingsfrist til aldersfordeling, når intet andet er aftalt: renteloven § 3,
+# stk. 1 (morarenter fra 30 dage efter, at fakturaen er sendt).
+PAYMENT_TERM_DAYS = 30
 AGING_BUCKETS = ("current", "days_1_30", "days_31_60", "days_61_90", "days_over_90")
 
 
@@ -1618,7 +1590,7 @@ def _ledger_aging(account_code, sign, name_field, as_of):
     """Open items per tiers from the ledger: the lines on the tiers account that
     are not lettered, with what was paid set against the oldest first (FIFO).
     sign=1 for receivables (debit open), -1 for payables (credit open)."""
-    lines = (JournalEntryLine.objects.in_mad()
+    lines = (JournalEntryLine.objects.in_base()
              .filter(account__code=account_code, lettrage="", journal_entry__is_posted=True,
                      journal_entry__date__lte=as_of)
              .select_related("journal_entry").order_by("journal_entry__date"))
@@ -1662,7 +1634,7 @@ def _as_of(request):
 @api_view(["GET"])
 @permission_classes([RoleWriteAccess])
 def report_aging_receivable(request):
-    """Customers' open items (3421, not lettered) by days overdue."""
+    """Debitorernes åbne poster (ikke udlignet) efter dage over forfald."""
     return Response({"success": True,
                      "data": _ledger_aging(chart.RECEIVABLE, 1, "customer_name", _as_of(request))})
 
@@ -1670,7 +1642,7 @@ def report_aging_receivable(request):
 @api_view(["GET"])
 @permission_classes([RoleWriteAccess])
 def report_aging_payable(request):
-    """Suppliers' open items (4411, not lettered) by days overdue."""
+    """Kreditorernes åbne poster (ikke udlignet) efter dage over forfald."""
     return Response({"success": True,
                      "data": _ledger_aging(chart.PAYABLE, -1, "supplier_name", _as_of(request))})
 
@@ -1709,14 +1681,11 @@ def report_general_ledger(request):
         if not lines_qs.exists():
             continue
 
-        # The balance is in the account's currency; a line in another currency
-        # (euros on a MAD account) is listed but does not move it.
+        # Saldoen er i DKK (debit/credit er altid DKK).
         lines = []
         running_balance = Decimal("0")
         for line in lines_qs:
-            if line.currency != acct.currency:
-                pass
-            elif acct.account_type.normal_balance == "debit":
+            if acct.account_type.normal_balance == "debit":
                 running_balance += line.debit - line.credit
             else:
                 running_balance += line.credit - line.debit
@@ -1732,7 +1701,7 @@ def report_general_ledger(request):
                 "running_balance": str(running_balance),
             })
 
-        totals = lines_qs.filter(currency=acct.currency).aggregate(
+        totals = lines_qs.aggregate(
             total_debit=Sum("debit"),
             total_credit=Sum("credit"),
         )
@@ -1784,7 +1753,7 @@ def report_account_specification(request):
     opening_balance = Decimal("0")
     if date_from:
         ob_totals = JournalEntryLine.objects.filter(
-            account=acct, currency=acct.currency,
+            account=acct,
             journal_entry__is_posted=True,
             journal_entry__date__lt=date_from,
         ).aggregate(total_debit=Sum("debit"), total_credit=Sum("credit"))
@@ -1811,14 +1780,11 @@ def report_account_specification(request):
         "journal_entry__date", "journal_entry__entry_number",
     )
 
-    # The balance is in the account's currency; a line in another currency
-    # (euros on a MAD account) is listed but does not move it.
+    # Saldoen er i DKK (debit/credit er altid DKK).
     running_balance = opening_balance
     lines = []
     for line in lines_qs:
-        if line.currency != acct.currency:
-            pass
-        elif acct.account_type.normal_balance == "debit":
+        if acct.account_type.normal_balance == "debit":
             running_balance += line.debit - line.credit
         else:
             running_balance += line.credit - line.debit
@@ -1835,7 +1801,7 @@ def report_account_specification(request):
             "running_balance": str(running_balance),
         })
 
-    period_totals = lines_qs.filter(currency=acct.currency).aggregate(
+    period_totals = lines_qs.aggregate(
         total_debit=Sum("debit"),
         total_credit=Sum("credit"),
     )
@@ -2028,9 +1994,25 @@ def settings_detail(request):
         "company_name", "address", "city", "country", "tax_id",
         "phone", "email", "currency", "fiscal_year_start_month", "date_format",
         "logo1", "logo2", "logo3",
+        "bank_reg_no", "bank_account_no", "iban", "bic", "fi_creditor_no", "gln", "default_payment_terms",
+        "invoice_footer", "reminder_interval_days",
     ):
         if field in data:
             setattr(settings_obj, field, data[field])
+    if "reminder_fee" in data:
+        try:
+            fee = Decimal(str(data["reminder_fee"] or 0))
+        except Exception:
+            fee = None
+        # Renteloven § 9 b: højst 100 kr. pr. rykker.
+        if fee is None or fee < 0 or fee > 100:
+            return Response({"success": False, "message": "Rykkergebyret skal være mellem 0 og 100 kr. (renteloven § 9 b)"},
+                            status=status.HTTP_400_BAD_REQUEST)
+        settings_obj.reminder_fee = fee
+    fi = (data.get("fi_creditor_no") or "").strip()
+    if fi and (not fi.isdigit() or len(fi) != 8):
+        return Response({"success": False, "message": "FI-kreditornummeret skal være 8 cifre"},
+                        status=status.HTTP_400_BAD_REQUEST)
     settings_obj.save()
     log_action(request.user, "update", "CompanySettings", settings_obj.id, ip=_get_client_ip(request))
 
@@ -2065,9 +2047,9 @@ def users_list_create(request):
         if not data.get(field):
             return Response({"success": False, "message": f"{field} skal udfyldes"},
                             status=status.HTTP_400_BAD_REQUEST)
-    if len(data["password"]) < 10:
-        return Response({"success": False, "message": "Adgangskoden skal være mindst 10 tegn"},
-                        status=status.HTTP_400_BAD_REQUEST)
+    pw_error = _password_error(data["password"], User(username=data["username"], email=data.get("email", "")))
+    if pw_error:
+        return Response({"success": False, "message": pw_error}, status=status.HTTP_400_BAD_REQUEST)
     if User.objects.filter(username__iexact=data["username"]).exists():
         return Response({"success": False, "message": "Brugernavnet findes allerede"},
                         status=status.HTTP_400_BAD_REQUEST)
@@ -2193,9 +2175,9 @@ def user_reset_password(request, pk):
                                                       "nulstille sin adgangskode."},
                         status=status.HTTP_400_BAD_REQUEST)
     chosen = (request.data.get("password") or "").strip() if hasattr(request, "data") else ""
-    if chosen and len(chosen) < 10:
-        return Response({"success": False, "message": "Adgangskoden skal være mindst 10 tegn"},
-                        status=status.HTTP_400_BAD_REQUEST)
+    pw_error = _password_error(chosen, target_user) if chosen else None
+    if pw_error:
+        return Response({"success": False, "message": pw_error}, status=status.HTTP_400_BAD_REQUEST)
     new_password = chosen or secrets.token_urlsafe(12)
     target_user.set_password(new_password)
     target_user.save()

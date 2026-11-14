@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { formatDate } from '../utils/dateFormat';
+import { formatNumber, formatMoney } from '../utils/format';
+import { BASE_CURRENCY } from '../utils/chart';
 import {
   Box, Typography, Button, Table, TableBody, TableCell, TableContainer,
   TableHead, TableRow, Paper, IconButton, Dialog, DialogTitle, DialogContent,
@@ -25,6 +27,7 @@ interface Supplier {
   code: string;
   name: string;
   default_account_id?: string | null;
+  default_tax_code_id?: string | null;
 }
 
 interface Account {
@@ -38,7 +41,21 @@ interface TaxCode {
   code: string;
   name: string;
   rate: string;
+  type?: string;
+  is_active?: boolean;
+  reverse_charge?: string;
+  deduction_rate?: string;
+  rubrik?: string;
+  energy_tax?: boolean;
 }
+
+const CURRENCY_OPTIONS = ['DKK', 'EUR', 'SEK', 'NOK', 'USD', 'GBP'];
+
+/** Moms, leverandøren fakturerer: 0 ved omvendt betalingspligt, energiafgift og momsfri køb. */
+const supplierVat = (amount: number, tc?: TaxCode) => {
+  if (!tc || tc.reverse_charge || tc.energy_tax) return 0;
+  return Math.round(amount * parseFloat(tc.rate || '0')) / 100;
+};
 
 interface BillLine {
   id?: string;
@@ -64,8 +81,8 @@ interface Bill {
   tax_amount: string;
   total: string;
   paid_amount: string;
-  vat_quarter?: number;
-  vat_year?: number;
+  currency?: string;
+  exchange_rate?: string;
   lines?: BillLine[];
   line_account_codes?: string[];
 }
@@ -87,7 +104,7 @@ const EMPTY_LINE: BillLine = {
 };
 
 const Bills: React.FC = () => {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
 
   const STATUS_LABELS: Record<string, string> = {
     draft: t('bills.draft'),
@@ -123,8 +140,6 @@ const Bills: React.FC = () => {
   const [filterOverdue, setFilterOverdue] = useState(false);
   const [filterNoSupplier, setFilterNoSupplier] = useState(false);
   const [filterHasSupplier, setFilterHasSupplier] = useState(false);
-  const [filterVatQuarter, setFilterVatQuarter] = useState('');
-  const [filterVatYear, setFilterVatYear] = useState('');
 
   // Sort state
   const [sortField, setSortField] = useState('date');
@@ -142,8 +157,8 @@ const Bills: React.FC = () => {
     due_date: '',
     reference: '',
     notes: '',
-    vat_quarter: '1',
-    vat_year: String(new Date().getFullYear()),
+    currency: BASE_CURRENCY,
+    exchange_rate: '1',
   });
   const [lines, setLines] = useState<BillLine[]>([{ ...EMPTY_LINE }]);
 
@@ -159,8 +174,6 @@ const Bills: React.FC = () => {
     if (filterOverdue) params.set('overdue', 'true');
     if (filterNoSupplier) params.set('no_supplier', 'true');
     if (filterHasSupplier) params.set('has_supplier', 'true');
-    if (filterVatQuarter) params.set('vat_quarter', filterVatQuarter);
-    if (filterVatYear) params.set('vat_year', filterVatYear);
     if (sortField) params.set('sort', sortField);
     if (sortDir) params.set('sort_dir', sortDir);
     return params;
@@ -248,8 +261,6 @@ const Bills: React.FC = () => {
     setFilterOverdue(false);
     setFilterNoSupplier(false);
     setFilterHasSupplier(false);
-    setFilterVatQuarter('');
-    setFilterVatYear('');
     setSortField('date');
     setSortDir('desc');
     setPage(0);
@@ -324,23 +335,22 @@ const Bills: React.FC = () => {
           due_date: full.due_date,
           reference: full.reference || '',
           notes: full.notes || '',
-          vat_quarter: String(full.vat_quarter ?? 1),
-          vat_year: String(full.vat_year ?? new Date().getFullYear()),
+          currency: full.currency || BASE_CURRENCY,
+          exchange_rate: full.exchange_rate || '1',
         });
         setLines(billLines);
       }
     } else {
       setEditing(null);
       const today = new Date();
-      const autoQuarter = Math.floor(today.getMonth() / 3) + 1;
       setForm({
         supplier_id: '',
         date: today.toISOString().split('T')[0],
         due_date: '',
         reference: '',
         notes: '',
-        vat_quarter: String(autoQuarter),
-        vat_year: String(today.getFullYear()),
+        currency: BASE_CURRENCY,
+        exchange_rate: '1',
       });
       setLines([{ ...EMPTY_LINE }]);
     }
@@ -358,8 +368,7 @@ const Bills: React.FC = () => {
   const handleSave = async () => {
     const payload = {
       ...form,
-      vat_quarter: parseInt(form.vat_quarter, 10),
-      vat_year: parseInt(form.vat_year, 10),
+      exchange_rate: form.currency === BASE_CURRENCY ? '1' : form.exchange_rate,
       lines: lines.filter(l => l.description || l.account_id),
     };
     try {
@@ -477,15 +486,22 @@ const Bills: React.FC = () => {
   };
 
   const subtotal = lines.reduce((sum, l) => sum + parseFloat(l.amount || '0'), 0);
-  const taxAmount = lines.reduce((sum, l) => {
-    const amt = parseFloat(l.amount || '0');
-    if (l.tax_code_id) {
-      const tc = taxCodes.find(t => t.id === l.tax_code_id);
-      if (tc) return sum + amt * (parseFloat(tc.rate) / 100);
-    }
-    return sum;
-  }, 0);
+  const taxAmount = lines.reduce(
+    (sum, l) => sum + supplierVat(parseFloat(l.amount || '0'), taxCodes.find(tc => tc.id === l.tax_code_id)), 0);
   const total = subtotal + taxAmount;
+  const purchaseCodes = taxCodes.filter(tc => tc.is_active !== false && tc.type !== 'sales');
+  const hasReverseCharge = lines.some(l => taxCodes.find(tc => tc.id === l.tax_code_id)?.reverse_charge);
+  const taxCodeHint = (tc?: TaxCode) => {
+    if (!tc) return '';
+    const parts: string[] = [];
+    if (tc.reverse_charge) parts.push(t('bills.reverseChargeShort', 'Omvendt betalingspligt'));
+    if (tc.energy_tax) parts.push(t('bills.energyTaxShort', 'Energiafgift (godtgørelse)'));
+    if (tc.deduction_rate && parseFloat(tc.deduction_rate) < 100 && parseFloat(tc.rate) > 0) {
+      parts.push(t('bills.deductionShort', '{{pct}} % fradrag', { pct: formatNumber(tc.deduction_rate).replace(/,00$/, '') }));
+    }
+    if (tc.rubrik) parts.push(t('bills.rubrikShort', 'Rubrik {{r}}', { r: tc.rubrik.charAt(0) }));
+    return parts.join(' · ');
+  };
 
   return (
     <Box>
@@ -572,23 +588,6 @@ const Bills: React.FC = () => {
           sx={{ width: 120 }}
           inputProps={{ min: 0, step: '0.01' }}
         />
-        <TextField
-          select label={t('bills.vatQuarter')} value={filterVatQuarter} size="small"
-          onChange={e => setFilterVatQuarter(e.target.value)}
-          sx={{ width: 100 }}
-        >
-          <MenuItem value="">{t('common.all')}</MenuItem>
-          <MenuItem value="1">Q1</MenuItem>
-          <MenuItem value="2">Q2</MenuItem>
-          <MenuItem value="3">Q3</MenuItem>
-          <MenuItem value="4">Q4</MenuItem>
-        </TextField>
-        <TextField
-          label={t('bills.vatYear')} type="number" value={filterVatYear} size="small"
-          onChange={e => setFilterVatYear(e.target.value)}
-          onKeyDown={e => { if (e.key === 'Enter') handleApplyFilters(); }}
-          sx={{ width: 90 }}
-        />
         <FormControlLabel
           control={<Checkbox size="small" checked={filterOverdue} onChange={e => setFilterOverdue(e.target.checked)} />}
           label={<Typography variant="body2">{t('bills.overdueOnly')}</Typography>}
@@ -625,7 +624,6 @@ const Bills: React.FC = () => {
               <SortHeader field="total" label={t('common.total')} align="right" />
               <SortHeader field="paid_amount" label={t('bills.amountPaid')} align="right" />
               <SortHeader field="status" label={t('common.status')} />
-              <SortHeader field="vat_quarter" label={t('bills.vatQuarter')} />
               <TableCell align="right" sx={{ fontWeight: 600 }}>{t('common.actions')}</TableCell>
             </TableRow>
           </TableHead>
@@ -645,16 +643,16 @@ const Bills: React.FC = () => {
                 <TableCell>{formatDate(bill.date)}</TableCell>
                 <TableCell>{formatDate(bill.due_date)}</TableCell>
                 <TableCell align="right">
-                  {parseFloat(bill.subtotal).toLocaleString(i18n.language, { minimumFractionDigits: 2 })}
+                  {formatNumber(bill.subtotal)}
                 </TableCell>
                 <TableCell align="right">
-                  {parseFloat(bill.tax_amount).toLocaleString(i18n.language, { minimumFractionDigits: 2 })}
+                  {formatNumber(bill.tax_amount)}
                 </TableCell>
                 <TableCell align="right" sx={{ fontWeight: 600 }}>
-                  {parseFloat(bill.total).toLocaleString(i18n.language, { minimumFractionDigits: 2 })}
+                  {formatMoney(bill.total, bill.currency || BASE_CURRENCY)}
                 </TableCell>
                 <TableCell align="right">
-                  {parseFloat(bill.paid_amount).toLocaleString(i18n.language, { minimumFractionDigits: 2 })}
+                  {formatNumber(bill.paid_amount)}
                 </TableCell>
                 <TableCell>
                   <Chip
@@ -663,11 +661,6 @@ const Bills: React.FC = () => {
                     color={STATUS_COLORS[bill.status] || 'default'}
                     sx={{ height: 20, fontSize: '11px' }}
                   />
-                </TableCell>
-                <TableCell>
-                  <Typography variant="body2" sx={{ whiteSpace: 'nowrap' }}>
-                    Q{bill.vat_quarter} {bill.vat_year}
-                  </Typography>
                 </TableCell>
                 <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
                   <Tooltip title={t('common.view')}>
@@ -713,7 +706,7 @@ const Bills: React.FC = () => {
             ))}
             {bills.length === 0 && (
               <TableRow>
-                <TableCell colSpan={11} align="center" sx={{ py: 4 }}>
+                <TableCell colSpan={10} align="center" sx={{ py: 4 }}>
                   <Typography variant="body2" color="text.secondary">{t('bills.noBills')}</Typography>
                 </TableCell>
               </TableRow>
@@ -756,10 +749,12 @@ const Bills: React.FC = () => {
                   return;
                 }
                 setForm({ ...form, supplier_id: v?.id || '' });
-                if (v?.default_account_id) {
-                  setLines(prev => prev.map(l =>
-                    l.account_id ? l : { ...l, account_id: v.default_account_id! }
-                  ));
+                if (v?.default_account_id || v?.default_tax_code_id) {
+                  setLines(prev => prev.map(l => ({
+                    ...l,
+                    account_id: l.account_id || v.default_account_id || '',
+                    tax_code_id: l.tax_code_id || v.default_tax_code_id || '',
+                  })));
                 }
               }}
               filterOptions={(options, state) => {
@@ -797,16 +792,7 @@ const Bills: React.FC = () => {
             />
             <TextField
               label={t('common.date')} type="date" value={form.date} size="small"
-              onChange={e => {
-                const val = e.target.value;
-                const d = new Date(val);
-                const updates: Record<string, string> = { date: val };
-                if (!isNaN(d.getTime())) {
-                  updates.vat_quarter = String(Math.floor(d.getMonth() / 3) + 1);
-                  updates.vat_year = String(d.getFullYear());
-                }
-                setForm(prev => ({ ...prev, ...updates }));
-              }}
+              onChange={e => setForm(prev => ({ ...prev, date: e.target.value }))}
               InputLabelProps={{ shrink: true }} sx={{ width: 160 }}
             />
             <TextField
@@ -819,20 +805,19 @@ const Bills: React.FC = () => {
               onChange={e => setForm({ ...form, reference: e.target.value })}
             />
             <TextField
-              select label={t('bills.vatQuarter')} value={form.vat_quarter} size="small"
-              onChange={e => setForm({ ...form, vat_quarter: e.target.value })}
-              sx={{ width: 100 }}
+              select label={t('bills.currency', 'Valuta')} value={form.currency} size="small" sx={{ width: 100 }}
+              onChange={e => setForm({ ...form, currency: e.target.value, exchange_rate: e.target.value === BASE_CURRENCY ? '1' : form.exchange_rate })}
             >
-              <MenuItem value="1">Q1</MenuItem>
-              <MenuItem value="2">Q2</MenuItem>
-              <MenuItem value="3">Q3</MenuItem>
-              <MenuItem value="4">Q4</MenuItem>
+              {CURRENCY_OPTIONS.map(c => <MenuItem key={c} value={c}>{c}</MenuItem>)}
             </TextField>
-            <TextField
-              label={t('bills.vatYear')} value={form.vat_year} size="small" type="number"
-              onChange={e => setForm({ ...form, vat_year: e.target.value })}
-              sx={{ width: 90 }}
-            />
+            {form.currency !== BASE_CURRENCY && (
+              <TextField
+                label={t('bills.exchangeRate', 'Kurs')} value={form.exchange_rate} size="small" type="number" sx={{ width: 130 }}
+                onChange={e => setForm({ ...form, exchange_rate: e.target.value })}
+                inputProps={{ min: 0, step: '0.0001' }}
+                helperText={t('bills.exchangeRateHint', 'DKK pr. 1 {{cur}}', { cur: form.currency })}
+              />
+            )}
           </Box>
           <TextField
             label={t('bills.remarks')} value={form.notes} size="small" fullWidth multiline rows={2} sx={{ mb: 2 }}
@@ -909,16 +894,26 @@ const Bills: React.FC = () => {
                         onChange={e => updateLine(i, 'tax_code_id', e.target.value)}
                       >
                         <MenuItem value="">{t('common.none')}</MenuItem>
-                        {taxCodes.map(tc => (
+                        {purchaseCodes.map(tc => (
                           <MenuItem key={tc.id} value={tc.id}>
-                            {tc.code} ({tc.rate}%)
+                            <Box>
+                              <Typography variant="body2">{tc.code} — {tc.name}</Typography>
+                              {taxCodeHint(tc) && (
+                                <Typography variant="caption" color="text.secondary">{taxCodeHint(tc)}</Typography>
+                              )}
+                            </Box>
                           </MenuItem>
                         ))}
                       </TextField>
+                      {taxCodeHint(taxCodes.find(tc => tc.id === line.tax_code_id)) && (
+                        <Typography variant="caption" color="text.secondary">
+                          {taxCodeHint(taxCodes.find(tc => tc.id === line.tax_code_id))}
+                        </Typography>
+                      )}
                     </TableCell>
                     <TableCell sx={{ p: 0.5 }} align="right">
                       <Typography variant="body2" sx={{ lineHeight: '40px', fontWeight: 500 }}>
-                        {parseFloat(line.amount || '0').toLocaleString(i18n.language, { minimumFractionDigits: 2 })}
+                        {formatNumber(line.amount || '0')}
                       </Typography>
                     </TableCell>
                     <TableCell sx={{ p: 0.5 }}>
@@ -932,21 +927,21 @@ const Bills: React.FC = () => {
                 <TableRow>
                   <TableCell colSpan={5} align="right" sx={{ fontWeight: 600 }}>{t('common.subtotal')}:</TableCell>
                   <TableCell align="right" sx={{ fontWeight: 600 }}>
-                    {subtotal.toLocaleString(i18n.language, { minimumFractionDigits: 2 })}
+                    {formatNumber(subtotal)}
                   </TableCell>
                   <TableCell />
                 </TableRow>
                 <TableRow>
                   <TableCell colSpan={5} align="right" sx={{ fontWeight: 600 }}>{t('common.tax')}:</TableCell>
                   <TableCell align="right" sx={{ fontWeight: 600 }}>
-                    {taxAmount.toLocaleString(i18n.language, { minimumFractionDigits: 2 })}
+                    {formatNumber(taxAmount)}
                   </TableCell>
                   <TableCell />
                 </TableRow>
                 <TableRow sx={{ bgcolor: '#e8f5e9' }}>
                   <TableCell colSpan={5} align="right" sx={{ fontWeight: 700 }}>{t('common.total')}:</TableCell>
                   <TableCell align="right" sx={{ fontWeight: 700 }}>
-                    {total.toLocaleString(i18n.language, { minimumFractionDigits: 2 })}
+                    {formatNumber(total)}
                   </TableCell>
                   <TableCell />
                 </TableRow>
@@ -956,6 +951,18 @@ const Bills: React.FC = () => {
           <Button startIcon={<AddLineIcon />} onClick={addLine} size="small" sx={{ mt: 1 }}>
             {t('bills.addLine')}
           </Button>
+          {hasReverseCharge && (
+            <Box sx={{ mt: 1, p: 1, bgcolor: '#e3f2fd', borderRadius: 1, border: '1px solid #bbdefb' }}>
+              <Typography variant="body2">
+                {t('bills.reverseChargeInfo', 'Omvendt betalingspligt: leverandøren fakturerer uden moms. Du beregner selv momsen (salgsmoms af køb i udlandet) og fratrækker den som købsmoms efter fradragsretten. Regningens total er derfor uden moms.')}
+              </Typography>
+            </Box>
+          )}
+          {form.currency !== BASE_CURRENCY && (
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
+              {t('bills.currencyInfo', 'Beløbene er i {{cur}} og bogføres i DKK til kurs {{rate}}.', { cur: form.currency, rate: form.exchange_rate })}
+            </Typography>
+          )}
         </DialogContent>
         <DialogActions>
           {editing?.status === 'draft' && (
@@ -1031,6 +1038,11 @@ const Bills: React.FC = () => {
           <Box sx={{ display: 'flex', gap: 3, mb: 2, mt: 1 }}>
             <Typography variant="body2"><strong>{t('common.date')}:</strong> {formatDate(viewing?.date)}</Typography>
             <Typography variant="body2"><strong>{t('bills.dueDate')}:</strong> {formatDate(viewing?.due_date)}</Typography>
+            {viewing?.currency && viewing.currency !== BASE_CURRENCY && (
+              <Typography variant="body2">
+                <strong>{t('bills.currency', 'Valuta')}:</strong> {viewing.currency} ({t('bills.exchangeRate', 'Kurs')} {viewing.exchange_rate})
+              </Typography>
+            )}
             {viewing?.reference && (
               <Typography variant="body2"><strong>{t('common.reference')}:</strong> {viewing.reference}</Typography>
             )}
@@ -1058,7 +1070,7 @@ const Bills: React.FC = () => {
                     <TableCell>{line.description}</TableCell>
                     <TableCell align="right">{line.quantity}</TableCell>
                     <TableCell align="right">
-                      {parseFloat(line.unit_price).toLocaleString(i18n.language, { minimumFractionDigits: 2 })}
+                      {formatNumber(line.unit_price)}
                     </TableCell>
                     <TableCell>
                       {(() => {
@@ -1069,37 +1081,39 @@ const Bills: React.FC = () => {
                     </TableCell>
                     <TableCell>
                       {(() => {
-                        const tc = taxCodes.find(t => t.id === line.tax_code_id);
-                        return tc ? `${tc.code} (${tc.rate}%)` : '—';
+                        const tc = taxCodes.find(x => x.id === line.tax_code_id);
+                        if (!tc) return '—';
+                        const hint = taxCodeHint(tc);
+                        return hint ? `${tc.code} — ${tc.name} (${hint})` : `${tc.code} — ${tc.name}`;
                       })()}
                     </TableCell>
                     <TableCell align="right">
-                      {parseFloat(line.amount).toLocaleString(i18n.language, { minimumFractionDigits: 2 })}
+                      {formatNumber(line.amount)}
                     </TableCell>
                   </TableRow>
                 ))}
                 <TableRow>
                   <TableCell colSpan={5} align="right" sx={{ fontWeight: 600 }}>{t('common.subtotal')}:</TableCell>
                   <TableCell align="right" sx={{ fontWeight: 600 }}>
-                    {viewing ? parseFloat(viewing.subtotal).toLocaleString(i18n.language, { minimumFractionDigits: 2 }) : ''}
+                    {viewing ? formatNumber(viewing.subtotal) : ''}
                   </TableCell>
                 </TableRow>
                 <TableRow>
                   <TableCell colSpan={5} align="right" sx={{ fontWeight: 600 }}>{t('common.tax')}:</TableCell>
                   <TableCell align="right" sx={{ fontWeight: 600 }}>
-                    {viewing ? parseFloat(viewing.tax_amount).toLocaleString(i18n.language, { minimumFractionDigits: 2 }) : ''}
+                    {viewing ? formatNumber(viewing.tax_amount) : ''}
                   </TableCell>
                 </TableRow>
                 <TableRow sx={{ bgcolor: '#e8f5e9' }}>
                   <TableCell colSpan={5} align="right" sx={{ fontWeight: 700 }}>{t('common.total')}:</TableCell>
                   <TableCell align="right" sx={{ fontWeight: 700 }}>
-                    {viewing ? parseFloat(viewing.total).toLocaleString(i18n.language, { minimumFractionDigits: 2 }) : ''}
+                    {viewing ? formatNumber(viewing.total) : ''}
                   </TableCell>
                 </TableRow>
                 <TableRow>
                   <TableCell colSpan={5} align="right" sx={{ fontWeight: 600 }}>{t('bills.amountPaid')}:</TableCell>
                   <TableCell align="right" sx={{ fontWeight: 600 }}>
-                    {viewing ? parseFloat(viewing.paid_amount).toLocaleString(i18n.language, { minimumFractionDigits: 2 }) : ''}
+                    {viewing ? formatNumber(viewing.paid_amount) : ''}
                   </TableCell>
                 </TableRow>
               </TableBody>

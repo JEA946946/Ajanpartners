@@ -8,7 +8,9 @@ const Login: React.FC = () => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
-  const { login, loading } = useAuth();
+  const [mfaToken, setMfaToken] = useState('');
+  const [code, setCode] = useState('');
+  const { login, verifyMfa, loading } = useAuth();
   const navigate = useNavigate();
   const { t } = useTranslation();
 
@@ -20,26 +22,48 @@ const Login: React.FC = () => {
       return;
     }
     try {
-      const success = await login(username, password);
-      if (success) {
-        navigate('/dashboard');
+      if (mfaToken) {
+        if (await verifyMfa(mfaToken, code)) navigate('/');
+        return;
+      }
+      const result = await login(username, password);
+      if (result === true) {
+        navigate('/');
+      } else if (result && typeof result === 'object') {
+        setMfaToken(result.mfaToken);
       } else {
-        setError('Login returned false — contact support');
+        setError('Login mislykkedes – kontakt Ajan Partners');
       }
     } catch (err: any) {
-      const msg = err?.response?.data?.message || err?.message || 'Unknown error';
-      setError(`Error: ${msg} (status: ${err?.response?.status || 'network'})`);
+      const msg = err?.response?.data?.message || err?.message || 'Ukendt fejl';
+      if (mfaToken && err?.response?.status === 401 && /udløbet/.test(msg)) {
+        setMfaToken('');
+        setCode('');
+      }
+      setError(msg);
     }
   };
 
   return (
     <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', bgcolor: '#f5f5f5' }}>
       <Paper sx={{ p: 4, maxWidth: 400, width: '100%' }}>
-        <Typography variant="h5" align="center" sx={{ mb: 3, fontWeight: 600, color: '#2e7d32' }}>
+        <Typography variant="h5" align="center" sx={{ mb: 3, fontWeight: 600, color: 'primary.main' }}>
           {t('login.title')}
         </Typography>
         {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
         <form onSubmit={handleSubmit}>
+          {mfaToken ? (
+            <>
+              <Typography variant="body2" sx={{ mb: 2 }}>
+                Indtast koden fra din godkendelsesapp – eller en af dine gendannelseskoder.
+              </Typography>
+              <TextField
+                fullWidth label="Kode" value={code} autoFocus size="small" sx={{ mb: 3 }}
+                inputProps={{ inputMode: 'numeric', autoComplete: 'one-time-code' }}
+                onChange={(e) => setCode(e.target.value)}
+              />
+            </>
+          ) : (<>
           <TextField
             fullWidth label={t('login.username')} value={username}
             onChange={(e) => setUsername(e.target.value)}
@@ -50,19 +74,16 @@ const Login: React.FC = () => {
             onChange={(e) => setPassword(e.target.value)}
             sx={{ mb: 3 }} size="small"
           />
+          </>)}
           <Button
             fullWidth type="submit" variant="contained"
             disabled={loading}
-            sx={{ bgcolor: '#2e7d32', '&:hover': { bgcolor: '#1b5e20' } }}
           >
             {loading ? t('login.signingIn') : t('login.signIn')}
           </Button>
         </form>
         <Typography variant="caption" color="text.secondary" sx={{ mt: 2, display: 'block', textAlign: 'center' }}>
-          {t('login.credentialsNote')}
-        </Typography>
-        <Typography variant="caption" color="text.disabled" sx={{ mt: 1, display: 'block', textAlign: 'center', fontSize: '9px' }}>
-          v2.1
+          Ajan Partners – gratis bogføring til vores kunder
         </Typography>
       </Paper>
     </Box>

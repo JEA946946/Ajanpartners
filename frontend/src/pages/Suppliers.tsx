@@ -1,9 +1,11 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { formatDate } from '../utils/dateFormat';
+import { formatNumber } from '../utils/format';
+import { BASE_CURRENCY } from '../utils/chart';
 import {
   Autocomplete, Box, Typography, Button, Table, TableBody, TableCell, TableContainer,
   TableHead, TableRow, Paper, IconButton, Dialog, DialogTitle, DialogContent,
-  DialogActions, TextField, MenuItem, Chip, Tooltip, CircularProgress, Alert,
+  DialogActions, TextField, MenuItem, Chip, Tooltip,
   InputAdornment, TablePagination,
 } from '@mui/material';
 import {
@@ -13,8 +15,6 @@ import {
   Receipt as StatementIcon,
   Upload as UploadIcon,
   Download as DownloadIcon,
-  CloudDownload as CmrIcon,
-  CheckCircle as CheckCircleIcon,
   Search as SearchIcon,
 } from '@mui/icons-material';
 import { useTranslation } from 'react-i18next';
@@ -41,6 +41,8 @@ interface Supplier {
   payment_terms: string;
   notes: string;
   default_account_id: string | null;
+  default_tax_code_id?: string | null;
+  country?: string;
   is_active: boolean;
 }
 
@@ -62,24 +64,37 @@ interface StatementData {
   balance: string;
 }
 
-interface CMRSupplier {
+const CURRENCY_OPTIONS = ['DKK', 'EUR', 'SEK', 'NOK', 'USD', 'GBP'];
+
+interface TaxCode {
   id: string;
+  code: string;
   name: string;
-  email: string;
-  phone: string;
-  address: string;
-  category: string;
-  currency: string;
-  already_imported: boolean;
+  type?: string;
+  is_active?: boolean;
 }
 
-const CURRENCY_OPTIONS = ['MAD', 'EUR', 'USD', 'GBP', 'DKK'];
+const emptyForm = {
+  code: '',
+  name: '',
+  email: '',
+  phone: '',
+  address: '',
+  country: 'DK',
+  tax_id: '',
+  currency: BASE_CURRENCY,
+  payment_terms: '',
+  notes: '',
+  default_account_id: '',
+  default_tax_code_id: '',
+};
 
 const Suppliers: React.FC = () => {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
 
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
+  const [taxCodes, setTaxCodes] = useState<TaxCode[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Supplier | null>(null);
 
@@ -112,18 +127,7 @@ const Suppliers: React.FC = () => {
   const [statementSupplierId, setStatementSupplierId] = useState('');
 
   // Form state
-  const [form, setForm] = useState({
-    code: '',
-    name: '',
-    email: '',
-    phone: '',
-    address: '',
-    tax_id: '',
-    currency: 'MAD',
-    payment_terms: '',
-    notes: '',
-    default_account_id: '',
-  });
+  const [form, setForm] = useState({ ...emptyForm });
 
   const fetchSuppliers = () => {
     api.get('/suppliers').then(res => {
@@ -135,6 +139,11 @@ const Suppliers: React.FC = () => {
     api.get('/accounts?is_active=true').then(res => {
       if (res.data.success) setAccounts(res.data.data.accounts);
     });
+    api.get('/tax-codes').then(res => {
+      if (res.data.success) {
+        setTaxCodes(res.data.data.tax_codes.filter((tc: TaxCode) => tc.is_active !== false && tc.type !== 'sales'));
+      }
+    }).catch(() => { /* momskoder kræver momsfunktionen */ });
   };
 
   useEffect(() => { fetchSuppliers(); fetchAccounts(); }, []);
@@ -148,26 +157,17 @@ const Suppliers: React.FC = () => {
         email: supplier.email || '',
         phone: supplier.phone || '',
         address: supplier.address || '',
+        country: supplier.country || 'DK',
         tax_id: supplier.tax_id || '',
-        currency: supplier.currency || 'MAD',
+        currency: supplier.currency || BASE_CURRENCY,
         payment_terms: supplier.payment_terms || '',
         notes: supplier.notes || '',
         default_account_id: supplier.default_account_id || '',
+        default_tax_code_id: supplier.default_tax_code_id || '',
       });
     } else {
       setEditing(null);
-      setForm({
-        code: '',
-        name: '',
-        email: '',
-        phone: '',
-        address: '',
-        tax_id: '',
-        currency: 'MAD',
-        payment_terms: '',
-        notes: '',
-        default_account_id: '',
-      });
+      setForm({ ...emptyForm });
     }
     setDialogOpen(true);
   };
@@ -229,94 +229,6 @@ const Suppliers: React.FC = () => {
     setStatementSupplierId('');
   };
 
-  // CMR Picker
-  const [cmrOpen, setCmrOpen] = useState(false);
-  const [cmrSuppliers, setCmrSuppliers] = useState<CMRSupplier[]>([]);
-  const [cmrLoading, setCmrLoading] = useState(false);
-  const [cmrError, setCmrError] = useState('');
-  const [cmrSearch, setCmrSearch] = useState('');
-  const [debouncedCmrSearch, setDebouncedCmrSearch] = useState('');
-  const cmrDebounceRef = useRef<ReturnType<typeof setTimeout>>();
-
-  const handleCmrSearchChange = (value: string) => {
-    setCmrSearch(value);
-    clearTimeout(cmrDebounceRef.current);
-    cmrDebounceRef.current = setTimeout(() => setDebouncedCmrSearch(value), 150);
-  };
-
-  const CMR_DISPLAY_LIMIT = 50;
-
-  const filteredCmrSuppliers = useMemo(() => {
-    const q = debouncedCmrSearch.trim().toLowerCase();
-    if (!q) return cmrSuppliers;
-    return cmrSuppliers.filter(s =>
-      s.name.toLowerCase().includes(q) ||
-      (s.category && s.category.toLowerCase().includes(q)) ||
-      (s.email && s.email.toLowerCase().includes(q))
-    );
-  }, [cmrSuppliers, debouncedCmrSearch]);
-
-  const displayedCmrSuppliers = useMemo(
-    () => filteredCmrSuppliers.slice(0, CMR_DISPLAY_LIMIT),
-    [filteredCmrSuppliers],
-  );
-
-  const openCmrPicker = () => {
-    setCmrOpen(true);
-    setCmrError('');
-    setCmrSearch('');
-    setDebouncedCmrSearch('');
-    setCmrLoading(true);
-    api.get('/cmr/suppliers', { timeout: 60000 }).then(res => {
-      if (res.data.success) setCmrSuppliers(res.data.data.suppliers);
-    }).catch((err: any) => {
-      setCmrError(err.response?.data?.message || t('suppliers.cmrFetchError'));
-    }).finally(() => setCmrLoading(false));
-  };
-
-  const handleCmrSelect = (sup: CMRSupplier) => {
-    setCmrOpen(false);
-    setEditing(null);
-    setForm({
-      code: '',
-      name: sup.name,
-      email: sup.email || '',
-      phone: sup.phone || '',
-      address: sup.address || '',
-      tax_id: '',
-      currency: 'MAD',
-      payment_terms: '',
-      notes: '',
-      default_account_id: '',
-    });
-    setDialogOpen(true);
-  };
-
-  const [cmrImporting, setCmrImporting] = useState(false);
-  const [cmrImportResult, setCmrImportResult] = useState<{ created: number; skipped: number } | null>(null);
-
-  const handleCmrImportAll = async () => {
-    const toImport = cmrSuppliers.filter(s => !s.already_imported);
-    if (toImport.length === 0) return;
-    setCmrImporting(true);
-    setCmrImportResult(null);
-    try {
-      const res = await api.post('/suppliers/import/cmr-bulk', { suppliers: toImport }, { timeout: 120000 });
-      if (res.data.success) {
-        setCmrImportResult({ created: res.data.created, skipped: res.data.skipped });
-        fetchSuppliers();
-        // Re-fetch CMR list to update already_imported flags
-        api.get('/cmr/suppliers', { timeout: 60000 }).then(r => {
-          if (r.data.success) setCmrSuppliers(r.data.data.suppliers);
-        });
-      }
-    } catch (err: any) {
-      setCmrError(err.response?.data?.message || t('suppliers.cmrFetchError'));
-    } finally {
-      setCmrImporting(false);
-    }
-  };
-
   // Import/Export
   const [importOpen, setImportOpen] = useState(false);
 
@@ -339,9 +251,6 @@ const Suppliers: React.FC = () => {
           </Button>
           <Button variant="outlined" startIcon={<UploadIcon />} onClick={() => setImportOpen(true)} size="small">
             {t('importExport.import')}
-          </Button>
-          <Button variant="outlined" startIcon={<CmrIcon />} onClick={openCmrPicker} size="small" color="success">
-            {t('suppliers.pickFromCmr')}
           </Button>
           <Button variant="contained" startIcon={<AddIcon />} onClick={() => handleOpen()} sx={{ bgcolor: '#2e7d32' }}>
             {t('suppliers.addSupplier')}
@@ -483,8 +392,14 @@ const Suppliers: React.FC = () => {
             />
             <Box sx={{ display: 'flex', gap: 2 }}>
               <TextField
-                label={t('common.taxId')} value={form.tax_id} size="small" fullWidth
+                label={t('suppliers.vatNumber', 'CVR-/momsnummer')} value={form.tax_id} size="small" fullWidth
                 onChange={e => setForm({ ...form, tax_id: e.target.value })}
+                helperText={t('suppliers.vatNumberHint', 'CVR for danske, momsnummer (fx DE123456789) for EU-leverandører')}
+              />
+              <TextField
+                label={t('suppliers.country', 'Land')} value={form.country} size="small" sx={{ width: 90 }}
+                onChange={e => setForm({ ...form, country: e.target.value.toUpperCase().slice(0, 2) })}
+                helperText={t('suppliers.countryHint', 'ISO-kode')}
               />
               <TextField
                 label={t('common.currency')} value={form.currency} size="small" sx={{ width: 120 }}
@@ -511,6 +426,15 @@ const Suppliers: React.FC = () => {
               )}
               size="small"
             />
+            <TextField
+              select label={t('suppliers.defaultTaxCode', 'Standardmomskode')} value={form.default_tax_code_id}
+              size="small" fullWidth
+              onChange={e => setForm({ ...form, default_tax_code_id: e.target.value })}
+              helperText={t('suppliers.defaultTaxCodeHint', 'Foreslås på nye regninger, fx K260 for en EU-leverandør af ydelser')}
+            >
+              <MenuItem value="">{t('common.none')}</MenuItem>
+              {taxCodes.map(tc => <MenuItem key={tc.id} value={tc.id}>{tc.code} — {tc.name}</MenuItem>)}
+            </TextField>
             <TextField
               label={t('common.notes')} value={form.notes} size="small" fullWidth multiline rows={2}
               onChange={e => setForm({ ...form, notes: e.target.value })}
@@ -579,10 +503,10 @@ const Suppliers: React.FC = () => {
                     </TableCell>
                     <TableCell>{line.description}</TableCell>
                     <TableCell align="right">
-                      {parseFloat(line.amount).toLocaleString(i18n.language, { minimumFractionDigits: 2 })}
+                      {formatNumber(line.amount)}
                     </TableCell>
                     <TableCell align="right" sx={{ fontWeight: 500 }}>
-                      {parseFloat(line.balance).toLocaleString(i18n.language, { minimumFractionDigits: 2 })}
+                      {formatNumber(line.balance)}
                     </TableCell>
                   </TableRow>
                 ))}
@@ -597,13 +521,13 @@ const Suppliers: React.FC = () => {
                   <TableRow sx={{ bgcolor: '#e8f5e9' }}>
                     <TableCell colSpan={3} sx={{ fontWeight: 700 }}>{t('suppliers.totalsLabel')}</TableCell>
                     <TableCell sx={{ fontWeight: 600 }}>
-                      {t('suppliers.billsLabel')} {parseFloat(statementData.total_bills).toLocaleString(i18n.language, { minimumFractionDigits: 2 })}
+                      {t('suppliers.billsLabel')} {formatNumber(statementData.total_bills)}
                       {' | '}
-                      {t('suppliers.paymentsLabel')} {parseFloat(statementData.total_payments).toLocaleString(i18n.language, { minimumFractionDigits: 2 })}
+                      {t('suppliers.paymentsLabel')} {formatNumber(statementData.total_payments)}
                     </TableCell>
                     <TableCell />
                     <TableCell align="right" sx={{ fontWeight: 700 }}>
-                      {parseFloat(statementData.balance).toLocaleString(i18n.language, { minimumFractionDigits: 2 })}
+                      {formatNumber(statementData.balance)}
                     </TableCell>
                   </TableRow>
                 )}
@@ -627,115 +551,6 @@ const Suppliers: React.FC = () => {
         entityName={t('suppliers.title')}
       />
 
-      {/* CMR Supplier Picker Dialog */}
-      <Dialog open={cmrOpen} onClose={() => { setCmrOpen(false); setCmrImportResult(null); }} maxWidth="md" fullWidth>
-        <DialogTitle>{t('suppliers.cmrPickerTitle')}</DialogTitle>
-        <DialogContent>
-          {cmrError && <Alert severity="error" sx={{ mb: 2 }}>{cmrError}</Alert>}
-          {cmrImportResult && (
-            <Alert severity="success" sx={{ mb: 2 }}>
-              {t('suppliers.cmrBulkResult', { created: cmrImportResult.created, skipped: cmrImportResult.skipped })}
-            </Alert>
-          )}
-          <TextField
-            label={t('common.search')}
-            value={cmrSearch}
-            size="small"
-            fullWidth
-            sx={{ mb: 2, mt: 1 }}
-            onChange={e => handleCmrSearchChange(e.target.value)}
-            InputProps={{
-              endAdornment: (
-                <InputAdornment position="end">
-                  <SearchIcon sx={{ fontSize: 18, color: 'text.secondary' }} />
-                </InputAdornment>
-              ),
-            }}
-          />
-          {!cmrLoading && filteredCmrSuppliers.length > 0 && (
-            <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block' }}>
-              {filteredCmrSuppliers.length > CMR_DISPLAY_LIMIT
-                ? `${t('common.showing')} ${CMR_DISPLAY_LIMIT} ${t('common.of')} ${filteredCmrSuppliers.length}`
-                : `${filteredCmrSuppliers.length} ${t('common.results')}`
-              }
-            </Typography>
-          )}
-          {cmrLoading ? (
-            <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
-              <CircularProgress />
-            </Box>
-          ) : (
-            <TableContainer component={Paper} variant="outlined" sx={{ maxHeight: 400 }}>
-              <Table size="small" stickyHeader>
-                <TableHead>
-                  <TableRow sx={{ bgcolor: '#f5f5f5' }}>
-                    <TableCell sx={{ fontWeight: 600 }}>{t('common.name')}</TableCell>
-                    <TableCell sx={{ fontWeight: 600 }}>{t('common.category')}</TableCell>
-                    <TableCell sx={{ fontWeight: 600 }}>{t('common.email')}</TableCell>
-                    <TableCell align="right" sx={{ fontWeight: 600 }}>{t('common.actions')}</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {displayedCmrSuppliers.map(sup => (
-                    <TableRow key={sup.id} hover>
-                      <TableCell>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                          {sup.name}
-                          {sup.already_imported && (
-                            <Chip
-                              icon={<CheckCircleIcon sx={{ fontSize: 14 }} />}
-                              label={t('suppliers.alreadyImported')}
-                              size="small"
-                              color="success"
-                              variant="outlined"
-                              sx={{ height: 20, fontSize: '11px' }}
-                            />
-                          )}
-                        </Box>
-                      </TableCell>
-                      <TableCell>{sup.category}</TableCell>
-                      <TableCell>{sup.email}</TableCell>
-                      <TableCell align="right">
-                        <Button
-                          size="small"
-                          variant="outlined"
-                          onClick={() => handleCmrSelect(sup)}
-                          sx={{ minWidth: 'auto', fontSize: '12px' }}
-                        >
-                          {t('suppliers.selectSupplier')}
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                  {filteredCmrSuppliers.length === 0 && !cmrLoading && (
-                    <TableRow>
-                      <TableCell colSpan={4} align="center" sx={{ py: 3 }}>
-                        <Typography variant="body2" color="text.secondary">
-                          {t('suppliers.noCmrSuppliers')}
-                        </Typography>
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
-            </TableContainer>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => { setCmrOpen(false); setCmrImportResult(null); }}>{t('common.close')}</Button>
-          <Button
-            variant="contained"
-            onClick={handleCmrImportAll}
-            disabled={cmrImporting || cmrLoading || cmrSuppliers.filter(s => !s.already_imported).length === 0}
-            sx={{ bgcolor: '#2e7d32' }}
-          >
-            {cmrImporting
-              ? t('common.loading')
-              : t('suppliers.importAllCmr', { count: cmrSuppliers.filter(s => !s.already_imported).length })
-            }
-          </Button>
-        </DialogActions>
-      </Dialog>
     </Box>
   );
 };

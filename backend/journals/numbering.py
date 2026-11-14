@@ -25,7 +25,7 @@ def next_number(model, field, prefix, width=4):
     max_num = 0
     pat = re.compile(r"-(\d+)\s*$")
     for v in values:
-        # Only this series: an imported "VMM-2026-0150" must not move INV- to 0151.
+        # Kun denne serie: et importeret nummer i en anden serie må ikke flytte den.
         if not v or not str(v).startswith(f"{prefix}-"):
             continue
         m = pat.search(str(v))
@@ -37,14 +37,14 @@ def next_number(model, field, prefix, width=4):
 
 
 def next_je_number(width=6):
-    """Draft number (BR-000001) for a new entry. Shared by every app that posts
-    entries. The final number is given when the month is closed (validated_number)."""
+    """Kladdenummer (KL-000001) for en ny postering. Det endelige nummer gives, når
+    måneden lukkes (validated_number)."""
     from journals.models import JournalEntry
-    return next_number(JournalEntry, "entry_number", "BR", width)
+    return next_number(JournalEntry, "entry_number", "KL", width)
 
 
 def validated_number(journal, year):
-    """Next number in the journal's gapless series for the year, e.g. BQ1-2026-00001.
+    """Næste nummer i journalens fortløbende serie for året, fx BANK-2026-00001.
     The caller holds transaction.atomic(); the sequence row is locked until commit."""
     from journals.models import JournalSequence
     JournalSequence.objects.get_or_create(journal=journal, year=year)

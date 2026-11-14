@@ -270,3 +270,22 @@ class FirmAuditLog(models.Model):
     class Meta:
         db_table = "firm_audit_log"
         ordering = ["-timestamp"]
+
+
+class MFADevice(models.Model):
+    """To-faktor-login (TOTP, RFC 6238) for en bruger. Hemmeligheden er krypteret
+    med FIELD_ENCRYPTION_KEY; gendannelseskoder gemmes kun som hash."""
+
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="mfa_device")
+    secret_encrypted = models.TextField()
+    confirmed_at = models.DateTimeField(null=True, blank=True)
+    recovery_codes = models.JSONField(default=list, blank=True)  # sha256-hashes, fjernes når brugt
+    last_used_step = models.BigIntegerField(default=0)  # forhindrer genbrug af samme kode
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "mfa_devices"
+
+    @property
+    def is_confirmed(self):
+        return self.confirmed_at is not None

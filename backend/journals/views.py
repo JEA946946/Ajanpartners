@@ -1,4 +1,4 @@
-"""Journal Entries CRUD + post/unpost + reports + bank-statement upload."""
+"""Posteringer (CRUD, bogfør/tilbagefør kladde), bankimport og bankposteringer."""
 
 import csv
 import io
@@ -37,8 +37,8 @@ def _line_dict(line):
         "credit": str(line.credit),
         "currency": line.currency,
         "exchange_rate": str(line.exchange_rate),
-        "base_debit": str(line.base_debit),
-        "base_credit": str(line.base_credit),
+        "amount_currency": str(line.amount_currency) if line.amount_currency is not None else None,
+        "vat_code": line.vat_code,
         "description": line.description,
         "partner_type": line.partner_type,
         "partner_id": line.partner_id,
@@ -102,7 +102,7 @@ def journal_entries_list_create(request):
         st = request.query_params.get("status")
         if st == "validated":
             qs = qs.filter(validated_at__isnull=False)
-        elif st == "brouillard":
+        elif st in ("posted", "brouillard"):
             qs = qs.filter(is_posted=True, validated_at__isnull=True)
         elif st == "draft":
             qs = qs.filter(is_posted=False)
@@ -224,9 +224,9 @@ def journal_entries_list_create(request):
                 account_id=line["account_id"],
                 debit=Decimal(str(line.get("debit", 0))),
                 credit=Decimal(str(line.get("credit", 0))),
-                currency=line.get("currency", "MAD"),
-                exchange_rate=Decimal(str(line.get("exchange_rate", 1))),
                 description=line.get("description", ""),
+                vat_code=(line.get("vat_code") or "")[:20],
+                **_line_currency(line),
                 **_line_tiers(line),
             )
 
@@ -240,13 +240,31 @@ def journal_entries_list_create(request):
     }, status=status.HTTP_201_CREATED)
 
 
+def _line_currency(line):
+    """Valutafelterne på en manuel linje. debit/credit er altid DKK; en linje i
+    fremmed valuta har sin kurs og sit valutabeløb med."""
+    currency = (line.get("currency") or chart.BASE_CURRENCY).upper()
+    if currency == chart.BASE_CURRENCY:
+        return {"currency": currency}
+    try:
+        rate = Decimal(str(line.get("exchange_rate") or 0))
+        amount = line.get("amount_currency")
+        amount = Decimal(str(amount)) if amount not in (None, "") else None
+    except (InvalidOperation, TypeError):
+        rate, amount = Decimal("0"), None
+    if amount is None and rate > 0:
+        dkk = Decimal(str(line.get("debit", 0))) - Decimal(str(line.get("credit", 0)))
+        amount = (dkk / rate).quantize(Decimal("0.01"))
+    return {"currency": currency, "exchange_rate": rate or Decimal("1"), "amount_currency": amount}
+
+
 def _line_tiers(line):
     """The tiers fields of a manual line (resolved and checked by _tiers_error)."""
     return {k: line.get(k, "") for k in ("partner_type", "partner_id", "partner_name")}
 
 
 def _tiers_error(lines_data, accounts):
-    """A line on 3421/4421/4411 needs its customer or supplier (compte auxiliaire).
+    """En linje på debitor-, forudbetalings- eller kreditorkontoen skal have sin debitor/kreditor.
     Fills in partner_type and partner_name from the id. Returns an error or None."""
     from purchases.models import Supplier
     from sales.models import Customer
@@ -288,8 +306,6 @@ def _entry_dependents(entry):
         return "This entry pays a bill. Undo the bill match first."
     if BankTransactionCategorization.objects.filter(journal_entry_line__journal_entry=entry).exists():
         return "This bank line is categorised. Undo the categorisation first."
-    if entry.lines.filter(invoice_receipts__isnull=False).exists():
-        return "This bank line is matched to an invoice. Undo the match first."
     if entry.lines.exclude(lettrage="").exists():
         return "Lines of this entry are lettered. Remove the lettrage first."
     for model, label in ((Invoice, "an invoice"), (Bill, "a bill"), (Expense, "an expense"),
@@ -399,9 +415,9 @@ def journal_entries_detail(request, pk):
                     account_id=line["account_id"],
                     debit=Decimal(str(line.get("debit", 0))),
                     credit=Decimal(str(line.get("credit", 0))),
-                    currency=line.get("currency", "MAD"),
-                    exchange_rate=Decimal(str(line.get("exchange_rate", 1))),
                     description=line.get("description", ""),
+                    vat_code=(line.get("vat_code") or "")[:20],
+                    **_line_currency(line),
                     **_line_tiers(line),
                 )
 
@@ -505,7 +521,7 @@ def _parse_date(val):
         return val
     if isinstance(val, str):
         val = val.strip()
-        for fmt in ("%d/%m/%Y", "%Y-%m-%d", "%d-%m-%Y", "%d.%m.%Y"):
+        for fmt in ("%d-%m-%Y", "%d.%m.%Y", "%d/%m/%Y", "%Y-%m-%d", "%d-%m-%y", "%d.%m.%y", "%Y/%m/%d"):
             try:
                 return datetime.strptime(val, fmt).date()
             except ValueError:
@@ -551,6 +567,37 @@ def _safe_decimal(val):
         return Decimal("0")
 
 
+# Kolonnenavne i danske bankers eksport (Danske Bank, Nordea, Jyske Bank,
+# Sydbank, Lunar, Spar Nord, Arbejdernes Landsbank) og generiske navne.
+_DATE_COLS = ("dato", "bogføringsdato", "bogfoeringsdato", "bogført", "posteringsdato", "date",
+              "transaktionsdato", "valørdato", "rentedato")
+_TEXT_COLS = ("tekst", "beskrivelse", "posteringstekst", "navn", "text", "description", "modtager")
+_REF_COLS = ("reference", "ref", "id", "transaktions-id", "bilagsnr")
+_AMOUNT_COLS = ("beløb", "beloeb", "belob", "amount", "beløb i dkk")
+_IN_COLS = ("indbetaling", "ind", "kredit", "credit", "indsat")
+_OUT_COLS = ("udbetaling", "ud", "debet", "debit", "hævet")
+
+
+def _col(cols, names):
+    for n in names:
+        if cols.get(n) not in (None, ""):
+            return cols[n]
+    return None
+
+
+def _amounts(cols):
+    """(ud, ind) fra en række: et fortegnsbeløb ('Beløb': positiv = ind) eller
+    separate ind-/udkolonner. Returnerer (debit, credit) i kontoudtogets
+    betydning: debit = penge ud, credit = penge ind."""
+    signed = _col(cols, _AMOUNT_COLS)
+    if signed is not None:
+        amount = _safe_decimal(signed)
+        return (-amount, Decimal("0")) if amount < 0 else (Decimal("0"), amount)
+    out = abs(_safe_decimal(_col(cols, _OUT_COLS)))
+    inn = abs(_safe_decimal(_col(cols, _IN_COLS)))
+    return out, inn
+
+
 @api_view(["POST"])
 @permission_classes([RoleWriteAccess])
 @parser_classes([MultiPartParser, FormParser])
@@ -588,16 +635,20 @@ def bank_statement_upload(request):
 
     try:
         if name.endswith(".csv"):
-            content = uploaded.read().decode("utf-8-sig")
-            reader = csv.DictReader(io.StringIO(content))
+            raw = uploaded.read()
+            try:
+                content = raw.decode("utf-8-sig")
+            except UnicodeDecodeError:
+                content = raw.decode("cp1252")  # ældre danske bankeksporter
+            first = content.splitlines()[0] if content else ""
+            delimiter = ";" if first.count(";") >= first.count(",") else ","
+            reader = csv.DictReader(io.StringIO(content), delimiter=delimiter)
             for row in reader:
-                # Map CSV columns (case-insensitive lookup)
-                cols = {k.strip().lower(): v for k, v in row.items()}
-                op_date = cols.get("operation date") or cols.get("date") or cols.get("dt opération") or cols.get("dt operation")
-                description = cols.get("detailed description") or cols.get("description") or cols.get("libellé large") or cols.get("libelle large") or cols.get("libellé") or ""
-                reference = cols.get("reference") or cols.get("référence") or ""
-                debit = _safe_decimal(cols.get("debit") or cols.get("débit"))
-                credit = _safe_decimal(cols.get("credit") or cols.get("crédit"))
+                cols = {(k or "").strip().strip('"').lower(): v for k, v in row.items()}
+                op_date = _col(cols, _DATE_COLS)
+                description = _col(cols, _TEXT_COLS) or ""
+                reference = _col(cols, _REF_COLS) or ""
+                debit, credit = _amounts(cols)
 
                 parsed_date = _parse_date(op_date)
                 if not parsed_date:
@@ -614,7 +665,7 @@ def bank_statement_upload(request):
                     "account_id": None,
                 }
                 # Check for account_code column (pre-categorized)
-                acct_code = cols.get("account_code") or cols.get("account code")
+                acct_code = cols.get("account_code") or cols.get("account code") or cols.get("kontonr")
                 if acct_code:
                     file_format = "categorized"
                     acct_code = str(acct_code).strip()
@@ -657,27 +708,23 @@ def bank_statement_upload(request):
                 data_rows = [list(row) for row in ws.iter_rows(min_row=2, values_only=True)]
 
             # Detect if this is a categorized file (has account_code column)
-            has_acct = "account_code" in headers or "account code" in headers
+            has_acct = any(h in headers for h in ("account_code", "account code", "konto", "kontonr"))
 
             # Map column indices
             col_map = {}
             for i, h in enumerate(headers):
-                if h in ("operation date", "date", "dt opération", "dt operation"):
+                if h in _DATE_COLS and "date" not in col_map:
                     col_map["date"] = i
-                elif h in ("detailed description", "description", "libellé large", "libelle large", "libellé"):
+                elif h in _TEXT_COLS and "description" not in col_map:
                     col_map["description"] = i
-                elif h in ("reference", "référence"):
+                elif h in _REF_COLS:
                     col_map["reference"] = i
-                elif h in ("debit", "débit"):
-                    col_map["debit"] = i
-                elif h in ("credit", "crédit"):
-                    col_map["credit"] = i
-                elif h in ("account_code", "account code"):
+                elif h in ("account_code", "account code", "konto", "kontonr"):
                     col_map["account_code"] = i
 
             if "date" not in col_map:
                 return Response(
-                    {"success": False, "message": "Could not find date column in Excel file. Expected 'Operation Date' or 'Date'."},
+                    {"success": False, "message": "Kan ikke finde en datokolonne (fx 'Dato' eller 'Bogføringsdato')."},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
@@ -685,8 +732,7 @@ def bank_statement_upload(request):
                 op_date = vals[col_map["date"]] if col_map.get("date") is not None else None
                 description = vals[col_map["description"]] if col_map.get("description") is not None else ""
                 reference = vals[col_map["reference"]] if col_map.get("reference") is not None else ""
-                debit = _safe_decimal(vals[col_map["debit"]] if col_map.get("debit") is not None else None)
-                credit = _safe_decimal(vals[col_map["credit"]] if col_map.get("credit") is not None else None)
+                debit, credit = _amounts({h: vals[i] for i, h in enumerate(headers) if i < len(vals)})
 
                 parsed_date = _parse_date(op_date)
                 if not parsed_date:
@@ -755,43 +801,33 @@ def bank_statement_upload(request):
     })
 
 
-# French bank description patterns → used to extract entity names
+# Danske bankers tekster → navnet på modparten (Danske Bank, Nordea, Jyske,
+# Sydbank, Lunar m.fl. skriver typisk "Dankort-køb NETTO 1234" osv.).
 _ENTITY_PATTERNS = [
-    # "VIREMENT EMIS EN FAVEUR DE HOTEL+PERLE+DU+SUD" → "hotel perle du sud"
-    re.compile(r"(?:virement|vir\.?\s*\w*)\s+(?:\w+\s+)*en\s+faveur\s+de\s+(.+)", re.I),
-    # "VIREMENT RECU DE V M MOROCCO" → "v m morocco"
-    re.compile(r"virement\s+recu\s+de\s+(.+)", re.I),
-    # "RECEPTION RAPATRIEMENT EN FAVEUR DE Viktors Farmor A/S" → "viktors farmor a/s"
-    re.compile(r"reception\s+rapatriement\s+en\s+faveur\s+de\s+(.+)", re.I),
-    # "ACHAT PAR CARTE DE PAIEMENT CHEZ JARDIN MAJORELLE" → "jardin majorelle"
-    re.compile(r"achat\s+par\s+carte.*?chez\s+(.+)", re.I),
-    # "PAIEMENT INTERNET NATIONAL CARTE 7525 RAM INTERNET" → "ram internet"
-    re.compile(r"paiement\s+internet\s+national\s+carte\s+\w+\s+(.+)", re.I),
-    # "PAIEMENT PRLV MAROC TELECOM 28022026" → "maroc telecom"
-    re.compile(r"paiement\s+prlv\s+(.+?)(?:\s+\d{6,}|$)", re.I),
+    re.compile(r"(?:dankort|visa|mastercard|kort)[\s-]*(?:køb|kob|nota)?\s+(.+)", re.I),
+    re.compile(r"mobilepay\s+(?:til|fra)?\s*(.+)", re.I),
+    re.compile(r"(?:overførsel|overforsel|overf\.)\s+(?:til|fra)?\s*(.+)", re.I),
+    re.compile(r"(?:betalingsservice|bs)\s+(.+)", re.I),
+    re.compile(r"(?:indbetaling|udbetaling)\s+(?:fra|til)?\s*(.+)", re.I),
+    re.compile(r"(?:fi-kort|fik|kort\s*71|\+71)\s+(.+)", re.I),
 ]
 
-# French bank keywords → fixed account codes
+# Faste nøgleord → konto
 _KEYWORD_ACCOUNT_MAP = {
-    "commission virement": chart.BANK_FEES,
-    "commission rapatriement": chart.BANK_FEES,
-    "commission prelevement": chart.BANK_FEES,
-    "commission tenue": chart.BANK_FEES,
-    "commission": chart.BANK_FEES,
-    "frais bancaire": chart.BANK_FEES,
-    "frais de tenue": chart.BANK_FEES,
-    "frais prelevement": chart.BANK_FEES,
-    "agios": chart.INTEREST,
-    "interet debiteur": chart.INTEREST,
+    "gebyr": chart.BANK_FEES,
+    "kortgebyr": chart.BANK_FEES,
+    "overførselsgebyr": chart.BANK_FEES,
+    "kontoførelse": chart.BANK_FEES,
+    "debetrente": chart.INTEREST,
+    "renter af kassekredit": chart.INTEREST,
+    "kreditrente": chart.INTEREST_INCOME,
 }
 
-# Entity name aliases → account code (for names that don't match directly)
+# Navne → konto, hvor navnet ikke findes i kontoplanen
 _ENTITY_ALIAS_MAP = {
-    "ram internet": chart.COST_TRANSPORT,  # Royal Air Maroc flight tickets
-    "ram": chart.COST_TRANSPORT,
-    "royal air maroc": chart.COST_TRANSPORT,
-    "oncf": chart.COST_TRANSPORT,          # Train
-    "comptable": chart.FEES,
+    "skat": chart.VAT_SETTLEMENT,
+    "skattestyrelsen": chart.VAT_SETTLEMENT,
+    "revisor": chart.FEES,
 }
 
 
@@ -801,10 +837,10 @@ def _normalize_entity(raw):
     # Remove trailing reference numbers, dates
     name = re.sub(r"\s+REF\s+\w*\d+.*$", "", name, flags=re.I)
     name = re.sub(r"\s+\d{6,}.*$", "", name)
-    # Replace + with space (bank format: HOTEL+PERLE+DU+SUD)
     name = name.replace("+", " ")
-    # Remove trailing E-, E-CO etc (truncated merchant names)
-    name = re.sub(r"\s+E-?\w*$", "", name)
+    # Kortnumre og datoer ("NETTO 1234 12.03") fjernes
+    name = re.sub(r"\s+\d{2}[./]\d{2}(?:[./]\d{2,4})?$", "", name)
+    name = re.sub(r"\s+\d{4,}$", "", name)
     return name.strip().lower()
 
 
@@ -833,17 +869,9 @@ def _extract_description_key(description):
 @api_view(["POST"])
 @permission_classes([RoleWriteAccess])
 def bank_statement_auto_map(request):
-    """Suggest account mappings for bank statement transactions.
-
-    Understands French bank statement patterns:
-    - COMMISSION ... → bank fees (61473)
-    - VIREMENT EMIS EN FAVEUR DE <name> → supplier (match against account names)
-    - RECEPTION RAPATRIEMENT EN FAVEUR DE <name> → client
-    - PAIEMENT INTERNET NATIONAL CARTE ... <merchant> → supplier
-    - ACHAT PAR CARTE DE PAIEMENT CHEZ <merchant> → supplier
-    - PAIEMENT PRLV <company> → operating expense
-    - VIREMENT COMMERCIAL RECU → client (generic)
-    """
+    """Foreslå konti til banklinjer: først lærte tekster, så faste nøgleord
+    (gebyr, renter), så modpartens navn (Dankort-køb, MobilePay, overførsel,
+    Betalingsservice …) mod kontonavnene."""
     txns = request.data.get("transactions", [])
     bank_account_id = request.data.get("bank_account_id")
     if not txns:
@@ -862,9 +890,8 @@ def bank_statement_auto_map(request):
 
     # Load all non-bank, non-system accounts
     all_accounts = list(
-        Account.objects.filter(is_active=True)
-        .exclude(code__startswith=chart.TREASURY_PREFIXES[0])
-        .exclude(code__startswith=chart.TREASURY_PREFIXES[1])
+        Account.objects.filter(is_active=True, is_header=False)
+        .exclude(chart.treasury_q())
         .exclude(code__in=SYSTEM_CODES)
         .values("id", "code", "name")
     )
@@ -987,7 +1014,7 @@ def bank_statement_auto_map(request):
                     matched = acct
                 break
 
-        # Step 2: Extract entity name from French bank patterns and match
+        # Step 2: modpartens navn fra bankteksten matches mod kontonavnene
         if not matched:
             for pattern in _ENTITY_PATTERNS:
                 m = pattern.search(desc)
@@ -1027,10 +1054,12 @@ def _normalize_bank_desc(description):
 @api_view(["POST"])
 @permission_classes([RoleWriteAccess])
 def bank_statement_confirm(request):
-    """Create journal entries from confirmed bank statement transactions.
+    """Bogfør de godkendte banklinjer.
 
-    Every line is parked on 34971 (Banque - opérations à classer) against the
-    bank account; categorising it later rewrites that leg into the real account.
+    Hver linje parkeres på mellemregningskontoen (chart.SUSPENSE) mod
+    bankkontoen; når den afstemmes, omposteres det ben til den rigtige konto.
+    En bankkonto i fremmed valuta kræver en kurs (exchange_rate pr. linje eller
+    for hele filen): beløbene bogføres i DKK og valutabeløbet gemmes.
     """
     data = request.data
     bank_account_id = data.get("bank_account_id")
@@ -1070,14 +1099,11 @@ def bank_statement_confirm(request):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
-    # Neutral bank-clearing/suspense account (34971). Imported bank lines park here
-    # until categorised, then the categorisation rewrites this leg into the real account
-    # (single-entry: DR expense / CR bank).
     try:
         suspense_acct = Account.objects.get(code=chart.SUSPENSE)
     except Account.DoesNotExist:
         return Response(
-            {"success": False, "message": f"Account {chart.SUSPENSE} (Banque - opérations à classer) not found"},
+            {"success": False, "message": f"Konto {chart.SUSPENSE} (uafklarede poster) findes ikke"},
             status=status.HTTP_400_BAD_REQUEST,
         )
 
@@ -1093,7 +1119,18 @@ def bank_statement_confirm(request):
             )
 
     created_by = f"{request.user.first_name} {request.user.last_name}".strip() or request.user.username
-    currency = bank_account.currency  # EUR for 51413, MAD for others
+    currency = bank_account.currency or chart.BASE_CURRENCY
+    default_rate = data.get("exchange_rate")
+    if currency != chart.BASE_CURRENCY:
+        for t in txns:
+            try:
+                rate = Decimal(str(t.get("exchange_rate") or default_rate or 0))
+            except InvalidOperation:
+                rate = Decimal("0")
+            if rate <= 0:
+                return Response({"success": False, "message":
+                                 f"Bankkontoen er i {currency}: angiv kursen (DKK pr. 1 {currency})"},
+                                status=status.HTTP_400_BAD_REQUEST)
     journal = journal_for_account(bank_account)
     if journal is None:
         return Response(
@@ -1176,31 +1213,29 @@ def bank_statement_confirm(request):
                 created_by=created_by,
             )
 
-            # Every bank line waits on the suspense account until it is categorised.
+            # Hver banklinje venter på mellemregningskontoen, til den afstemmes.
+            fx = {}
+            amount_fc = credit if credit > 0 else debit
+            amount = amount_fc
+            if currency != chart.BASE_CURRENCY:
+                rate = Decimal(str(txn.get("exchange_rate") or default_rate))
+                amount = (amount_fc * rate).quantize(Decimal("0.01"))
+                fx = {"currency": currency, "exchange_rate": rate}
+            sign = 1 if credit > 0 else -1
             if credit > 0:
-                # Money IN → DR Bank, CR suspense
-                JournalEntryLine.objects.create(
-                    journal_entry=entry, account=bank_account,
-                    debit=credit, credit=Decimal("0"),
-                    currency=currency, description=desc,
-                )
-                JournalEntryLine.objects.create(
-                    journal_entry=entry, account=suspense_acct,
-                    debit=Decimal("0"), credit=credit,
-                    currency=currency, description=desc,
-                )
+                # Penge ind → DR bank, CR mellemregning
+                bank_dr, bank_cr = amount, Decimal("0")
             else:
-                # Money OUT → DR suspense, CR Bank
-                JournalEntryLine.objects.create(
-                    journal_entry=entry, account=suspense_acct,
-                    debit=debit, credit=Decimal("0"),
-                    currency=currency, description=desc,
-                )
-                JournalEntryLine.objects.create(
-                    journal_entry=entry, account=bank_account,
-                    debit=Decimal("0"), credit=debit,
-                    currency=currency, description=desc,
-                )
+                # Penge ud → DR mellemregning, CR bank
+                bank_dr, bank_cr = Decimal("0"), amount
+            JournalEntryLine.objects.create(
+                journal_entry=entry, account=bank_account, debit=bank_dr, credit=bank_cr, description=desc,
+                amount_currency=sign * amount_fc if fx else None, **fx,
+            )
+            JournalEntryLine.objects.create(
+                journal_entry=entry, account=suspense_acct, debit=bank_cr, credit=bank_dr, description=desc,
+                amount_currency=-sign * amount_fc if fx else None, **fx,
+            )
 
             created += 1
 
@@ -1257,639 +1292,6 @@ def bank_statement_confirm(request):
         "message": message,
         "data": {"count": created, "skipped": skipped, "duplicates": skipped},
     }, status=status.HTTP_201_CREATED)
-
-
-# ─── Reports ──────────────────────────────────────────────────────────────────
-
-def _foreign_balances(filters):
-    """Balances of the lines that are not in dirham (euros not exchanged yet), per
-    account and currency. They are shown beside the dirham reports, never in them."""
-    rows = (
-        JournalEntryLine.objects.foreign().filter(**filters)
-        .values("account__code", "account__name", "currency")
-        .annotate(dr=Sum("debit"), cr=Sum("credit"))
-        .order_by("account__code", "currency")
-    )
-    out = []
-    for r in rows:
-        dr, cr = r["dr"] or Decimal("0"), r["cr"] or Decimal("0")
-        if dr == cr:
-            continue
-        out.append({
-            "account_code": r["account__code"],
-            "account_name": r["account__name"],
-            "currency": r["currency"],
-            "debit": str(dr),
-            "credit": str(cr),
-            "balance": str(dr - cr),
-        })
-    return out
-
-
-@api_view(["GET"])
-@permission_classes([RoleWriteAccess])
-def report_trial_balance(request):
-    """Trial balance: all accounts with debit/credit totals from posted entries."""
-    date_from = request.query_params.get("date_from")
-    date_to = request.query_params.get("date_to")
-
-    accounts = Account.objects.filter(is_active=True).select_related("account_type").order_by("code")
-    result = []
-
-    for account in accounts:
-        filters = {"journal_entry__is_posted": True}
-        if date_from:
-            filters["journal_entry__date__gte"] = date_from
-        if date_to:
-            filters["journal_entry__date__lte"] = date_to
-
-        totals = JournalEntryLine.objects.in_mad().filter(
-            account=account, **filters
-        ).aggregate(
-            total_debit=Sum("debit"),
-            total_credit=Sum("credit"),
-        )
-
-        debit = totals["total_debit"] or Decimal("0")
-        credit = totals["total_credit"] or Decimal("0")
-
-        if debit == 0 and credit == 0:
-            continue
-
-        balance = debit - credit
-        result.append({
-            "account_id": str(account.id),
-            "account_code": account.code,
-            "account_name": account.name,
-            "account_type": account.account_type.name,
-            "debit": str(debit),
-            "credit": str(credit),
-            "balance": str(balance),
-        })
-
-    total_dr = sum(Decimal(r["debit"]) for r in result)
-    total_cr = sum(Decimal(r["credit"]) for r in result)
-
-    return Response({
-        "success": True,
-        "data": {
-            "rows": result,
-            "total_debit": str(total_dr),
-            "total_credit": str(total_cr),
-            "is_balanced": total_dr == total_cr,
-            "foreign_rows": _foreign_balances({
-                "journal_entry__is_posted": True, "account__is_active": True,
-                **({"journal_entry__date__gte": date_from} if date_from else {}),
-                **({"journal_entry__date__lte": date_to} if date_to else {}),
-            }),
-        },
-    })
-
-
-@api_view(["GET"])
-@permission_classes([RoleWriteAccess])
-def report_profit_and_loss(request):
-    """CPC under the margin regime: gross sales (class 7) and all charges
-    (class 6, tourism costs included). TVA = margin TTC × 20/120."""
-    from .margin import period_margin
-
-    date_from = request.query_params.get("date_from")
-    date_to = request.query_params.get("date_to")
-
-    filters = {"journal_entry__is_posted": True}
-    if date_from:
-        filters["journal_entry__date__gte"] = date_from
-    if date_to:
-        filters["journal_entry__date__lte"] = date_to
-
-    def section(type_name, sign):
-        rows, total = [], Decimal("0")
-        accounts = Account.objects.filter(account_type__name=type_name).order_by("code")
-        sums = {
-            r["account_id"]: r for r in JournalEntryLine.objects.in_mad().filter(account__in=accounts, **filters)
-            .values("account_id").annotate(dr=Sum("debit"), cr=Sum("credit"))
-        }
-        for acc in accounts:
-            r = sums.get(acc.id)
-            if not r:
-                continue
-            amount = sign * ((r["dr"] or Decimal("0")) - (r["cr"] or Decimal("0")))
-            if amount == 0:
-                continue
-            total += amount
-            rows.append({"account_code": acc.code, "account_name": acc.name, "amount": str(amount)})
-        return rows, total
-
-    revenue_rows, revenue_total = section("Revenue", -1)
-    expense_rows, expense_total = section("Expense", 1)
-    m = period_margin(date_from, date_to)
-
-    return Response({
-        "success": True,
-        "data": {
-            "pass_through": {
-                "client_funds_received": str(m["sales"]),
-                "supplier_costs_paid": str(m["costs"]),
-                "margin": str(m["margin"]),
-            },
-            "revenue": {"rows": revenue_rows, "total": str(revenue_total)},
-            "operating_expenses": {"rows": expense_rows, "total": str(expense_total)},
-            "net_income": str(revenue_total - expense_total),
-            "tva": {
-                "formula": "margin × 20/120",
-                "margin_ttc": str(m["margin"]),
-                "collectee": str(m["tva_collectee"]),
-                "deductible_ops": str(m["tva_deductible"]),
-                "deductible_ops_rows": [],
-                "a_payer": str(m["tva_a_payer"]),
-            },
-        },
-    })
-
-
-@api_view(["GET"])
-@permission_classes([RoleWriteAccess])
-def report_balance_sheet(request):
-    """Balance Sheet: Assets = Liabilities + Equity."""
-    date_to = request.query_params.get("date_to")
-
-    filters = {"journal_entry__is_posted": True}
-    if date_to:
-        filters["journal_entry__date__lte"] = date_to
-
-    def get_section(type_name):
-        account_type = AccountType.objects.filter(name=type_name).first()
-        if not account_type:
-            return [], Decimal("0")
-        accounts = Account.objects.filter(
-            account_type=account_type, is_active=True
-        ).order_by("code")
-        rows = []
-        total = Decimal("0")
-        for acc in accounts:
-            totals = JournalEntryLine.objects.in_mad().filter(
-                account=acc, **filters
-            ).aggregate(total_debit=Sum("debit"), total_credit=Sum("credit"))
-            dr = totals["total_debit"] or Decimal("0")
-            cr = totals["total_credit"] or Decimal("0")
-            if dr == 0 and cr == 0:
-                continue
-            balance = dr - cr if account_type.normal_balance == "debit" else cr - dr
-            total += balance
-            rows.append({
-                "account_code": acc.code,
-                "account_name": acc.name,
-                "balance": str(balance),
-            })
-        return rows, total
-
-    asset_rows, asset_total = get_section("Asset")
-    liability_rows, liability_total = get_section("Liability")
-    equity_rows, equity_total = get_section("Equity")
-
-    return Response({
-        "success": True,
-        "data": {
-            "assets": {"rows": asset_rows, "total": str(asset_total)},
-            "liabilities": {"rows": liability_rows, "total": str(liability_total)},
-            "equity": {"rows": equity_rows, "total": str(equity_total)},
-            "liabilities_plus_equity": str(liability_total + equity_total),
-            "is_balanced": asset_total == (liability_total + equity_total),
-            "foreign_rows": _foreign_balances(filters),
-        },
-    })
-
-
-# ─── TVA on margin ───────────────────────────────────────────────────────────
-# Sales are gross on 71243, so there is no margin recognition entry any more:
-# the only entry is the TVA on the period's margin, DR 71243 / CR 4455.
-
-@api_view(["POST"])
-@permission_classes([RoleWriteAccess])
-def margin_recognition_preview(request):
-    """Preview the TVA on margin for a date range."""
-    from .margin import period_margin
-
-    date_from = request.data.get("date_from")
-    date_to = request.data.get("date_to")
-
-    if not date_from or not date_to:
-        return Response(
-            {"success": False, "message": "date_from and date_to are required"},
-            status=status.HTTP_400_BAD_REQUEST,
-        )
-
-    m = period_margin(date_from, date_to)
-    existing_tva = JournalEntry.objects.filter(
-        source="tva_margin", date__gte=date_from, date__lte=date_to,
-    ).count()
-
-    return Response({
-        "success": True,
-        "data": {
-            "client_funds_received": str(m["sales"]),
-            "supplier_costs_paid": str(m["costs"]),
-            "margin": str(m["margin"]),
-            "tva": str(m["tva_collectee"]),
-            "already_exists": existing_tva > 0 or _margin_period_overlap(date_from, date_to) is not None,
-            "existing_margin_entries": 0,
-            "existing_tva_entries": existing_tva,
-        },
-    })
-
-
-def _margin_period_overlap(date_from, date_to):
-    """The period of an existing TVA-on-margin entry that overlaps [date_from, date_to], or None.
-
-    Entries store their period as source_id "YYYY-MM-DD:YYYY-MM-DD"."""
-    for sid in JournalEntry.objects.filter(source="tva_margin").values_list("source_id", flat=True):
-        parts = (sid or "").split(":")
-        if len(parts) == 2 and parts[0] <= str(date_to) and parts[1] >= str(date_from):
-            return f"{parts[0]} to {parts[1]}"
-    return None
-
-
-@api_view(["POST"])
-@permission_classes([RoleWriteAccess])
-def margin_recognition_create(request):
-    """Post the TVA on the period's margin: DR 71243 / CR 4455."""
-    from .margin import period_margin
-
-    date_from = request.data.get("date_from")
-    date_to = request.data.get("date_to")
-    entry_date = request.data.get("entry_date")
-
-    if not date_from or not date_to or not entry_date:
-        return Response(
-            {"success": False, "message": "date_from, date_to, and entry_date are required"},
-            status=status.HTTP_400_BAD_REQUEST,
-        )
-
-    err = closed_period_error(entry_date)
-    if err:
-        return Response({"success": False, "message": err}, status=status.HTTP_400_BAD_REQUEST)
-
-    try:
-        revenue_acct = Account.objects.get(code=chart.REVENUE)
-        tva_acct = Account.objects.get(code=chart.TVA_MARGIN)
-    except Account.DoesNotExist as e:
-        return Response(
-            {"success": False, "message": f"Required account not found: {e}"},
-            status=status.HTTP_400_BAD_REQUEST,
-        )
-
-    m = period_margin(date_from, date_to)
-    margin, tva = m["margin"], m["tva_collectee"]
-    if margin <= 0:
-        return Response(
-            {"success": False, "message": f"Margin is {margin}. No entries to create."},
-            status=status.HTTP_400_BAD_REQUEST,
-        )
-
-    created_by = f"{request.user.first_name} {request.user.last_name}".strip() or request.user.username
-
-    with transaction.atomic():
-        # One TVA entry per period: lock the TVA account row so a double click
-        # or a retry cannot post it twice.
-        Account.objects.select_for_update().filter(pk=tva_acct.pk).first()
-        overlap = _margin_period_overlap(date_from, date_to)
-        if overlap:
-            transaction.set_rollback(True)
-            return Response(
-                {"success": False,
-                 "message": f"TVA on margin is already posted for an overlapping period ({overlap})"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-        desc = f"TVA sur marge {date_from} to {date_to} ({margin} x 20/120)"
-        tva_entry = JournalEntry.objects.create(
-            entry_number=_next_entry_number(),
-            date=entry_date,
-            description=desc,
-            reference=f"TVA:{date_from}:{date_to}",
-            source="tva_margin",
-            source_id=f"{date_from}:{date_to}",
-            is_posted=True,
-            created_by=created_by,
-        )
-        JournalEntryLine.objects.create(
-            journal_entry=tva_entry, account=revenue_acct, debit=tva, credit=Decimal("0"), description=desc,
-        )
-        JournalEntryLine.objects.create(
-            journal_entry=tva_entry, account=tva_acct, debit=Decimal("0"), credit=tva, description=desc,
-        )
-
-    return Response({
-        "success": True,
-        "message": "TVA on margin entry created",
-        "data": {"margin_entry": None, "tva_entry": _entry_dict(tva_entry)},
-    }, status=status.HTTP_201_CREATED)
-
-
-# ─── CMR Sync ────────────────────────────────────────────────────────────────
-# The rules live in journals/cmr_sync.py, shared with `manage.py sync_cmr`.
-
-
-@api_view(["POST"])
-@permission_classes([RoleWriteAccess])
-def cmr_sync(request):
-    """Sync invoices and supplier payments from CMR into journal entries."""
-    from .cmr_client import CMRClient
-    from .cmr_sync import run_sync
-
-    since_str = request.data.get("since")
-    if not since_str:
-        since_str = (datetime.now(timezone.utc) - timedelta(hours=24)).isoformat()
-    try:
-        client = CMRClient()
-        invoices = client.get_invoices(since=since_str)
-        payments = client.get_supplier_payments(since=since_str)
-    except Exception as e:
-        return Response(
-            {"success": False, "message": f"Failed to fetch CMR events: {e}"},
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        )
-
-    created_by = f"{request.user.first_name} {request.user.last_name}".strip() or request.user.username
-    result = run_sync(invoices, payments, created_by)
-    return Response({
-        "success": True,
-        "message": (f"Sync complete: {result['invoices_created']} invoices, "
-                    f"{result['payments_created']} payments created"),
-        "data": result,
-    })
-
-
-@api_view(["GET"])
-@permission_classes([RoleWriteAccess])
-def cmr_sync_audit(request):
-    """Read-only: everything in the CRM against what is booked. Lists what a full
-    sync would book now and the entries that need checking. Writes nothing."""
-    from .cmr_client import CMRClient
-    from .cmr_sync import audit
-
-    try:
-        client = CMRClient()
-        invoices = client.get_invoices(fetch_all=True)
-        payments = client.get_supplier_payments(fetch_all=True)
-    except Exception as e:
-        return Response(
-            {"success": False, "message": f"Failed to fetch CMR data: {e}"},
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        )
-    return Response({"success": True, "data": audit(invoices, payments)})
-
-
-@api_view(["POST"])
-@permission_classes([RoleWriteAccess])
-def cmr_sync_contacts(request):
-    """Sync clients and suppliers from CMR into Customer and Supplier tables."""
-    from sales.models import Customer
-    from purchases.models import Supplier
-    from sales.views import _next_customer_code
-    from purchases.views import _next_supplier_code
-
-    try:
-        from .cmr_client import CMRClient
-        client = CMRClient()
-        cmr_clients = client.get_clients(limit=1000)  # the CRM's maximum; its default is 500
-        cmr_suppliers = client.get_suppliers()
-    except Exception as e:
-        return Response(
-            {"success": False, "message": f"Failed to fetch CMR contacts: {e}"},
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        )
-
-    clients_created = 0
-    clients_updated = 0
-    suppliers_created = 0
-    suppliers_updated = 0
-    skipped = 0
-    details = []
-
-    with transaction.atomic():
-        # ── Sync Clients → Customers ──
-        # Build lookup caches
-        cmr_id_to_customer = {}
-        name_to_customer = {}
-        for c in Customer.objects.all():
-            if c.cmr_id:
-                cmr_id_to_customer[c.cmr_id] = c
-            name_to_customer[c.name.lower()] = c
-
-        for cli in cmr_clients:
-            cmr_id = cli.get("id", "")
-            # The CRM sends company_name; "name" is what older payloads used.
-            name = (cli.get("company_name") or cli.get("name") or "").strip()
-            if not name:
-                skipped += 1
-                details.append(f"SKIP client — no name (cmr_id={cmr_id})")
-                continue
-
-            # Match by cmr_id first, then by name
-            customer = cmr_id_to_customer.get(cmr_id)
-            matched_by = "cmr_id" if customer else None
-
-            if not customer:
-                customer = name_to_customer.get(name.lower())
-                matched_by = "name" if customer else None
-
-            if customer:
-                # Update existing
-                if not customer.cmr_id and cmr_id:
-                    customer.cmr_id = cmr_id
-                customer.name = name
-                if cli.get("email"):
-                    customer.email = cli["email"]
-                if cli.get("phone"):
-                    customer.phone = cli["phone"]
-                if cli.get("address"):
-                    customer.address = cli["address"]
-                if cli.get("tax_id"):
-                    customer.tax_id = cli["tax_id"]
-                customer.save()
-                clients_updated += 1
-                details.append(f"Updated customer: {name} (matched by {matched_by})")
-            else:
-                # Create new
-                code = _next_customer_code()
-                Customer.objects.create(
-                    code=code,
-                    name=name,
-                    email=cli.get("email", ""),
-                    phone=cli.get("phone", ""),
-                    address=cli.get("address", ""),
-                    tax_id=cli.get("tax_id", ""),
-                    cmr_id=cmr_id,
-                )
-                clients_created += 1
-                details.append(f"Created customer: {name} ({code})")
-
-        # ── Sync Suppliers ──
-        cmr_id_to_supplier = {}
-        name_to_supplier = {}
-        for s in Supplier.objects.all():
-            if s.cmr_id:
-                cmr_id_to_supplier[s.cmr_id] = s
-            name_to_supplier[s.name.lower()] = s
-
-        for sup in cmr_suppliers:
-            cmr_id = sup.get("id", "")
-            name = (sup.get("company_name") or sup.get("name") or "").strip()
-            if not name:
-                skipped += 1
-                details.append(f"SKIP supplier — no name (cmr_id={cmr_id})")
-                continue
-
-            supplier = cmr_id_to_supplier.get(cmr_id)
-            matched_by = "cmr_id" if supplier else None
-
-            if not supplier:
-                supplier = name_to_supplier.get(name.lower())
-                matched_by = "name" if supplier else None
-
-            if supplier:
-                if not supplier.cmr_id and cmr_id:
-                    supplier.cmr_id = cmr_id
-                supplier.name = name
-                if sup.get("email"):
-                    supplier.email = sup["email"]
-                if sup.get("phone"):
-                    supplier.phone = sup["phone"]
-                if sup.get("address"):
-                    supplier.address = sup["address"]
-                if sup.get("tax_id"):
-                    supplier.tax_id = sup["tax_id"]
-                supplier.save()
-                suppliers_updated += 1
-                details.append(f"Updated supplier: {name} (matched by {matched_by})")
-            else:
-                code = _next_supplier_code()
-                Supplier.objects.create(
-                    code=code,
-                    name=name,
-                    email=sup.get("email", ""),
-                    phone=sup.get("phone", ""),
-                    address=sup.get("address", ""),
-                    tax_id=sup.get("tax_id", ""),
-                    cmr_id=cmr_id,
-                )
-                suppliers_created += 1
-                details.append(f"Created supplier: {name} ({code})")
-
-    return Response({
-        "success": True,
-        "message": (
-            f"Contact sync complete: "
-            f"{clients_created} clients created, {clients_updated} updated, "
-            f"{suppliers_created} suppliers created, {suppliers_updated} updated"
-        ),
-        "data": {
-            "clients_created": clients_created,
-            "clients_updated": clients_updated,
-            "suppliers_created": suppliers_created,
-            "suppliers_updated": suppliers_updated,
-            "skipped": skipped,
-            "details": details,
-        },
-    })
-
-
-# ─── CMR Client List (proxy for frontend) ────────────────────────────────────
-
-@api_view(["GET"])
-@permission_classes([RoleWriteAccess])
-def cmr_clients_list(request):
-    """Proxy CMR clients list to the frontend."""
-    try:
-        from .cmr_client import CMRClient
-        client = CMRClient()
-        cmr_clients = client.get_clients(search=request.query_params.get("search"))
-    except Exception as e:
-        return Response(
-            {"success": False, "message": f"Failed to fetch CMR clients: {e}"},
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        )
-
-    # Mark which ones already exist locally
-    from sales.models import Customer
-    existing_cmr_ids = set(
-        Customer.objects.exclude(cmr_id="").values_list("cmr_id", flat=True)
-    )
-
-    results = []
-    for cli in cmr_clients:
-        # CMR returns company_name/contact_person instead of name
-        name = cli.get("company_name") or cli.get("name") or ""
-        contact = cli.get("contact_person", "")
-        display_name = f"{name} ({contact})" if contact and contact != name else name
-        city = cli.get("city", "")
-        country = cli.get("country", "")
-        address = cli.get("address") or ", ".join(filter(None, [city, country]))
-        results.append({
-            "id": cli.get("id", ""),
-            "name": display_name,
-            "email": cli.get("email", ""),
-            "phone": cli.get("phone", ""),
-            "address": address,
-            "tax_id": cli.get("tax_id", ""),
-            "currency": cli.get("preferred_currency", "EUR"),
-            "already_imported": cli.get("id", "") in existing_cmr_ids,
-        })
-
-    return Response({
-        "success": True,
-        "data": {"clients": results},
-    })
-
-
-# ─── CMR Supplier List (proxy for frontend) ──────────────────────────────────
-
-@api_view(["GET"])
-@permission_classes([RoleWriteAccess])
-def cmr_suppliers_list(request):
-    """Proxy CMR suppliers list to the frontend."""
-    try:
-        from .cmr_client import CMRClient
-        client = CMRClient()
-        cmr_suppliers = client.get_suppliers(search=request.query_params.get("search"))
-    except Exception as e:
-        return Response(
-            {"success": False, "message": f"Failed to fetch CMR suppliers: {e}"},
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        )
-
-    # Mark which ones already exist locally
-    from purchases.models import Supplier
-    existing_cmr_ids = set(
-        Supplier.objects.exclude(cmr_id="").values_list("cmr_id", flat=True)
-    )
-
-    results = []
-    for sup in cmr_suppliers:
-        name = sup.get("company_name") or sup.get("name") or ""
-        addr_parts = filter(None, [
-            sup.get("address_line1") or "",
-            sup.get("address_line2") or "",
-            sup.get("postal_code") or "",
-            sup.get("city") or "",
-            sup.get("country") or "",
-        ])
-        address = ", ".join(addr_parts)
-        results.append({
-            "id": sup.get("id", ""),
-            "name": name,
-            "email": sup.get("email", ""),
-            "phone": sup.get("phone", ""),
-            "address": address,
-            "category": sup.get("category", ""),
-            "currency": "MAD",
-            "already_imported": sup.get("id", "") in existing_cmr_ids,
-        })
-
-    return Response({
-        "success": True,
-        "data": {"suppliers": results},
-    })
 
 
 # ─── Google Places API ─────────────────────────────────────────────────────────
@@ -1989,8 +1391,6 @@ def places_details(request):
     except Exception as e:
         return Response({"success": False, "message": str(e)}, status=500)
 
-
-# ─── CMR Invoice Import ───────────────────────────────────────────────────────
 
 @api_view(["GET"])
 @permission_classes([RoleWriteAccess])
@@ -2134,15 +1534,11 @@ def bank_transactions_list(request):
     """Flat list of bank-source transactions (one row per bank-side JE line)."""
     qs = _bank_txn_queryset(request)
 
-    # Summary aggregates on full filtered set, one per currency: euros on the EUR
-    # account are never added to dirhams.
-    summaries = []
-    for agg in (qs.order_by().values("currency")
-                .annotate(total_debit=Sum("debit"), total_credit=Sum("credit")).order_by("currency")):
-        dr, cr = agg["total_debit"] or Decimal("0"), agg["total_credit"] or Decimal("0")
-        summaries.append({"currency": agg["currency"], "total_debit": str(dr), "total_credit": str(cr),
-                          "net": str(dr - cr)})
-    summaries.sort(key=lambda x: x["currency"] != chart.BASE_CURRENCY)
+    # Totaler i DKK (debit/credit er altid DKK).
+    agg = qs.order_by().aggregate(total_debit=Sum("debit"), total_credit=Sum("credit"))
+    dr, cr = agg["total_debit"] or Decimal("0"), agg["total_credit"] or Decimal("0")
+    summaries = [{"currency": chart.BASE_CURRENCY, "total_debit": str(dr), "total_credit": str(cr),
+                  "net": str(dr - cr)}]
 
     total_count = qs.count()
 
@@ -2171,6 +1567,7 @@ def bank_transactions_list(request):
             "debit": str(line.debit),
             "credit": str(line.credit),
             "currency": line.currency,
+            "amount_currency": str(line.amount_currency) if line.amount_currency is not None else None,
             "bank_account_id": str(line.account_id),
             "bank_account_code": line.account.code,
             "bank_account_name": line.account.name,

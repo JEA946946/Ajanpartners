@@ -22,6 +22,8 @@ const BankStatements = React.lazy(() => import('./pages/BankStatements'));
 const Reports = React.lazy(() => import('./pages/Reports'));
 const SelectClient = React.lazy(() => import('./pages/SelectClient'));
 const Onboarding = React.lazy(() => import('./pages/Onboarding'));
+const Profile = React.lazy(() => import('./pages/Profile'));
+const DataExport = React.lazy(() => import('./pages/DataExport'));
 const AccessGrants = React.lazy(() => import('./pages/AccessGrants'));
 const AdminApp = React.lazy(() => import('./admin/AdminApp'));
 
@@ -29,13 +31,17 @@ const AdminApp = React.lazy(() => import('./admin/AdminApp'));
 const Customers = React.lazy(() => import('./pages/Customers'));
 const Invoices = React.lazy(() => import('./pages/Invoices'));
 const CreditNotes = React.lazy(() => import('./pages/CreditNotes'));
+const Quotes = React.lazy(() => import('./pages/Quotes'));
+const Reminders = React.lazy(() => import('./pages/Reminders'));
 const Suppliers = React.lazy(() => import('./pages/Suppliers'));
 const Bills = React.lazy(() => import('./pages/Bills'));
+const EInvoiceInbox = React.lazy(() => import('./pages/EInvoiceInbox'));
 const Expenses = React.lazy(() => import('./pages/Expenses'));
 const Payments = React.lazy(() => import('./pages/Payments'));
 const BankTransactions = React.lazy(() => import('./pages/BankTransactions'));
 const BankReconciliation = React.lazy(() => import('./pages/BankReconciliation'));
 const BankRules = React.lazy(() => import('./pages/BankRules'));
+const BankFeeds = React.lazy(() => import('./pages/BankFeeds'));
 const Projects = React.lazy(() => import('./pages/Projects'));
 const Documents = React.lazy(() => import('./pages/Documents'));
 const TaxCodes = React.lazy(() => import('./pages/TaxCodes'));
@@ -45,6 +51,7 @@ const Settings = React.lazy(() => import('./pages/Settings'));
 const Users = React.lazy(() => import('./pages/Users'));
 const AccountingRules = React.lazy(() => import('./pages/AccountingRules'));
 const Payroll = React.lazy(() => import('./pages/Payroll'));
+const Inbox = React.lazy(() => import('./pages/Inbox'));
 
 const PageLoader = () => (
   <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '60vh' }}>
@@ -130,6 +137,7 @@ function App() {
               <Route path="/login" element={<Login />} />
               <Route path="/select-client" element={<ProtectedRoute noClient><SelectClient /></ProtectedRoute>} />
               <Route path="/onboarding" element={<ProtectedRoute noClient><Onboarding /></ProtectedRoute>} />
+              <Route path="/profile" element={<ProtectedRoute noClient><Profile /></ProtectedRoute>} />
               <Route path="/admin/*" element={<ProtectedRoute firmOnly><AdminApp /></ProtectedRoute>} />
 
               <Route path="/" element={<P><Dashboard /></P>} />
@@ -144,9 +152,12 @@ function App() {
               <Route path="/customers" element={<P><Customers /></P>} />
               <Route path="/invoices" element={<P feature="invoicing"><Invoices /></P>} />
               <Route path="/credit-notes" element={<P feature="invoicing"><CreditNotes /></P>} />
+              <Route path="/quotes" element={<P feature="invoicing"><Quotes /></P>} />
+              <Route path="/reminders" element={<P feature="invoicing"><Reminders /></P>} />
 
               <Route path="/suppliers" element={<P><Suppliers /></P>} />
               <Route path="/bills" element={<P feature="purchases"><Bills /></P>} />
+              <Route path="/einvoice/inbox" element={<P feature="einvoice_receive"><EInvoiceInbox /></P>} />
               <Route path="/expenses" element={<P feature="purchases"><Expenses /></P>} />
 
               <Route path="/payroll" element={<P feature="payroll"><Payroll /></P>} />
@@ -156,6 +167,7 @@ function App() {
               <Route path="/payments" element={<P feature="bank"><Payments /></P>} />
               <Route path="/bank-reconciliation" element={<P feature="bank"><BankReconciliation /></P>} />
               <Route path="/bank-rules" element={<P feature="bank"><BankRules /></P>} />
+              <Route path="/bank-feeds" element={<P feature="bank_feed"><BankFeeds /></P>} />
 
               <Route path="/projects" element={<P feature="projects"><Projects /></P>} />
 
@@ -165,9 +177,11 @@ function App() {
               <Route path="/reports" element={<P feature="reports"><Reports /></P>} />
 
               <Route path="/documents" element={<P><Documents /></P>} />
+              <Route path="/inbox" element={<P><Inbox /></P>} />
               <Route path="/audit-log" element={<P><AuditLog /></P>} />
               <Route path="/settings" element={<P><Settings /></P>} />
               <Route path="/settings/access" element={<P><AccessGrants /></P>} />
+              <Route path="/settings/export" element={<P><DataExport /></P>} />
               <Route path="/users" element={<P><Users /></P>} />
               <Route path="/accounting-rules" element={<P><AccountingRules /></P>} />
               <Route path="*" element={<Navigate to="/" replace />} />

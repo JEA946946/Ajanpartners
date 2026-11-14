@@ -1,803 +1,456 @@
-"""Payroll views — Employee CRUD, PayrollRun CRUD + approve."""
+"""Løn-API (feature-gatet som "payroll" i tenancy/features.py)."""
 
-import calendar
-import logging
-from datetime import date as date_mod
-from decimal import Decimal, ROUND_HALF_UP
+import json
+from datetime import date
+from decimal import Decimal, InvalidOperation
 
-from django.db import models, transaction
+from django.core.exceptions import ValidationError
+from django.db import transaction
+from django.http import HttpResponse
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
-from core.permissions import RoleWriteAccess
 from rest_framework.response import Response
 
-logger = logging.getLogger(__name__)
-
-from accounts import chart
-from accounts.models import Account
 from core.audit import log_action
-from journals.models import JournalEntry, JournalEntryLine
-from journals.periods import closed_period_error
-from .calculations import calculate_payroll_line, calculate_gross_from_net
-from .models import Employee, PayrollRun, PayrollLine, LeaveEntry, PublicHoliday, HolidayWork
+from core.permissions import RoleWriteAccess
+
+from . import eindkomst, services
+from .crypto import normalize_cpr
+from .holidays import danish_holidays, working_days
+from .models import Employee, PayrollLine, PayrollRun, PayrollSettings
+from .pdf import payroll_list_pdf, payslips_pdf
+from .rates import MissingRate, rates_for
 
 
-# ─── helpers ──────────────────────────────────────────────────────────────────
-
-def _employee_dict(emp):
-    # Compute net salary from gross for display
-    calc = calculate_payroll_line(emp.gross_salary) if emp.gross_salary else None
-    net = calc["net_salary"] if calc else Decimal("0")
-    net_display = _round_display(net)
-    return {
-        "id": str(emp.id),
-        "employee_number": emp.employee_number,
-        "first_name": emp.first_name,
-        "last_name": emp.last_name,
-        "cnss_number": emp.cnss_number,
-        "cin": emp.cin,
-        "hire_date": emp.hire_date.isoformat() if emp.hire_date else None,
-        "termination_date": emp.termination_date.isoformat() if emp.termination_date else None,
-        "gross_salary": str(emp.gross_salary),
-        "net_salary": net_display,
-        "salary_account_id": str(emp.salary_account_id) if emp.salary_account_id else None,
-        "salary_account_code": emp.salary_account.code if emp.salary_account else None,
-        "salary_account_name": emp.salary_account.name if emp.salary_account else None,
-        "bank_account_number": emp.bank_account_number,
-        "annual_leave_days": str(emp.annual_leave_days),
-        "is_active": emp.is_active,
-        "notes": emp.notes,
-        "created_at": emp.created_at.isoformat() if emp.created_at else None,
-        "updated_at": emp.updated_at.isoformat() if emp.updated_at else None,
-    }
+def _err(message, code=status.HTTP_400_BAD_REQUEST):
+    return Response({"success": False, "message": message}, status=code)
 
 
-def _round_display(val):
-    """Round to whole number if within 0.05, otherwise keep as-is."""
-    rounded = val.quantize(Decimal("1"), rounding=ROUND_HALF_UP)
-    return str(rounded) if abs(val - rounded) <= Decimal("0.05") else str(val)
+def _user_label(user):
+    return (f"{user.first_name} {user.last_name}".strip() or user.get_username()) if user else ""
 
 
-def _payroll_line_dict(line):
-    return {
-        "id": str(line.id),
-        "employee_id": str(line.employee_id),
-        "employee_number": line.employee.employee_number,
-        "employee_name": f"{line.employee.first_name} {line.employee.last_name}",
-        "gross_salary": str(line.gross_salary),
-        "cnss_employee": str(line.cnss_employee),
-        "cnss_employer": str(line.cnss_employer),
-        "ir_amount": str(line.ir_amount),
-        "net_salary": _round_display(line.net_salary),
-    }
+def _s(v):
+    return None if v is None else str(v)
 
 
-def _payroll_run_dict(run, include_lines=False):
-    d = {
-        "id": str(run.id),
-        "year": run.year,
-        "month": run.month,
-        "run_date": run.run_date.isoformat() if run.run_date else None,
-        "status": run.status,
-        "total_gross": str(run.total_gross),
-        "total_cnss_employee": str(run.total_cnss_employee),
-        "total_cnss_employer": str(run.total_cnss_employer),
-        "total_ir": str(run.total_ir),
-        "total_net": _round_display(run.total_net),
-        "journal_entry_id": str(run.journal_entry_id) if run.journal_entry_id else None,
-        "notes": run.notes,
-        "created_by": run.created_by,
-        "created_at": run.created_at.isoformat() if run.created_at else None,
-        "line_count": run.lines.count(),
-    }
-    if include_lines:
-        d["lines"] = [_payroll_line_dict(l) for l in run.lines.select_related("employee")]
+# ─── Medarbejdere ─────────────────────────────────────────────────────────────
+
+EMP_TEXT = ("employee_number", "first_name", "last_name", "address", "email", "bank_reg", "bank_account",
+            "pay_form", "tax_card", "holiday_scheme", "holiday_type", "holiday_allowance_mode",
+            "pension_company", "atp_class", "notes")
+EMP_DECIMAL = ("monthly_salary", "hourly_rate", "hours_per_week", "tax_rate", "deduction_month",
+               "free_card_amount", "holiday_allowance_pct", "pension_employee_pct", "pension_employer_pct",
+               "car_benefit_month")
+EMP_DATE = ("start_date", "end_date")
+
+
+def _employee_dict(e):
+    d = {"id": str(e.id), "name": e.name, "cpr_masked": e.cpr_masked, "has_cpr": bool(e.cpr_last4),
+         "is_active": e.is_active, "free_phone": e.free_phone, "tax_card_year": e.tax_card_year,
+         "tax_card_fetched_at": e.tax_card_fetched_at.isoformat() if e.tax_card_fetched_at else None,
+         "deduction_fortnight": _s(e.deduction_fortnight)}
+    for f in EMP_TEXT:
+        d[f] = getattr(e, f)
+    for f in EMP_DECIMAL:
+        d[f] = _s(getattr(e, f))
+    for f in EMP_DATE:
+        v = getattr(e, f)
+        d[f] = v.isoformat() if v else None
     return d
 
 
+def _apply_employee(emp, data):
+    choices = {f.name: {c[0] for c in f.choices} for f in Employee._meta.fields if f.choices}
+    for f in EMP_TEXT:
+        if f in data and data[f] is not None:
+            val = str(data[f]).strip()
+            if f in choices and val not in choices[f]:
+                raise ValidationError(f"Ugyldig værdi for {f}: {val}")
+            setattr(emp, f, val)
+    for f in EMP_DECIMAL:
+        if f in data and data[f] not in (None, ""):
+            try:
+                setattr(emp, f, Decimal(str(data[f]).replace(",", ".")))
+            except InvalidOperation:
+                raise ValidationError(f"Ugyldigt tal i {f}") from None
+    if "deduction_fortnight" in data:
+        v = data["deduction_fortnight"]
+        emp.deduction_fortnight = Decimal(str(v).replace(",", ".")) if v not in (None, "") else None
+    for f in EMP_DATE:
+        if f in data:
+            setattr(emp, f, date.fromisoformat(data[f]) if data[f] else None)
+    if "is_active" in data:
+        emp.is_active = bool(data["is_active"])
+    if "free_phone" in data:
+        emp.free_phone = bool(data["free_phone"])
+    if data.get("cpr"):
+        emp.set_cpr(normalize_cpr(data["cpr"]))
+    if emp.holiday_scheme == "feriekonto":
+        emp.holiday_type = "without_pay"  # FerieKonto modtager kun feriepenge (ferie uden løn)
+    if not emp.first_name or not emp.last_name:
+        raise ValidationError("Fornavn og efternavn skal udfyldes.")
+    if emp.end_date and emp.start_date and emp.end_date < emp.start_date:
+        raise ValidationError("Fratrædelsesdato ligger før startdato.")
+
+
 def _next_employee_number():
-    last = Employee.objects.order_by("-employee_number").first()
-    if not last:
-        return "EMP-001"
-    try:
-        num = int(last.employee_number.split("-")[1])
-        return f"EMP-{num + 1:03d}"
-    except (IndexError, ValueError):
-        return f"EMP-{Employee.objects.count() + 1:03d}"
+    nums = [int(n) for n in Employee.objects.values_list("employee_number", flat=True) if str(n).isdigit()]
+    return str(max(nums, default=0) + 1)
 
-
-def _next_je_entry_number():
-    from journals.numbering import next_je_number
-    return next_je_number()
-
-
-# ─── Employee views ──────────────────────────────────────────────────────────
 
 @api_view(["GET", "POST"])
 @permission_classes([RoleWriteAccess])
 def employees_list_create(request):
     if request.method == "GET":
-        qs = Employee.objects.select_related("salary_account").all()
-        active_only = request.query_params.get("active")
-        if active_only == "true":
+        qs = Employee.objects.all()
+        if request.query_params.get("active") == "true":
             qs = qs.filter(is_active=True)
         return Response({"results": [_employee_dict(e) for e in qs]})
-
-    # POST — create
-    data = request.data
+    emp = Employee(employee_number=str(request.data.get("employee_number") or _next_employee_number()))
     try:
-        salary_account_id = data.get("salary_account_id")
-        if not salary_account_id:
-            return Response(
-                {"success": False, "message": "salary_account_id is required"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-        salary_account = Account.objects.get(id=salary_account_id)
-    except (Account.DoesNotExist, KeyError, ValueError):
-        return Response(
-            {"success": False, "message": "Valid salary_account_id is required"},
-            status=status.HTTP_400_BAD_REQUEST,
-        )
-
-    try:
-        # If net_salary is provided, back-calculate gross_salary
-        raw_gross = data.get("gross_salary", "0")
-        if not raw_gross or str(raw_gross).strip() == "":
-            raw_gross = "0"
-        gross_salary = Decimal(str(raw_gross))
-        net_salary_input = data.get("net_salary")
-        if net_salary_input and str(net_salary_input).strip():
-            net_val = Decimal(str(net_salary_input))
-            if net_val > 0:
-                gross_salary = calculate_gross_from_net(net_val)
-
-        emp = Employee.objects.create(
-            employee_number=data.get("employee_number") or _next_employee_number(),
-            first_name=data.get("first_name", ""),
-            last_name=data.get("last_name", ""),
-            cnss_number=data.get("cnss_number", ""),
-            cin=data.get("cin", ""),
-            hire_date=data.get("hire_date") or None,
-            termination_date=data.get("termination_date") or None,
-            gross_salary=gross_salary,
-            salary_account=salary_account,
-            bank_account_number=data.get("bank_account_number", ""),
-            annual_leave_days=Decimal(str(data.get("annual_leave_days") or 18)),
-            is_active=data.get("is_active", True),
-            notes=data.get("notes", ""),
-        )
-        emp = Employee.objects.select_related("salary_account").get(id=emp.id)
-        return Response(
-            {"success": True, "employee": _employee_dict(emp)},
-            status=status.HTTP_201_CREATED,
-        )
-    except Exception as e:
-        logger.exception("Error creating employee")
-        return Response(
-            {"success": False, "message": str(e)},
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        )
+        _apply_employee(emp, request.data)
+    except (ValidationError, ValueError) as e:
+        return _err(" ".join(getattr(e, "messages", [str(e)])))
+    if Employee.objects.filter(employee_number=emp.employee_number).exists():
+        return _err("Medarbejdernummeret er i brug.")
+    emp.save()
+    log_action(request.user, "create", "Employee", emp.id, {"employee_number": emp.employee_number})
+    return Response({"success": True, "employee": _employee_dict(emp)}, status=status.HTTP_201_CREATED)
 
 
 @api_view(["GET", "PUT", "DELETE"])
 @permission_classes([RoleWriteAccess])
 def employees_detail(request, pk):
-    try:
-        emp = Employee.objects.select_related("salary_account").get(id=pk)
-    except Employee.DoesNotExist:
-        return Response({"success": False, "message": "Employee not found"}, status=status.HTTP_404_NOT_FOUND)
-
+    emp = Employee.objects.filter(id=pk).first()
+    if emp is None:
+        return _err("Medarbejderen findes ikke.", status.HTTP_404_NOT_FOUND)
     if request.method == "GET":
         return Response(_employee_dict(emp))
-
     if request.method == "DELETE":
         if emp.payroll_lines.exists():
-            return Response(
-                {"success": False, "message": "Cannot delete employee with payroll history"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+            return _err("Medarbejderen har lønhistorik og kan ikke slettes. Sæt en fratrædelsesdato i stedet.")
+        log_action(request.user, "delete", "Employee", emp.id, {"employee_number": emp.employee_number})
         emp.delete()
         return Response({"success": True})
-
-    # PUT — update
-    data = request.data
-    if data.get("salary_account_id"):
-        try:
-            emp.salary_account = Account.objects.get(id=data["salary_account_id"])
-        except (Account.DoesNotExist, ValueError):
-            return Response(
-                {"success": False, "message": "Invalid salary_account_id"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-    for field in ("first_name", "last_name", "cnss_number", "cin",
-                  "bank_account_number", "notes", "employee_number"):
-        if field in data and data[field] is not None:
-            setattr(emp, field, data[field])
-    if "is_active" in data:
-        emp.is_active = bool(data["is_active"])
-    if data.get("hire_date"):
-        emp.hire_date = data["hire_date"]
-    if "termination_date" in data:
-        emp.termination_date = data["termination_date"] or None
-    if "annual_leave_days" in data and data["annual_leave_days"] not in (None, ""):
-        emp.annual_leave_days = Decimal(str(data["annual_leave_days"]))
-    if "gross_salary" in data and data["gross_salary"] not in (None, ""):
-        emp.gross_salary = Decimal(str(data["gross_salary"]))
-    # If net_salary is provided, back-calculate gross_salary
-    net_salary_input = data.get("net_salary")
-    if net_salary_input and str(net_salary_input).strip():
-        net_val = Decimal(str(net_salary_input))
-        if net_val > 0:
-            emp.gross_salary = calculate_gross_from_net(net_val)
+    try:
+        _apply_employee(emp, request.data)
+    except (ValidationError, ValueError) as e:
+        return _err(" ".join(getattr(e, "messages", [str(e)])))
+    if Employee.objects.filter(employee_number=emp.employee_number).exclude(id=emp.id).exists():
+        return _err("Medarbejdernummeret er i brug.")
     emp.save()
-    emp.refresh_from_db()
-    emp = Employee.objects.select_related("salary_account").get(id=emp.id)
+    changed = sorted(k for k in request.data if k != "cpr") + (["cpr"] if request.data.get("cpr") else [])
+    log_action(request.user, "update", "Employee", emp.id, {"fields": changed})  # aldrig CPR i loggen
     return Response({"success": True, "employee": _employee_dict(emp)})
-
-
-# ─── PayrollRun views ────────────────────────────────────────────────────────
-
-@api_view(["GET", "POST"])
-@permission_classes([RoleWriteAccess])
-def payroll_runs_list_create(request):
-    if request.method == "GET":
-        qs = PayrollRun.objects.all()
-        year = request.query_params.get("year")
-        if year:
-            qs = qs.filter(year=int(year))
-        return Response({"results": [_payroll_run_dict(r) for r in qs]})
-
-    # POST — create new payroll run and calculate
-    data = request.data
-    year = int(data.get("year", date_mod.today().year))
-    month = int(data.get("month", date_mod.today().month))
-
-    if PayrollRun.objects.filter(year=year, month=month).exists():
-        return Response(
-            {"success": False, "message": f"Payroll run for {year}-{month:02d} already exists"},
-            status=status.HTTP_400_BAD_REQUEST,
-        )
-
-    last_day = calendar.monthrange(year, month)[1]
-    first_of_month = date_mod(year, month, 1)
-    last_of_month = date_mod(year, month, last_day)
-
-    employees = (
-        Employee.objects.filter(is_active=True)
-        .filter(
-            # hire_date must be on or before the last day of the payroll month
-            models.Q(hire_date__isnull=True) | models.Q(hire_date__lte=last_of_month)
-        )
-        .exclude(
-            # exclude employees terminated before the payroll month started
-            termination_date__lt=first_of_month
-        )
-        .select_related("salary_account")
-    )
-    if not employees.exists():
-        return Response(
-            {"success": False, "message": "No active employees found"},
-            status=status.HTTP_400_BAD_REQUEST,
-        )
-
-    created_by = (
-        f"{request.user.first_name} {request.user.last_name}".strip()
-        or request.user.username
-    )
-
-    with transaction.atomic():
-        run = PayrollRun.objects.create(
-            year=year,
-            month=month,
-            run_date=date_mod.today(),
-            status="draft",
-            created_by=created_by,
-        )
-
-        total_gross = Decimal("0")
-        total_cnss_employee = Decimal("0")
-        total_cnss_employer = Decimal("0")
-        total_ir = Decimal("0")
-        total_net = Decimal("0")
-
-        for emp in employees:
-            calc = calculate_payroll_line(emp.gross_salary)
-            PayrollLine.objects.create(
-                payroll_run=run,
-                employee=emp,
-                gross_salary=calc["gross_salary"],
-                cnss_employee=calc["cnss_employee"],
-                cnss_employer=calc["cnss_employer"],
-                ir_amount=calc["ir_amount"],
-                net_salary=calc["net_salary"],
-            )
-            total_gross += calc["gross_salary"]
-            total_cnss_employee += calc["cnss_employee"]
-            total_cnss_employer += calc["cnss_employer"]
-            total_ir += calc["ir_amount"]
-            total_net += calc["net_salary"]
-
-        run.total_gross = total_gross
-        run.total_cnss_employee = total_cnss_employee
-        run.total_cnss_employer = total_cnss_employer
-        run.total_ir = total_ir
-        run.total_net = total_net
-        run.save()
-
-    return Response(
-        {"success": True, "payroll_run": _payroll_run_dict(run, include_lines=True)},
-        status=status.HTTP_201_CREATED,
-    )
-
-
-@api_view(["GET", "DELETE"])
-@permission_classes([RoleWriteAccess])
-def payroll_runs_detail(request, pk):
-    try:
-        run = PayrollRun.objects.get(id=pk)
-    except PayrollRun.DoesNotExist:
-        return Response({"success": False, "message": "Payroll run not found"}, status=status.HTTP_404_NOT_FOUND)
-
-    if request.method == "GET":
-        return Response(_payroll_run_dict(run, include_lines=True))
-
-    # DELETE
-    if run.status != "draft":
-        return Response(
-            {"success": False, "message": "Only draft payroll runs can be deleted"},
-            status=status.HTTP_400_BAD_REQUEST,
-        )
-    period = f"{run.year}-{run.month:02d}"
-    run.delete()
-    log_action(request.user, "delete", "PayrollRun", pk, {"period": period})
-    return Response({"success": True})
-
-
-def _recalculate_run_totals(run):
-    """Recalculate and save run totals from its lines."""
-    lines = run.lines.all()
-    run.total_gross = sum(l.gross_salary for l in lines)
-    run.total_cnss_employee = sum(l.cnss_employee for l in lines)
-    run.total_cnss_employer = sum(l.cnss_employer for l in lines)
-    run.total_ir = sum(l.ir_amount for l in lines)
-    run.total_net = sum(l.net_salary for l in lines)
-    run.save()
-
-
-@api_view(["PUT", "DELETE"])
-@permission_classes([RoleWriteAccess])
-def payroll_run_update_line(request, pk, line_pk):
-    """Update or delete a single payroll line."""
-    try:
-        run = PayrollRun.objects.get(id=pk)
-    except PayrollRun.DoesNotExist:
-        return Response({"success": False, "message": "Payroll run not found"}, status=status.HTTP_404_NOT_FOUND)
-
-    if run.status != "draft":
-        return Response(
-            {"success": False, "message": "Only draft payroll runs can be edited"},
-            status=status.HTTP_400_BAD_REQUEST,
-        )
-
-    try:
-        line = run.lines.get(id=line_pk)
-    except PayrollLine.DoesNotExist:
-        return Response({"success": False, "message": "Payroll line not found"}, status=status.HTTP_404_NOT_FOUND)
-
-    if request.method == "DELETE":
-        with transaction.atomic():
-            line.delete()
-            _recalculate_run_totals(run)
-        run.refresh_from_db()
-        return Response({
-            "success": True,
-            "payroll_run": _payroll_run_dict(run, include_lines=True),
-        })
-
-    data = request.data
-    gross = data.get("gross_salary")
-    net_input = data.get("net_salary")
-
-    # Accept either gross_salary or net_salary (net → back-calculate gross)
-    desired_net = None
-    if net_input and str(net_input).strip():
-        net_val = Decimal(str(net_input))
-        if net_val > 0:
-            desired_net = net_val
-            gross = str(calculate_gross_from_net(net_val))
-
-    if gross is None or gross == "":
-        return Response(
-            {"success": False, "message": "gross_salary or net_salary is required"},
-            status=status.HTTP_400_BAD_REQUEST,
-        )
-
-    with transaction.atomic():
-        calc = calculate_payroll_line(Decimal(str(gross)))
-        line.gross_salary = calc["gross_salary"]
-        line.cnss_employee = calc["cnss_employee"]
-        line.cnss_employer = calc["cnss_employer"]
-        line.ir_amount = calc["ir_amount"]
-        # Use the exact desired net if provided, otherwise use calculated
-        line.net_salary = desired_net if desired_net else calc["net_salary"]
-        line.save()
-
-        _recalculate_run_totals(run)
-
-    run.refresh_from_db()
-    return Response({
-        "success": True,
-        "payroll_run": _payroll_run_dict(run, include_lines=True),
-    })
 
 
 @api_view(["POST"])
 @permission_classes([RoleWriteAccess])
-def payroll_run_approve(request, pk):
-    """Approve a payroll run: create journal entry with double-entry bookkeeping."""
+def employee_fetch_tax_card(request, pk):
+    emp = Employee.objects.filter(id=pk).first()
+    if emp is None:
+        return _err("Medarbejderen findes ikke.", status.HTTP_404_NOT_FOUND)
+    year = int(request.data.get("year") or date.today().year)
     try:
-        run = PayrollRun.objects.get(id=pk)
-    except PayrollRun.DoesNotExist:
-        return Response({"success": False, "message": "Payroll run not found"}, status=status.HTTP_404_NOT_FOUND)
-
-    if run.status != "draft":
-        return Response(
-            {"success": False, "message": "Only draft payroll runs can be approved"},
-            status=status.HTTP_400_BAD_REQUEST,
-        )
-
-    err = closed_period_error(run.run_date)
-    if err:
-        return Response({"success": False, "message": err}, status=status.HTTP_400_BAD_REQUEST)
-
-    lines = run.lines.select_related("employee", "employee__salary_account")
-    if not lines.exists():
-        return Response(
-            {"success": False, "message": "No payroll lines found"},
-            status=status.HTTP_400_BAD_REQUEST,
-        )
-
-    # Find required accounts
-    needed = {
-        chart.SOCIAL_CHARGES: "Cotisations de sécurité sociale",
-        chart.CNSS_PAYABLE: "CNSS",
-        chart.IR_PAYABLE: "Etat - IGR",
-        chart.SALARIES_PAYABLE: "Personnel - rémunérations dues",
-    }
-    found = {a.code: a for a in Account.objects.filter(code__in=needed)}
-    missing = [f"{c} ({n})" for c, n in needed.items() if c not in found]
-    if missing:
-        return Response(
-            {"success": False, "message": f"Account not found: {', '.join(missing)}"},
-            status=status.HTTP_400_BAD_REQUEST,
-        )
-    cnss_account = found[chart.SOCIAL_CHARGES]
-    cnss_payable = found[chart.CNSS_PAYABLE]
-    ir_payable = found[chart.IR_PAYABLE]
-    # The net pay is owed to the staff (4432) and paid by the bank transfer: that
-    # bank line is categorised to 4432, so the payment is booked once, from the
-    # statement.
-    salaries_payable = found[chart.SALARIES_PAYABLE]
-
-    created_by = (
-        f"{request.user.first_name} {request.user.last_name}".strip()
-        or request.user.username
-    )
-
-    month_label = f"{run.year}-{run.month:02d}"
-
-    with transaction.atomic():
-        entry = JournalEntry.objects.create(
-            entry_number=_next_je_entry_number(),
-            date=run.run_date,
-            description=f"Payroll {month_label}",
-            reference=f"PAY-{month_label}",
-            piece_number=f"PAY-{month_label}",
-            source="payroll",
-            is_posted=True,
-            created_by=created_by,
-        )
-
-        # DR: Each employee's salary account for their gross salary
-        for line in lines:
-            JournalEntryLine.objects.create(
-                journal_entry=entry,
-                account=line.employee.salary_account,
-                debit=line.gross_salary,
-                credit=Decimal("0"),
-                description=f"Salary {line.employee.first_name} {line.employee.last_name} — {month_label}",
-            )
-
-        # DR: CNSS employer contribution
-        if run.total_cnss_employer > 0:
-            JournalEntryLine.objects.create(
-                journal_entry=entry,
-                account=cnss_account,
-                debit=run.total_cnss_employer,
-                credit=Decimal("0"),
-                description=f"CNSS employer contribution — {month_label}",
-            )
-
-        # CR: CNSS (employee + employer share)
-        total_cnss = run.total_cnss_employee + run.total_cnss_employer
-        if total_cnss > 0:
-            JournalEntryLine.objects.create(
-                journal_entry=entry,
-                account=cnss_payable,
-                debit=Decimal("0"),
-                credit=total_cnss,
-                description=f"CNSS payable — {month_label}",
-            )
-
-        # CR: IR withheld on salaries
-        if run.total_ir > 0:
-            JournalEntryLine.objects.create(
-                journal_entry=entry,
-                account=ir_payable,
-                debit=Decimal("0"),
-                credit=run.total_ir,
-                description=f"IR payable — {month_label}",
-            )
-
-        # CR: net pay owed to the staff
-        if run.total_net > 0:
-            JournalEntryLine.objects.create(
-                journal_entry=entry,
-                account=salaries_payable,
-                debit=Decimal("0"),
-                credit=run.total_net,
-                description=f"Net salaries due — {month_label}",
-            )
-
-        run.status = "approved"
-        run.journal_entry = entry
-        run.save()
-
-        log_action(request.user, "post", "PayrollRun", run.id,
-                   {"period": month_label, "total_net": str(run.total_net)})
-
-    return Response({
-        "success": True,
-        "payroll_run": _payroll_run_dict(run, include_lines=True),
-        "journal_entry_id": str(entry.id),
-    })
+        card = eindkomst.fetch_tax_card(emp.cpr, year)
+    except NotImplementedError as e:
+        return _err(str(e), status.HTTP_501_NOT_IMPLEMENTED)
+    except ValueError as e:
+        return _err(str(e))
+    emp.tax_card, emp.tax_rate = card.card_type, card.rate
+    emp.deduction_month, emp.deduction_fortnight = card.deduction_month, card.deduction_fortnight
+    emp.free_card_amount, emp.tax_card_year = card.free_card_amount, card.year
+    emp.tax_card_fetched_at = timezone.now()
+    emp.save()
+    log_action(request.user, "update", "Employee", emp.id, {"eskattekort": card.year, "card": card.card_type})
+    return Response({"success": True, "employee": _employee_dict(emp)})
 
 
-# ─── Leave / vacation views ──────────────────────────────────────────────────
+# ─── Indstillinger, helligdage, satser ────────────────────────────────────────
 
-def _leave_dict(entry):
-    return {
-        "id": str(entry.id),
-        "employee_id": str(entry.employee_id),
-        "employee_name": f"{entry.employee.first_name} {entry.employee.last_name}".strip(),
-        "employee_number": entry.employee.employee_number,
-        "start_date": entry.start_date.isoformat(),
-        "end_date": entry.end_date.isoformat(),
-        "days": str(entry.days),
-        "leave_type": entry.leave_type,
-        "note": entry.note,
-    }
-
-
-@api_view(["GET", "POST"])
+@api_view(["GET", "PUT"])
 @permission_classes([RoleWriteAccess])
-def leave_list_create(request):
-    if request.method == "GET":
-        qs = LeaveEntry.objects.select_related("employee").all()
-        if request.query_params.get("employee_id"):
-            qs = qs.filter(employee_id=request.query_params["employee_id"])
-        if request.query_params.get("year"):
-            try:
-                qs = qs.filter(start_date__year=int(request.query_params["year"]))
-            except (ValueError, TypeError):
-                pass
-        return Response({"success": True, "results": [_leave_dict(e) for e in qs]})
-
-    # POST
-    data = request.data
-    try:
-        employee = Employee.objects.get(id=data.get("employee_id"))
-    except (Employee.DoesNotExist, ValueError, TypeError):
-        return Response(
-            {"success": False, "message": "Valid employee_id is required"},
-            status=status.HTTP_400_BAD_REQUEST,
-        )
-    if not data.get("start_date") or not data.get("end_date"):
-        return Response(
-            {"success": False, "message": "start_date and end_date are required"},
-            status=status.HTTP_400_BAD_REQUEST,
-        )
-    entry = LeaveEntry.objects.create(
-        employee=employee,
-        start_date=data["start_date"],
-        end_date=data["end_date"],
-        days=Decimal(str(data.get("days") or 0)),
-        leave_type=data.get("leave_type") or "annual",
-        note=data.get("note", ""),
-    )
-    entry = LeaveEntry.objects.select_related("employee").get(id=entry.id)
-    return Response(
-        {"success": True, "leave": _leave_dict(entry)},
-        status=status.HTTP_201_CREATED,
-    )
-
-
-@api_view(["PUT", "DELETE"])
-@permission_classes([RoleWriteAccess])
-def leave_detail(request, pk):
-    try:
-        entry = LeaveEntry.objects.select_related("employee").get(id=pk)
-    except LeaveEntry.DoesNotExist:
-        return Response({"success": False, "message": "Leave entry not found"}, status=status.HTTP_404_NOT_FOUND)
-
-    if request.method == "DELETE":
-        entry.delete()
-        return Response({"success": True})
-
-    data = request.data
-    if data.get("employee_id"):
-        try:
-            entry.employee = Employee.objects.get(id=data["employee_id"])
-        except (Employee.DoesNotExist, ValueError):
-            return Response({"success": False, "message": "Invalid employee_id"}, status=status.HTTP_400_BAD_REQUEST)
-    if data.get("start_date"):
-        entry.start_date = data["start_date"]
-    if data.get("end_date"):
-        entry.end_date = data["end_date"]
-    if "days" in data and data["days"] not in (None, ""):
-        entry.days = Decimal(str(data["days"]))
-    if data.get("leave_type"):
-        entry.leave_type = data["leave_type"]
-    if "note" in data and data["note"] is not None:
-        entry.note = data["note"]
-    entry.save()
-    entry = LeaveEntry.objects.select_related("employee").get(id=entry.id)
-    return Response({"success": True, "leave": _leave_dict(entry)})
+def payroll_settings(request):
+    ps = PayrollSettings.get()
+    if request.method == "PUT":
+        if "se_number" in request.data:
+            se = str(request.data["se_number"] or "").strip()
+            if se and not (se.isdigit() and len(se) == 8):
+                return _err("SE-nummeret skal have 8 cifre.")
+            ps.se_number = se
+        if "grundlovsdag" in request.data:
+            if request.data["grundlovsdag"] not in ("none", "half", "full"):
+                return _err("Ugyldig værdi for grundlovsdag.")
+            ps.grundlovsdag = request.data["grundlovsdag"]
+        ps.save()
+        log_action(request.user, "update", "PayrollSettings", ps.id,
+                   {"se_number": ps.se_number, "grundlovsdag": ps.grundlovsdag})
+    return Response({"se_number": ps.se_number, "grundlovsdag": ps.grundlovsdag})
 
 
 @api_view(["GET"])
 @permission_classes([RoleWriteAccess])
-def leave_overview(request):
-    """Per-employee vacation balance for a year: entitled / taken / remaining."""
+def holidays_list(request):
+    year = int(request.query_params.get("year") or date.today().year)
+    mode = request.query_params.get("grundlovsdag") or PayrollSettings.get().grundlovsdag
     try:
-        year = int(request.query_params.get("year") or date_mod.today().year)
-    except (ValueError, TypeError):
-        year = date_mod.today().year
-
-    employees = Employee.objects.filter(is_active=True).order_by("employee_number")
-    # Sum annual-leave days taken per employee in the given year (by start_date year)
-    taken_map = {}
-    taken_rows = (
-        LeaveEntry.objects
-        .filter(leave_type="annual", start_date__year=year)
-        .values("employee_id")
-        .annotate(total=models.Sum("days"))
-    )
-    for row in taken_rows:
-        taken_map[str(row["employee_id"])] = row["total"] or Decimal("0")
-
-    rows = []
-    for emp in employees:
-        entitled = emp.annual_leave_days or Decimal("0")
-        taken = taken_map.get(str(emp.id), Decimal("0"))
-        rows.append({
-            "employee_id": str(emp.id),
-            "employee_number": emp.employee_number,
-            "employee_name": f"{emp.first_name} {emp.last_name}".strip(),
-            "entitled": str(entitled),
-            "taken": str(taken),
-            "remaining": str(entitled - taken),
-        })
-    return Response({"success": True, "year": year, "results": rows})
+        days = danish_holidays(year, mode)
+    except ValueError as e:
+        return _err(str(e))
+    return Response({
+        "year": year, "grundlovsdag": mode,
+        "results": [{"date": d.isoformat(), "name": n, "share": str(s)} for d, n, s in days],
+        "working_days": {m: str(working_days(year, m, mode)) for m in range(1, 13)},
+    })
 
 
-# ─── Public holidays (double pay if worked) ──────────────────────────────────
-
-# Standard Moroccan fixed-date public holidays (month, day, name). Islamic
-# (lunar) holidays move each year and are added manually by the user.
-STANDARD_HOLIDAYS = [
-    (1, 1, "New Year"),
-    (1, 11, "Independence Manifesto Day"),
-    (5, 1, "Labour Day"),
-    (7, 30, "Throne Day"),
-    (8, 14, "Oued Ed-Dahab Day"),
-    (8, 20, "Revolution Day"),
-    (8, 21, "Youth Day"),
-    (11, 6, "Green March"),
-    (11, 18, "Independence Day"),
-]
+@api_view(["GET"])
+@permission_classes([RoleWriteAccess])
+def rates_view(request):
+    year = int(request.query_params.get("year") or date.today().year)
+    try:
+        r = rates_for(year)
+    except MissingRate as e:
+        return _err(str(e), status.HTTP_404_NOT_FOUND)
+    return Response({"year": year, "am_rate": str(r["am_rate"]), "holiday_pay_rate": str(r["holiday_pay_rate"]),
+                     "holiday_allowance_rate": str(r["holiday_allowance_rate"]),
+                     "free_phone_year": str(r["free_phone_year"]),
+                     "atp_a_month": [[str(x) for x in row] for row in r["atp"]["A"]["month"]]})
 
 
-def _holiday_dict(h):
-    return {
-        "id": str(h.id),
-        "date": h.date.isoformat(),
-        "name": h.name,
-        "worker_ids": [str(w.employee_id) for w in h.workers.all()],
-    }
+# ─── Lønkørsler ───────────────────────────────────────────────────────────────
+
+LINE_OUT = PayrollLine.INPUT_FIELDS + services.RESULT_FIELDS + ("tax_card", "tax_rate", "calculated")
+
+
+def _line_dict(l):
+    d = {"id": str(l.id), "employee_id": str(l.employee_id), "employee_number": l.employee.employee_number,
+         "employee_name": l.employee.name, "pay_form": l.employee.pay_form}
+    for f in LINE_OUT:
+        v = getattr(l, f)
+        d[f] = v if isinstance(v, (bool, list, str)) else _s(v)
+    return d
+
+
+RUN_TOTALS = ("total_gross", "total_benefits", "total_am", "total_a_tax", "total_atp_employee",
+              "total_atp_employer", "total_pension_employee", "total_pension_employer", "total_holiday",
+              "total_b_income", "total_net")
+
+
+def _run_dict(run, include_lines=False):
+    d = {"id": str(run.id), "frequency": run.frequency, "year": run.year, "month": run.month,
+         "label": run.label, "period_start": run.period_start.isoformat(), "period_end": run.period_end.isoformat(),
+         "pay_date": run.pay_date.isoformat(), "status": run.status, "is_editable": run.is_editable,
+         "journal_entry_id": _s(run.journal_entry_id), "approved_by": run.approved_by,
+         "approved_at": run.approved_at.isoformat() if run.approved_at else None,
+         "eindkomst_status": run.eindkomst_status, "eindkomst_reference": run.eindkomst_reference,
+         "eindkomst_submitted_at": run.eindkomst_submitted_at.isoformat() if run.eindkomst_submitted_at else None,
+         "notes": run.notes, "created_by": run.created_by, "line_count": run.lines.count()}
+    for f in RUN_TOTALS:
+        d[f] = _s(getattr(run, f))
+    if include_lines:
+        d["lines"] = [_line_dict(l) for l in run.lines.select_related("employee")]
+    return d
+
+
+def _get_run(pk):
+    return PayrollRun.objects.filter(id=pk).first()
 
 
 @api_view(["GET", "POST"])
 @permission_classes([RoleWriteAccess])
-def holidays_list_create(request):
+def runs_list_create(request):
     if request.method == "GET":
-        qs = PublicHoliday.objects.prefetch_related("workers").all()
+        qs = PayrollRun.objects.all()
         if request.query_params.get("year"):
-            try:
-                qs = qs.filter(date__year=int(request.query_params["year"]))
-            except (ValueError, TypeError):
-                pass
-        return Response({"success": True, "results": [_holiday_dict(h) for h in qs]})
-
+            qs = qs.filter(year=int(request.query_params["year"]))
+        return Response({"results": [_run_dict(r) for r in qs]})
     data = request.data
-    if not data.get("date"):
-        return Response({"success": False, "message": "date is required"}, status=status.HTTP_400_BAD_REQUEST)
-    h = PublicHoliday.objects.create(date=data["date"], name=data.get("name", ""))
-    return Response({"success": True, "holiday": _holiday_dict(h)}, status=status.HTTP_201_CREATED)
-
-
-@api_view(["PUT", "DELETE"])
-@permission_classes([RoleWriteAccess])
-def holidays_detail(request, pk):
+    today = date.today()
     try:
-        h = PublicHoliday.objects.prefetch_related("workers").get(id=pk)
-    except PublicHoliday.DoesNotExist:
-        return Response({"success": False, "message": "Holiday not found"}, status=status.HTTP_404_NOT_FOUND)
+        frequency = data.get("frequency", "month")
+        if frequency not in ("month", "fortnight"):
+            raise services.PayrollError("Ugyldig lønperiode.")
+        ps = date.fromisoformat(data["period_start"]) if data.get("period_start") else None
+        pay_date = date.fromisoformat(data["pay_date"]) if data.get("pay_date") else None
+        year, month = int(data.get("year", today.year)), int(data.get("month", today.month))
+        rates_for(ps.year if ps else year)
+        run = services.create_run(frequency=frequency, year=year, month=month, period_start=ps,
+                                  pay_date=pay_date, created_by=_user_label(request.user))
+    except (services.PayrollError, MissingRate, ValueError) as e:
+        return _err(str(e))
+    log_action(request.user, "create", "PayrollRun", run.id, {"period": run.label})
+    return Response({"success": True, "payroll_run": _run_dict(run, True)}, status=status.HTTP_201_CREATED)
 
+
+@api_view(["GET", "PUT", "DELETE"])
+@permission_classes([RoleWriteAccess])
+def runs_detail(request, pk):
+    run = _get_run(pk)
+    if run is None:
+        return _err("Lønkørslen findes ikke.", status.HTTP_404_NOT_FOUND)
+    if request.method == "GET":
+        return Response(_run_dict(run, True))
+    if not run.is_editable:
+        return _err("Lønkørslen er godkendt eller bogført og kan ikke ændres.")
     if request.method == "DELETE":
-        h.delete()
+        label = run.label
+        run.delete()
+        log_action(request.user, "delete", "PayrollRun", pk, {"period": label})
         return Response({"success": True})
-
-    data = request.data
-    if data.get("date"):
-        h.date = data["date"]
-    if "name" in data and data["name"] is not None:
-        h.name = data["name"]
-    h.save()
-    h = PublicHoliday.objects.prefetch_related("workers").get(id=h.id)
-    return Response({"success": True, "holiday": _holiday_dict(h)})
+    if request.data.get("pay_date"):
+        run.pay_date = date.fromisoformat(request.data["pay_date"])
+    if "notes" in request.data:
+        run.notes = str(request.data["notes"] or "")
+    run.save()
+    return Response({"success": True, "payroll_run": _run_dict(run, True)})
 
 
 @api_view(["PUT"])
 @permission_classes([RoleWriteAccess])
-def holiday_workers(request, pk):
-    """Replace the set of employees who worked this holiday."""
+def run_line_update(request, pk, line_pk):
+    run = _get_run(pk)
+    if run is None:
+        return _err("Lønkørslen findes ikke.", status.HTTP_404_NOT_FOUND)
+    line = run.lines.filter(id=line_pk).select_related("employee").first()
+    if line is None:
+        return _err("Lønlinjen findes ikke.", status.HTTP_404_NOT_FOUND)
     try:
-        h = PublicHoliday.objects.get(id=pk)
-    except PublicHoliday.DoesNotExist:
-        return Response({"success": False, "message": "Holiday not found"}, status=status.HTTP_404_NOT_FOUND)
+        services.update_line(run, line, request.data)
+    except services.PayrollError as e:
+        return _err(str(e))
+    run.refresh_from_db()
+    return Response({"success": True, "payroll_run": _run_dict(run, True)})
 
-    employee_ids = request.data.get("employee_ids", [])
-    valid_ids = set(str(e.id) for e in Employee.objects.filter(id__in=employee_ids))
-    with transaction.atomic():
-        h.workers.all().delete()
-        HolidayWork.objects.bulk_create([
-            HolidayWork(holiday=h, employee_id=eid) for eid in valid_ids
-        ])
-    h = PublicHoliday.objects.prefetch_related("workers").get(id=h.id)
-    return Response({"success": True, "holiday": _holiday_dict(h)})
+
+def _transition(request, pk, action):
+    run = _get_run(pk)
+    if run is None:
+        return _err("Lønkørslen findes ikke.", status.HTTP_404_NOT_FOUND)
+    label = _user_label(request.user)
+    try:
+        with transaction.atomic():
+            if action == "calculate":
+                run = services.calculate_run(run)
+                details = {"period": run.label, "total_net": str(run.total_net)}
+            elif action == "approve":
+                run = services.approve_run(run, label)
+                details = {"period": run.label}
+            elif action == "reopen":
+                run = services.reopen_run(run)
+                details = {"period": run.label}
+            else:
+                run, entry = services.post_run(run, label)
+                details = {"period": run.label, "journal_entry": str(entry.id), "total_net": str(run.total_net)}
+            log_action(request.user, action[:10], "PayrollRun", run.id, details)
+    except (services.PayrollError, MissingRate, ValueError) as e:
+        return _err(str(e))
+    run.refresh_from_db()
+    return Response({"success": True, "payroll_run": _run_dict(run, True)})
 
 
 @api_view(["POST"])
 @permission_classes([RoleWriteAccess])
-def holidays_seed(request):
-    """Insert the standard Moroccan fixed-date holidays for a year (skips existing dates)."""
+def run_calculate(request, pk):
+    return _transition(request, pk, "calculate")
+
+
+@api_view(["POST"])
+@permission_classes([RoleWriteAccess])
+def run_approve(request, pk):
+    return _transition(request, pk, "approve")
+
+
+@api_view(["POST"])
+@permission_classes([RoleWriteAccess])
+def run_reopen(request, pk):
+    return _transition(request, pk, "reopen")
+
+
+@api_view(["POST"])
+@permission_classes([RoleWriteAccess])
+def run_post(request, pk):
+    return _transition(request, pk, "post")
+
+
+def _pdf(content, filename):
+    resp = HttpResponse(content, content_type="application/pdf")
+    resp["Content-Disposition"] = f'inline; filename="{filename}"'
+    return resp
+
+
+@api_view(["GET"])
+@permission_classes([RoleWriteAccess])
+def run_payslips(request, pk):
+    run = _get_run(pk)
+    if run is None:
+        return _err("Lønkørslen findes ikke.", status.HTTP_404_NOT_FOUND)
+    lines = run.lines.select_related("employee", "payroll_run")
+    if request.query_params.get("line"):
+        lines = lines.filter(id=request.query_params["line"])
+    lines = list(lines)
+    if not lines or not all(l.calculated for l in lines):
+        return _err("Lønsedler kræver en beregnet lønkørsel.")
+    return _pdf(payslips_pdf(lines), f"loenseddel-{run.label}.pdf")
+
+
+@api_view(["GET"])
+@permission_classes([RoleWriteAccess])
+def run_payroll_list(request, pk):
+    run = _get_run(pk)
+    if run is None:
+        return _err("Lønkørslen findes ikke.", status.HTTP_404_NOT_FOUND)
+    return _pdf(payroll_list_pdf(run), f"loenliste-{run.label}.pdf")
+
+
+def _can_export(request, run):
+    from core.permissions import get_access
+    access = get_access(request)
+    if not (access and access.can_write):
+        return "Eksport med CPR-numre kræver skriveadgang."
+    if run.status not in ("approved", "posted"):
+        return "Lønkørslen skal være godkendt, før den kan indberettes."
+    return None
+
+
+@api_view(["GET"])
+@permission_classes([RoleWriteAccess])
+def run_eindkomst_export(request, pk):
+    run = _get_run(pk)
+    if run is None:
+        return _err("Lønkørslen findes ikke.", status.HTTP_404_NOT_FOUND)
+    err = _can_export(request, run)
+    if err:
+        return _err(err, status.HTTP_403_FORBIDDEN if "skriveadgang" in err else status.HTTP_400_BAD_REQUEST)
+    data = eindkomst.build_export(run)
+    log_action(request.user, "export", "PayrollRun", run.id, {"eindkomst": run.label})
+    resp = HttpResponse(json.dumps(data, ensure_ascii=False, indent=2), content_type="application/json")
+    resp["Content-Disposition"] = f'attachment; filename="eindkomst-{run.label}.json"'
+    return resp
+
+
+@api_view(["POST"])
+@permission_classes([RoleWriteAccess])
+def run_eindkomst_submit(request, pk):
+    run = _get_run(pk)
+    if run is None:
+        return _err("Lønkørslen findes ikke.", status.HTTP_404_NOT_FOUND)
+    err = _can_export(request, run)
+    if err:
+        return _err(err)
     try:
-        year = int(request.data.get("year") or date_mod.today().year)
-    except (ValueError, TypeError):
-        year = date_mod.today().year
-
-    existing = set(
-        PublicHoliday.objects.filter(date__year=year).values_list("date", flat=True)
-    )
-    created = 0
-    for month, day, name in STANDARD_HOLIDAYS:
-        d = date_mod(year, month, day)
-        if d in existing:
-            continue
-        PublicHoliday.objects.create(date=d, name=name)
-        created += 1
-
-    qs = PublicHoliday.objects.prefetch_related("workers").filter(date__year=year)
-    return Response({"success": True, "created": created, "results": [_holiday_dict(h) for h in qs]})
+        result = eindkomst.submit(run)
+    except NotImplementedError as e:
+        return _err(str(e), status.HTTP_501_NOT_IMPLEMENTED)
+    run.eindkomst_status = result.status
+    run.eindkomst_reference = result.reference
+    if result.status == "accepted":
+        run.eindkomst_submitted_at = timezone.now()
+    run.save()
+    log_action(request.user, "submit", "PayrollRun", run.id,
+               {"eindkomst": result.status, "reference": result.reference})
+    return Response({"success": result.status == "accepted", "status": result.status,
+                     "reference": result.reference, "message": result.message,
+                     "payroll_run": _run_dict(run)})

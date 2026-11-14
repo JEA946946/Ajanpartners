@@ -79,6 +79,10 @@ class ClientTenantMiddleware:
         if access is None:
             # Samme svar for "findes ikke" og "ingen adgang": afslører ikke kundelisten.
             return _error(403, "Du har ikke adgang til denne kunde.", "no_client_access")
+        if access.is_firm:
+            from .mfa import has_mfa, mfa_required_for
+            if mfa_required_for(user) and not has_mfa(user):
+                return _error(403, "Slå to-faktor-login til, før du åbner en kundes bøger.", "mfa_setup_required")
         if client.status == "archived" and request.method not in SAFE:
             return _error(403, "Kunden er arkiveret og kan kun læses.", "client_archived")
         feature = feature_for_path(sub, request.method)
@@ -93,11 +97,26 @@ class ClientTenantMiddleware:
 
     def _log_firm_write(self, request, response):
         access = getattr(request, "client_access", None)
-        if access is None or not access.is_firm or request.method in SAFE:
+        if access is None or not access.is_firm:
             return
         connection.set_schema_to_public()
+        if request.method in SAFE:
+            self._log_firm_read(request, access)
+            return
         FirmAuditLog.objects.create(
             user=access.staff.user, client=access.client, action="write",
             detail={"method": request.method, "path": request.path, "status": response.status_code},
             ip_address=_ip(request),
         )
+
+    def _log_firm_read(self, request, access):
+        """Læseadgang fra revisorhuset: én post pr. medarbejder, kunde og time
+        (med den første sti), så loggen viser hvem der har set hvad hvornår."""
+        from datetime import timedelta
+        from django.utils import timezone
+        since = timezone.now() - timedelta(hours=1)
+        if FirmAuditLog.objects.filter(user=access.staff.user, client=access.client, action="read",
+                                       timestamp__gte=since).exists():
+            return
+        FirmAuditLog.objects.create(user=access.staff.user, client=access.client, action="read",
+                                    detail={"first_path": request.path}, ip_address=_ip(request))

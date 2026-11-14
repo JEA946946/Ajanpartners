@@ -32,3 +32,6 @@ Thumbs.db
 .claude/settings.local.json
 .venv/
 node_modules/
+
+# Nøgler til backup/restore (docker-compose monterer ./secrets)
+secrets/

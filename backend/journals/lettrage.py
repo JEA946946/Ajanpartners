@@ -1,11 +1,11 @@
-"""Tiers and lettrage on the third-party accounts (3421 Clients, 4411 Fournisseurs …).
+"""Debitorer/kreditorer og udligning på debitor-, forudbetalings- og kreditorkontoen.
 
-Lines of one account and one tiers that settle each other (an invoice and the
-payments of it) get the same lettrage code (AA, AB, … ZZ, AAA …), unique per
-account and tiers. Lettering needs the lines to add up to zero. A bill paid in
-full or an invoice received in full is lettered automatically; anything else is
-lettered by hand on the Lettrage page. The lettrage fields are the only ones that
-may change on a validated line (journals/signals.py, migration 0015).
+Linjer på samme konto og samme debitor/kreditor, der udligner hinanden (en
+faktura og betalingerne af den), får samme udligningskode (AA, AB, … ZZ, AAA …),
+unik pr. konto og debitor/kreditor. Linjerne skal summe til nul. En regning,
+der er betalt fuldt, eller en faktura, der er modtaget fuldt, udlignes
+automatisk; resten udlignes manuelt. Udligningsfelterne er de eneste, der må
+ændres på en valideret linje (journals/signals.py, migration 0015/0017).
 """
 
 import string
@@ -24,8 +24,8 @@ from core.permissions import RoleWriteAccess
 
 from .models import JournalEntryLine
 
-# Accounts whose lines carry a tiers and can be lettered.
-TIERS_ACCOUNTS = {chart.RECEIVABLE: "customer", chart.CLIENT_ADVANCES: "customer", chart.PAYABLE: "supplier"}
+# Konti, hvis linjer har en debitor/kreditor og kan udlignes.
+TIERS_ACCOUNTS = {chart.RECEIVABLE: "customer", chart.CUSTOMER_PREPAYMENTS: "customer", chart.PAYABLE: "supplier"}
 
 
 def tiers_type(account_code):

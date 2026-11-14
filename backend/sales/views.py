@@ -1,10 +1,8 @@
-"""Sales views: Customer, Invoice, InvoiceLine, CreditNote CRUD + posting."""
+"""Salg: debitorer, fakturaer og kreditnotaer (CRUD og bogføring). Reglerne står i sales/invoicing.py."""
 
 import csv
 import io
 import re
-from journals.lettrage import customer_partner
-from collections import defaultdict
 from decimal import Decimal, InvalidOperation
 
 from django.db import transaction
@@ -20,14 +18,23 @@ from core.permissions import RoleWriteAccess
 from core.csv_utils import SafeWriter
 
 from accounts import chart
-from accounts.models import Account
-from journals.models import JournalEntry, JournalEntryLine
 from journals.numbering import next_number
 from journals.periods import closed_period_error
+from . import invoicing
 from .models import Customer, Invoice, InvoiceLine, CreditNote
 
 
 # ─── helpers ──────────────────────────────────────────────────────────────────
+
+
+
+
+
+
+
+CUSTOMER_FIELDS = ("name", "email", "phone", "address", "postal_code", "city", "country", "tax_id", "vat_zone",
+                   "ean", "currency", "notes", "payment_terms_code")
+
 
 def _customer_dict(customer):
     return {
@@ -37,16 +44,34 @@ def _customer_dict(customer):
         "email": customer.email,
         "phone": customer.phone,
         "address": customer.address,
+        "postal_code": customer.postal_code,
+        "city": customer.city,
+        "country": customer.country,
         "tax_id": customer.tax_id,
+        "vat_zone": customer.vat_zone,
+        "is_business": customer.is_business,
+        "is_public": customer.is_public,
+        "ean": customer.ean,
         "currency": customer.currency,
         "payment_terms": customer.payment_terms,
+        "payment_terms_code": customer.payment_terms_code,
         "credit_limit": str(customer.credit_limit),
         "notes": customer.notes,
-        "cmr_id": customer.cmr_id,
         "is_active": customer.is_active,
         "created_at": customer.created_at.isoformat() if customer.created_at else None,
         "updated_at": customer.updated_at.isoformat() if customer.updated_at else None,
     }
+
+
+def _customer_error(data):
+    ean = (data.get("ean") or "").strip()
+    if ean and not re.fullmatch(r"\d{13}", ean):
+        return "EAN-/GLN-nummeret skal være 13 cifre"
+    if data.get("is_public") and not ean:
+        return "En offentlig kunde skal have et EAN-nummer"
+    if data.get("payment_terms_code") and data["payment_terms_code"] not in invoicing.TERMS:
+        return "Ukendt betalingsbetingelse"
+    return None
 
 
 def _invoice_line_dict(line):
@@ -54,8 +79,8 @@ def _invoice_line_dict(line):
         "id": str(line.id),
         "description": line.description,
         "quantity": str(line.quantity),
+        "unit": line.unit,
         "unit_price": str(line.unit_price),
-        "sales_price": str(line.sales_price),
         "tax_code_id": str(line.tax_code_id) if line.tax_code_id else None,
         "tax_code_code": line.tax_code.code if line.tax_code_id else None,
         "tax_code_rate": str(line.tax_code.rate) if line.tax_code_id else None,
@@ -64,20 +89,26 @@ def _invoice_line_dict(line):
         "account_name": line.account.name if line.account_id else None,
         "amount": str(line.amount),
         "is_text": line.is_text,
-        "is_hidden": line.is_hidden,
         "position": line.position,
     }
+
+
+def _iso(v):
+    return v.isoformat() if hasattr(v, "isoformat") else (str(v) if v else None)
 
 
 def _invoice_dict(invoice, include_lines=True):
     d = {
         "id": str(invoice.id),
         "invoice_number": invoice.invoice_number,
+        "is_draft_number": invoicing.is_draft_number(invoice.invoice_number),
         "customer_id": str(invoice.customer_id),
         "customer_name": invoice.customer.name,
         "customer_code": invoice.customer.code,
-        "date": invoice.date.isoformat() if hasattr(invoice.date, "isoformat") else str(invoice.date),
-        "due_date": invoice.due_date.isoformat() if hasattr(invoice.due_date, "isoformat") else str(invoice.due_date),
+        "date": _iso(invoice.date),
+        "delivery_date": _iso(invoice.delivery_date),
+        "due_date": _iso(invoice.due_date),
+        "payment_terms_code": invoice.payment_terms_code,
         "status": invoice.status,
         "subtotal": str(invoice.subtotal),
         "tax_amount": str(invoice.tax_amount),
@@ -86,8 +117,10 @@ def _invoice_dict(invoice, include_lines=True):
         "balance_due": str(invoice.balance_due),
         "currency": invoice.currency,
         "exchange_rate": str(invoice.exchange_rate),
-        "vat_quarter": invoice.vat_quarter,
-        "vat_year": invoice.vat_year,
+        "customer_reference": invoice.customer_reference,
+        "order_reference": invoice.order_reference,
+        "quote_id": str(invoice.quote_id) if invoice.quote_id else None,
+        "reminders": invoice.reminders.count(),
         "notes": invoice.notes,
         "journal_entry_id": str(invoice.journal_entry_id) if invoice.journal_entry_id else None,
         "created_by": invoice.created_by,
@@ -95,10 +128,9 @@ def _invoice_dict(invoice, include_lines=True):
         "updated_at": invoice.updated_at.isoformat() if invoice.updated_at else None,
     }
     if include_lines:
-        d["lines"] = [
-            _invoice_line_dict(l)
-            for l in invoice.lines.select_related("account", "tax_code").all()
-        ]
+        d["lines"] = [_invoice_line_dict(l) for l in invoice.lines.select_related("account", "tax_code").all()]
+        d["print"] = invoicing.invoice_print_data(invoice)
+        d["compliance_errors"] = invoicing.compliance_errors(invoice) if invoice.status == "draft" else []
     return d
 
 
@@ -128,15 +160,11 @@ def _next_customer_code():
     return next_number(Customer, "code", "CUS")
 
 
-def _next_invoice_number():
-    """Next invoice number like INV-0001. Text ordering returned INV-0001 again as
-    soon as the alphabetically last number was not an INV- one (a CRM import)."""
-    return next_number(Invoice, "invoice_number", "INV")
 
 
 def _next_credit_note_number():
-    """Next credit note number like CN-0001."""
-    return next_number(CreditNote, "credit_note_number", "CN")
+    """Kladdenummer; det fortløbende kreditnotanummer gives ved bogføring."""
+    return next_number(CreditNote, "credit_note_number", invoicing.DRAFT_PREFIX, 5)
 
 
 def _next_entry_number():
@@ -182,18 +210,17 @@ def customers_list_create(request):
             status=status.HTTP_400_BAD_REQUEST,
         )
 
+    err = _customer_error(data)
+    if err:
+        return Response({"success": False, "message": err}, status=status.HTTP_400_BAD_REQUEST)
     try:
         customer = Customer.objects.create(
             code=code,
-            name=data["name"],
-            email=data.get("email", ""),
-            phone=data.get("phone", ""),
-            address=data.get("address", ""),
-            tax_id=data.get("tax_id", ""),
-            currency=data.get("currency", "MAD"),
-            payment_terms=int(data.get("payment_terms", 30)),
+            **{f: data.get(f) for f in CUSTOMER_FIELDS if data.get(f) not in (None, "")},
+            is_business=bool(data.get("is_business", True)),
+            is_public=bool(data.get("is_public", False)),
+            payment_terms=int(data.get("payment_terms", 14)),
             credit_limit=Decimal(str(data.get("credit_limit", 0))),
-            notes=data.get("notes", ""),
             is_active=data.get("is_active", True),
         )
     except (ValueError, InvalidOperation) as e:
@@ -236,9 +263,15 @@ def customers_detail(request, pk):
                 )
             customer.code = data["code"]
 
-        for field in ("name", "email", "phone", "address", "tax_id", "currency", "notes"):
+        err = _customer_error({**_customer_dict(customer), **data})
+        if err:
+            return Response({"success": False, "message": err}, status=status.HTTP_400_BAD_REQUEST)
+        for field in CUSTOMER_FIELDS:
             if field in data:
-                setattr(customer, field, data[field])
+                setattr(customer, field, data[field] or "")
+        for field in ("is_business", "is_public"):
+            if field in data:
+                setattr(customer, field, bool(data[field]))
 
         if "payment_terms" in data:
             try:
@@ -318,537 +351,229 @@ def customer_statement(request, pk):
     })
 
 
-# ─── Invoices CRUD ───────────────────────────────────────────────────────────
+# ─── Fakturaer ───────────────────────────────────────────────────────────────
+
+def _user(request):
+    return f"{request.user.first_name} {request.user.last_name}".strip() or request.user.username
+
+
+def _apply_invoice_fields(invoice, data):
+    """Hovedfelter på et udkast. Returnerer fejltekst eller None."""
+    from journals.periods import _to_date
+
+    if "customer_id" in data:
+        customer = Customer.objects.filter(id=data["customer_id"]).first()
+        if customer is None:
+            return "Kunden findes ikke"
+        invoice.customer = customer
+    for field in ("date", "delivery_date", "due_date"):
+        if field in data:
+            value = _to_date(data[field]) if data[field] else None
+            if field != "delivery_date" and value is None:
+                return f"Ugyldig {field}"
+            setattr(invoice, field, value)
+    for field in ("notes", "customer_reference", "order_reference"):
+        if field in data:
+            setattr(invoice, field, data[field] or "")
+    if "currency" in data:
+        invoice.currency = (data["currency"] or chart.BASE_CURRENCY).upper()
+    if "exchange_rate" in data:
+        try:
+            invoice.exchange_rate = Decimal(str(data["exchange_rate"] or 1))
+        except InvalidOperation:
+            return "Ugyldig kurs"
+    if invoice.currency == chart.BASE_CURRENCY:
+        invoice.exchange_rate = Decimal("1")
+    if "payment_terms_code" in data:
+        if data["payment_terms_code"] not in invoicing.TERMS:
+            return "Ukendt betalingsbetingelse"
+        invoice.payment_terms_code = data["payment_terms_code"]
+    if not data.get("due_date") and ("date" in data or "payment_terms_code" in data or not invoice.due_date):
+        invoice.due_date = invoicing.due_date_for(invoice.date, invoice.payment_terms_code)
+    return None
+
 
 @api_view(["GET", "POST"])
 @permission_classes([RoleWriteAccess])
 def invoices_list_create(request):
     if request.method == "GET":
         qs = Invoice.objects.select_related("customer").all()
+        p = request.query_params
+        if p.get("status"):
+            qs = qs.filter(status=p["status"])
+        if p.get("customer_id"):
+            qs = qs.filter(customer_id=p["customer_id"])
+        if p.get("date_from"):
+            qs = qs.filter(date__gte=p["date_from"])
+        if p.get("date_to"):
+            qs = qs.filter(date__lte=p["date_to"])
+        if p.get("overdue") == "true":
+            from datetime import date as _date
+            qs = qs.filter(journal_entry__isnull=False, due_date__lt=_date.today()).exclude(status__in=("paid", "cancelled"))
+        if p.get("search"):
+            q = p["search"]
+            qs = qs.filter(Q(invoice_number__icontains=q) | Q(customer__name__icontains=q) | Q(notes__icontains=q))
+        return Response({"success": True, "invoices": [_invoice_dict(inv, include_lines=False) for inv in qs]})
 
-        # Filters
-        if request.query_params.get("status"):
-            qs = qs.filter(status=request.query_params["status"])
-        if request.query_params.get("customer_id"):
-            qs = qs.filter(customer_id=request.query_params["customer_id"])
-        if request.query_params.get("date_from"):
-            qs = qs.filter(date__gte=request.query_params["date_from"])
-        if request.query_params.get("date_to"):
-            qs = qs.filter(date__lte=request.query_params["date_to"])
-        if request.query_params.get("search"):
-            q = request.query_params["search"]
-            qs = qs.filter(
-                Q(invoice_number__icontains=q)
-                | Q(customer__name__icontains=q)
-                | Q(notes__icontains=q)
-            )
-        if request.query_params.get("vat_quarter"):
-            qs = qs.filter(vat_quarter=request.query_params["vat_quarter"])
-        if request.query_params.get("vat_year"):
-            qs = qs.filter(vat_year=request.query_params["vat_year"])
-
-        return Response({
-            "success": True,
-            "invoices": [_invoice_dict(inv, include_lines=False) for inv in qs],
-        })
-
-    # POST — create invoice with lines
     data = request.data
-
-    if not data.get("customer_id"):
-        return Response(
-            {"success": False, "message": "customer_id is required"},
-            status=status.HTTP_400_BAD_REQUEST,
-        )
-    if not data.get("date"):
-        return Response(
-            {"success": False, "message": "date is required"},
-            status=status.HTTP_400_BAD_REQUEST,
-        )
-    if not data.get("due_date"):
-        return Response(
-            {"success": False, "message": "due_date is required"},
-            status=status.HTTP_400_BAD_REQUEST,
-        )
-
+    if not data.get("customer_id") or not data.get("date"):
+        return Response({"success": False, "message": "customer_id og date skal angives"},
+                        status=status.HTTP_400_BAD_REQUEST)
+    customer = Customer.objects.filter(id=data["customer_id"]).first()
+    if customer is None:
+        return Response({"success": False, "message": "Kunden findes ikke"}, status=status.HTTP_404_NOT_FOUND)
+    invoice = Invoice(customer=customer, invoice_number=invoicing.draft_number(), status="draft",
+                      currency=customer.currency or chart.BASE_CURRENCY,
+                      payment_terms_code=customer.payment_terms_code, created_by=_user(request))
+    err = _apply_invoice_fields(invoice, data)
+    if err:
+        return Response({"success": False, "message": err}, status=status.HTTP_400_BAD_REQUEST)
     try:
-        customer = Customer.objects.get(id=data["customer_id"])
-    except Customer.DoesNotExist:
-        return Response(
-            {"success": False, "message": "Customer not found"},
-            status=status.HTTP_404_NOT_FOUND,
-        )
-
-    lines_data = data.get("lines", [])
-    if not lines_data:
-        return Response(
-            {"success": False, "message": "At least one line is required"},
-            status=status.HTTP_400_BAD_REQUEST,
-        )
-
-    # Validate line accounts exist (text lines have no account)
-    account_ids = [
-        line.get("account_id")
-        for line in lines_data
-        if not line.get("is_text") and line.get("account_id")
-    ]
-    accounts = {str(a.id): a for a in Account.objects.filter(id__in=account_ids)}
-    for aid in account_ids:
-        if aid not in accounts:
-            return Response(
-                {"success": False, "message": f"Account {aid} not found"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-    invoice_number = data.get("invoice_number") or _next_invoice_number()
-    if Invoice.objects.filter(invoice_number=invoice_number).exists():
-        return Response(
-            {"success": False, "message": f"Invoice number {invoice_number} already exists"},
-            status=status.HTTP_400_BAD_REQUEST,
-        )
-
-    # Auto-calculate VAT quarter from date
-    import datetime as _dt
-    from django.utils import timezone
-    try:
-        inv_date = _dt.date.fromisoformat(str(data["date"]).split("T")[0])
-    except (ValueError, TypeError):
-        inv_date = timezone.localdate()
-    auto_quarter = (inv_date.month - 1) // 3 + 1
-    vat_quarter = int(data.get("vat_quarter", auto_quarter))
-    vat_year = int(data.get("vat_year", inv_date.year))
-
-    with transaction.atomic():
-        invoice = Invoice.objects.create(
-            invoice_number=invoice_number,
-            customer=customer,
-            date=data["date"],
-            due_date=data["due_date"],
-            status="draft",
-            currency=data.get("currency", customer.currency),
-            exchange_rate=Decimal(str(data.get("exchange_rate", 1))),
-            vat_quarter=vat_quarter,
-            vat_year=vat_year,
-            notes=data.get("notes", ""),
-            created_by=(
-                f"{request.user.first_name} {request.user.last_name}".strip()
-                or request.user.username
-            ),
-        )
-
-        subtotal = Decimal("0")
-        tax_amount = Decimal("0")
-
-        for idx, line_data in enumerate(lines_data):
-            # Text-only line — no amount, account or tax; kept for layout
-            if line_data.get("is_text"):
-                InvoiceLine.objects.create(
-                    invoice=invoice,
-                    description=line_data.get("description", ""),
-                    quantity=Decimal(str(line_data.get("quantity") or 0)),
-                    unit_price=0,
-                    sales_price=0,
-                    tax_code_id=None,
-                    account_id=None,
-                    is_text=True,
-                    is_hidden=bool(line_data.get("is_hidden")),
-                    position=idx,
-                )
-                continue
-
-            try:
-                quantity = Decimal(str(line_data.get("quantity", 1)))
-                unit_price = Decimal(str(line_data.get("unit_price", 0)))
-                sales_price = Decimal(str(line_data.get("sales_price", 0)))
-            except (InvalidOperation, TypeError):
-                raise ValueError("Invalid quantity or unit_price")
-
-            line_amount = quantity * unit_price
-            subtotal += line_amount
-
-            # Calculate tax if tax_code provided
-            line_tax = Decimal("0")
-            tax_code_id = line_data.get("tax_code_id")
-            if tax_code_id:
-                from core.models import TaxCode
-
-                try:
-                    tax_code = TaxCode.objects.get(id=tax_code_id)
-                    line_tax = line_amount * tax_code.rate / Decimal("100")
-                    tax_amount += line_tax
-                except TaxCode.DoesNotExist:
-                    pass
-
-            InvoiceLine.objects.create(
-                invoice=invoice,
-                description=line_data.get("description", ""),
-                quantity=quantity,
-                unit_price=unit_price,
-                sales_price=sales_price,
-                tax_code_id=tax_code_id,
-                account_id=line_data.get("account_id"),
-                is_hidden=bool(line_data.get("is_hidden")),
-                position=idx,
-            )
-
-        invoice.subtotal = subtotal
-        invoice.tax_amount = tax_amount
-        invoice.total = subtotal + tax_amount
-        invoice.save()
-
-    invoice.refresh_from_db()
-    return Response({
-        "success": True,
-        "message": "Invoice created",
-        "invoice": _invoice_dict(invoice),
-    }, status=status.HTTP_201_CREATED)
+        with transaction.atomic():
+            invoice.save()
+            invoicing.save_lines(invoice, InvoiceLine, "invoice", data.get("lines", []))
+            invoicing.refresh_totals(invoice)
+    except invoicing.LineError as e:
+        return Response({"success": False, "message": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+    log_action(request.user, "create", "Invoice", invoice.id, {"invoice_number": invoice.invoice_number})
+    return Response({"success": True, "message": "Fakturaudkast oprettet", "invoice": _invoice_dict(invoice)},
+                    status=status.HTTP_201_CREATED)
 
 
 @api_view(["GET", "PUT", "DELETE"])
 @permission_classes([RoleWriteAccess])
 def invoices_detail(request, pk):
-    try:
-        invoice = Invoice.objects.select_related("customer").get(id=pk)
-    except Invoice.DoesNotExist:
-        return Response(
-            {"success": False, "message": "Invoice not found"},
-            status=status.HTTP_404_NOT_FOUND,
-        )
-
+    invoice = Invoice.objects.select_related("customer").filter(id=pk).first()
+    if invoice is None:
+        return Response({"success": False, "message": "Fakturaen findes ikke"}, status=status.HTTP_404_NOT_FOUND)
     if request.method == "GET":
-        return Response({
-            "success": True,
-            "invoice": _invoice_dict(invoice),
-        })
-
+        return Response({"success": True, "invoice": _invoice_dict(invoice)})
+    # En udstedt (bogført) faktura ændres aldrig: rettelser sker med en kreditnota.
+    if invoice.journal_entry_id or invoice.status != "draft":
+        return Response({"success": False, "message":
+                         "Fakturaen er udstedt og kan ikke ændres eller slettes. Lav en kreditnota."},
+                        status=status.HTTP_400_BAD_REQUEST)
     if request.method == "DELETE":
-        if invoice.status != "draft":
-            return Response(
-                {"success": False, "message": "Only draft invoices can be deleted"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-        invoice_number = invoice.invoice_number
+        number = invoice.invoice_number
         invoice.delete()
-        log_action(request.user, "delete", "Invoice", pk, {"invoice_number": invoice_number})
-        return Response({"success": True, "message": "Invoice deleted"})
-
-    # PUT — update invoice
-    if invoice.status not in ("draft", "sent"):
-        return Response(
-            {"success": False, "message": f"Cannot edit invoice with status '{invoice.status}'"},
-            status=status.HTTP_400_BAD_REQUEST,
-        )
-    # A posted invoice is re-posted below so the ledger follows the edit; neither
-    # its old date nor a new one may lie in a closed year.
-    if invoice.journal_entry_id:
-        err = closed_period_error(invoice.journal_entry.date) or closed_period_error(request.data.get("date"))
-        if err:
-            return Response({"success": False, "message": err}, status=status.HTTP_400_BAD_REQUEST)
-
+        log_action(request.user, "delete", "Invoice", pk, {"invoice_number": number})
+        return Response({"success": True, "message": "Fakturaudkastet er slettet"})
     data = request.data
-
-    if "customer_id" in data:
-        try:
-            customer = Customer.objects.get(id=data["customer_id"])
-            invoice.customer = customer
-        except Customer.DoesNotExist:
-            return Response(
-                {"success": False, "message": "Customer not found"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-    for field in ("date", "due_date", "currency", "exchange_rate", "notes"):
-        if field in data:
-            setattr(invoice, field, data[field])
-
-    if "vat_quarter" in data:
-        invoice.vat_quarter = int(data["vat_quarter"])
-    if "vat_year" in data:
-        invoice.vat_year = int(data["vat_year"])
-
-    if "invoice_number" in data and data["invoice_number"] != invoice.invoice_number:
-        if Invoice.objects.filter(invoice_number=data["invoice_number"]).exclude(id=pk).exists():
-            return Response(
-                {"success": False, "message": "Invoice number already exists"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-        invoice.invoice_number = data["invoice_number"]
-
-    # If lines are provided, replace them
-    lines_data = data.get("lines")
-    if lines_data is not None:
-        if not lines_data:
-            return Response(
-                {"success": False, "message": "At least one line is required"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        # Validate accounts (text lines have no account)
-        account_ids = [
-            line.get("account_id")
-            for line in lines_data
-            if not line.get("is_text") and line.get("account_id")
-        ]
-        accounts = {str(a.id): a for a in Account.objects.filter(id__in=account_ids)}
-        for aid in account_ids:
-            if aid not in accounts:
-                return Response(
-                    {"success": False, "message": f"Account {aid} not found"},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-
+    err = _apply_invoice_fields(invoice, data)
+    if err:
+        return Response({"success": False, "message": err}, status=status.HTTP_400_BAD_REQUEST)
+    try:
         with transaction.atomic():
-            invoice.lines.all().delete()
-
-            subtotal = Decimal("0")
-            tax_amount = Decimal("0")
-
-            for idx, line_data in enumerate(lines_data):
-                # Text-only line — no amount, account or tax; kept for layout
-                if line_data.get("is_text"):
-                    InvoiceLine.objects.create(
-                        invoice=invoice,
-                        description=line_data.get("description", ""),
-                        quantity=Decimal(str(line_data.get("quantity") or 0)),
-                        unit_price=0,
-                        sales_price=0,
-                        tax_code_id=None,
-                        account_id=None,
-                        is_text=True,
-                        is_hidden=bool(line_data.get("is_hidden")),
-                        position=idx,
-                    )
-                    continue
-
-                try:
-                    quantity = Decimal(str(line_data.get("quantity", 1)))
-                    unit_price = Decimal(str(line_data.get("unit_price", 0)))
-                    sales_price = Decimal(str(line_data.get("sales_price", 0)))
-                except (InvalidOperation, TypeError):
-                    return Response(
-                        {"success": False, "message": "Invalid quantity or unit_price"},
-                        status=status.HTTP_400_BAD_REQUEST,
-                    )
-
-                line_amount = quantity * unit_price
-                subtotal += line_amount
-
-                tax_code_id = line_data.get("tax_code_id")
-                if tax_code_id:
-                    from core.models import TaxCode
-
-                    try:
-                        tax_code = TaxCode.objects.get(id=tax_code_id)
-                        line_tax = line_amount * tax_code.rate / Decimal("100")
-                        tax_amount += line_tax
-                    except TaxCode.DoesNotExist:
-                        pass
-
-                InvoiceLine.objects.create(
-                    invoice=invoice,
-                    description=line_data.get("description", ""),
-                    quantity=quantity,
-                    unit_price=unit_price,
-                    sales_price=sales_price,
-                    tax_code_id=tax_code_id,
-                    account_id=line_data.get("account_id"),
-                    is_hidden=bool(line_data.get("is_hidden")),
-                    position=idx,
-                )
-
-            invoice.subtotal = subtotal
-            invoice.tax_amount = tax_amount
-            invoice.total = subtotal + tax_amount
             invoice.save()
-    else:
-        invoice.save()
-
-    # Re-post a posted invoice: the old entry would keep the old amounts/date.
-    if invoice.journal_entry_id:
-        ar_account = Account.objects.filter(code=chart.RECEIVABLE).first()
-        if not ar_account:
-            return Response({"success": False, "message": f"Clients account ({chart.RECEIVABLE}) not found"},
-                            status=status.HTTP_400_BAD_REQUEST)
-        created_by = f"{request.user.first_name} {request.user.last_name}".strip() or request.user.username
-        with transaction.atomic():
-            old = invoice.journal_entry
-            invoice.journal_entry = None
-            invoice.save(update_fields=["journal_entry"])
-            old.delete()
-            invoice.refresh_from_db()
-            _, perr = _post_invoice_entry(invoice, ar_account, created_by)
-            if perr:
-                transaction.set_rollback(True)
-                return Response({"success": False, "message": perr}, status=status.HTTP_400_BAD_REQUEST)
-
-    invoice.refresh_from_db()
-    return Response({
-        "success": True,
-        "message": "Invoice updated",
-        "invoice": _invoice_dict(invoice),
-    })
-
-
-CENT = Decimal("0.01")
-
-
-def _post_invoice_entry(invoice, ar_account, created_by):
-    """Create the invoice's journal entry and link it. Returns (entry, error).
-
-    Every amount is rounded to the cent BEFORE it is summed and the receivable is
-    the sum of the credit lines, so the entry always balances: debiting the
-    stored total (rounded once from unrounded line sums) against per-line rounded
-    credits used to leave a cent over. When rounding moves the total, the
-    invoice's subtotal/tax/total are set to what was posted.
-    """
-    from decimal import ROUND_HALF_UP
-
-    lines = list(invoice.lines.select_related("account", "tax_code").all())
-    label = f"Invoice {invoice.invoice_number} — {invoice.customer.name}"
-
-    # CR side — group by account. Lines without an account default to 71243
-    # Prestations de services: under the margin regime the full price is revenue
-    # and TVA is posted later on the margin. Skipping them used to leave the
-    # entry unbalanced.
-    account_totals = defaultdict(Decimal)
-    tax_totals = defaultdict(Decimal)
-    unassigned_total = Decimal("0")
-    for line in lines:
-        if line.is_text:
-            continue
-        amount = Decimal(line.amount or 0).quantize(CENT, ROUND_HALF_UP)
-        if line.account_id:
-            account_totals[line.account_id] += amount
-        else:
-            unassigned_total += amount
-        if line.tax_code_id and line.tax_code:
-            tax_totals[line.tax_code.account_id] += (amount * line.tax_code.rate / Decimal("100")).quantize(
-                CENT, ROUND_HALF_UP)
-
-    if unassigned_total > 0:
-        cf_account = Account.objects.filter(code=chart.REVENUE).first()
-        if not cf_account:
-            return None, f"Account {chart.REVENUE} (Prestations de services) not found"
-        account_totals[cf_account.id] += unassigned_total
-
-    subtotal = sum(account_totals.values(), Decimal("0"))
-    tax = sum((t for t in tax_totals.values() if t > 0), Decimal("0"))
-    total = subtotal + tax
-
-    entry = JournalEntry.objects.create(
-        entry_number=_next_entry_number(),
-        date=invoice.date,
-        description=label,
-        reference=f"INV:{invoice.invoice_number}",
-        piece_number=invoice.invoice_number,
-        source="invoice",
-        source_id=str(invoice.id),
-        is_posted=True,
-        created_by=created_by,
-    )
-    JournalEntryLine.objects.create(
-        journal_entry=entry, account=ar_account, debit=total, credit=Decimal("0"), description=label,
-        **customer_partner(invoice.customer),
-    )
-    for account_id, amount in account_totals.items():
-        JournalEntryLine.objects.create(
-            journal_entry=entry, account_id=account_id, debit=Decimal("0"), credit=amount,
-            description=f"Invoice {invoice.invoice_number} — Revenue",
-        )
-    for tax_account_id, tax_total in tax_totals.items():
-        if tax_total > 0:
-            JournalEntryLine.objects.create(
-                journal_entry=entry, account_id=tax_account_id, debit=Decimal("0"), credit=tax_total,
-                description=f"Invoice {invoice.invoice_number} — Tax",
-            )
-
-    invoice.journal_entry = entry
-    fields = ["journal_entry"]
-    if (invoice.subtotal, invoice.tax_amount, invoice.total) != (subtotal, tax, total):
-        invoice.subtotal, invoice.tax_amount, invoice.total = subtotal, tax, total
-        fields += ["subtotal", "tax_amount", "total"]
-    invoice.save(update_fields=fields)
-    return entry, None
+            if data.get("lines") is not None:
+                invoicing.save_lines(invoice, InvoiceLine, "invoice", data["lines"])
+            invoicing.refresh_totals(invoice)
+    except invoicing.LineError as e:
+        return Response({"success": False, "message": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+    log_action(request.user, "update", "Invoice", invoice.id, {"invoice_number": invoice.invoice_number})
+    return Response({"success": True, "message": "Fakturaen er opdateret", "invoice": _invoice_dict(invoice)})
 
 
 @api_view(["POST"])
 @permission_classes([RoleWriteAccess])
 def invoice_post(request, pk):
-    """Post an invoice: create a journal entry (DR Accounts Receivable, CR Revenue)."""
-    try:
-        invoice = Invoice.objects.select_related("customer").get(id=pk)
-    except Invoice.DoesNotExist:
-        return Response(
-            {"success": False, "message": "Invoice not found"},
-            status=status.HTTP_404_NOT_FOUND,
-        )
-
+    """Udsted og bogfør: fortløbende nummer, § 58-tjek, DR debitorer / CR omsætning og moms."""
+    invoice = Invoice.objects.select_related("customer").filter(id=pk).first()
+    if invoice is None:
+        return Response({"success": False, "message": "Fakturaen findes ikke"}, status=status.HTTP_404_NOT_FOUND)
     if invoice.journal_entry_id:
-        return Response(
-            {"success": False, "message": "Invoice already has a journal entry"},
-            status=status.HTTP_400_BAD_REQUEST,
-        )
-
-    lines = invoice.lines.select_related("account", "tax_code").all()
-    if not lines:
-        return Response(
-            {"success": False, "message": "Invoice has no lines"},
-            status=status.HTTP_400_BAD_REQUEST,
-        )
-
+        return Response({"success": False, "message": "Fakturaen er allerede bogført"},
+                        status=status.HTTP_400_BAD_REQUEST)
     err = closed_period_error(invoice.date)
     if err:
         return Response({"success": False, "message": err}, status=status.HTTP_400_BAD_REQUEST)
-
-    try:
-        ar_account = Account.objects.get(code=chart.RECEIVABLE)
-    except Account.DoesNotExist:
-        return Response(
-            {"success": False, "message": f"Clients account ({chart.RECEIVABLE}) not found"},
-            status=status.HTTP_400_BAD_REQUEST,
-        )
-
-    created_by = (
-        f"{request.user.first_name} {request.user.last_name}".strip()
-        or request.user.username
-    )
-
     with transaction.atomic():
-        _, perr = _post_invoice_entry(invoice, ar_account, created_by)
+        Invoice.objects.select_for_update().filter(id=invoice.id).first()
+        _, perr = invoicing.post_invoice(invoice, _user(request))
         if perr:
             transaction.set_rollback(True)
             return Response({"success": False, "message": perr}, status=status.HTTP_400_BAD_REQUEST)
         if invoice.status == "draft":
             invoice.status = "sent"
             invoice.save(update_fields=["status"])
-
     invoice.refresh_from_db()
     log_action(request.user, "post", "Invoice", invoice.id,
                {"invoice_number": invoice.invoice_number, "total": str(invoice.total)})
-    return Response({
-        "success": True,
-        "message": "Invoice posted",
-        "invoice": _invoice_dict(invoice),
-    })
+    return Response({"success": True, "message": f"Faktura {invoice.invoice_number} er udstedt og bogført",
+                     "invoice": _invoice_dict(invoice)})
+
+
+@api_view(["POST"])
+@permission_classes([RoleWriteAccess])
+def credit_note_apply(request, pk):
+    """Bogfør en kreditnota mod en faktura (andel af fakturaens linjer, med samme momskoder)."""
+    cn = CreditNote.objects.select_related("customer", "invoice").filter(id=pk).first()
+    if cn is None:
+        return Response({"success": False, "message": "Kreditnotaen findes ikke"}, status=status.HTTP_404_NOT_FOUND)
+    if cn.status == "applied":
+        return Response({"success": False, "message": "Kreditnotaen er allerede bogført"},
+                        status=status.HTTP_400_BAD_REQUEST)
+    invoice_id = request.data.get("invoice_id") or (str(cn.invoice_id) if cn.invoice_id else None)
+    invoice = Invoice.objects.select_related("customer").filter(id=invoice_id).first() if invoice_id else None
+    if invoice is None:
+        return Response({"success": False, "message": "Kreditnotaen skal henvise til en faktura"},
+                        status=status.HTTP_400_BAD_REQUEST)
+    if invoice.customer_id != cn.customer_id:
+        return Response({"success": False, "message": "Kreditnota og faktura skal have samme kunde"},
+                        status=status.HTTP_400_BAD_REQUEST)
+    if cn.total <= 0 or cn.total > invoice.balance_due:
+        return Response({"success": False, "message":
+                         f"Kreditnotaens beløb skal være mellem 0 og fakturaens restbeløb ({invoice.balance_due})"},
+                        status=status.HTTP_400_BAD_REQUEST)
+    err = closed_period_error(cn.date)
+    if err:
+        return Response({"success": False, "message": err}, status=status.HTTP_400_BAD_REQUEST)
+    with transaction.atomic():
+        if invoicing.is_draft_number(cn.credit_note_number):
+            cn.credit_note_number = invoicing.next_invoice_number(CreditNote, "credit_note_number")
+        entry, perr = invoicing.post_credit_note(cn, invoice, _user(request))
+        if perr:
+            transaction.set_rollback(True)
+            return Response({"success": False, "message": perr}, status=status.HTTP_400_BAD_REQUEST)
+        ratio = (cn.total / invoice.total) if invoice.total else Decimal("1")
+        cn.tax_amount = (invoice.tax_amount * ratio).quantize(Decimal("0.01"))
+        cn.subtotal = cn.total - cn.tax_amount
+        invoice.paid_amount += cn.total
+        if invoice.paid_amount >= invoice.total:
+            invoice.status = "paid"
+        invoice.save()
+        cn.status, cn.invoice, cn.journal_entry = "applied", invoice, entry
+        cn.save()
+    log_action(request.user, "post", "CreditNote", cn.id,
+               {"credit_note_number": cn.credit_note_number, "invoice_number": invoice.invoice_number,
+                "total": str(cn.total)})
+    return Response({"success": True, "message": "Kreditnotaen er bogført", "credit_note": _credit_note_dict(cn),
+                     "invoice": _invoice_dict(invoice, include_lines=False)})
+
+
+
+
+
+
+
+CENT = Decimal("0.01")
+
+
+
+
 
 
 @api_view(["POST"])
 @permission_classes([RoleWriteAccess])
 def invoice_send(request, pk):
-    """Mark an invoice as sent."""
-    try:
-        invoice = Invoice.objects.select_related("customer").get(id=pk)
-    except Invoice.DoesNotExist:
-        return Response(
-            {"success": False, "message": "Invoice not found"},
-            status=status.HTTP_404_NOT_FOUND,
-        )
-
-    if invoice.status not in ("draft",):
-        return Response(
-            {"success": False, "message": f"Cannot send invoice with status '{invoice.status}'"},
-            status=status.HTTP_400_BAD_REQUEST,
-        )
+    """Markér en udstedt faktura som sendt. Et udkast skal udstedes (bogføres) først,
+    så det får sit fortløbende nummer."""
+    invoice = Invoice.objects.select_related("customer").filter(id=pk).first()
+    if invoice is None:
+        return Response({"success": False, "message": "Fakturaen findes ikke"}, status=status.HTTP_404_NOT_FOUND)
+    if not invoice.journal_entry_id:
+        return Response({"success": False, "message": "Udsted (bogfør) fakturaen, før den sendes"},
+                        status=status.HTTP_400_BAD_REQUEST)
 
     invoice.status = "sent"
     invoice.save()
@@ -1059,250 +784,6 @@ def credit_notes_detail(request, pk):
     })
 
 
-@api_view(["POST"])
-@permission_classes([RoleWriteAccess])
-def credit_note_apply(request, pk):
-    """Apply a credit note to an invoice: reduce paid_amount and create reversal JE."""
-    try:
-        cn = CreditNote.objects.select_related("customer", "invoice").get(id=pk)
-    except CreditNote.DoesNotExist:
-        return Response(
-            {"success": False, "message": "Credit note not found"},
-            status=status.HTTP_404_NOT_FOUND,
-        )
-
-    if cn.status == "applied":
-        return Response(
-            {"success": False, "message": "Credit note is already applied"},
-            status=status.HTTP_400_BAD_REQUEST,
-        )
-
-    # Determine target invoice: from request body or from the credit note itself
-    invoice_id = request.data.get("invoice_id") or (str(cn.invoice_id) if cn.invoice_id else None)
-    if not invoice_id:
-        return Response(
-            {"success": False, "message": "invoice_id is required (no linked invoice)"},
-            status=status.HTTP_400_BAD_REQUEST,
-        )
-
-    try:
-        invoice = Invoice.objects.select_related("customer").get(id=invoice_id)
-    except Invoice.DoesNotExist:
-        return Response(
-            {"success": False, "message": "Invoice not found"},
-            status=status.HTTP_404_NOT_FOUND,
-        )
-
-    if invoice.customer_id != cn.customer_id:
-        return Response(
-            {"success": False, "message": "Credit note and invoice must belong to the same customer"},
-            status=status.HTTP_400_BAD_REQUEST,
-        )
-
-    if cn.total > invoice.balance_due:
-        return Response(
-            {"success": False, "message": f"Credit note total ({cn.total}) exceeds invoice balance due ({invoice.balance_due})"},
-            status=status.HTTP_400_BAD_REQUEST,
-        )
-
-    err = closed_period_error(cn.date)
-    if err:
-        return Response({"success": False, "message": err}, status=status.HTTP_400_BAD_REQUEST)
-
-    try:
-        ar_account = Account.objects.get(code=chart.RECEIVABLE)
-    except Account.DoesNotExist:
-        return Response(
-            {"success": False, "message": f"Clients account ({chart.RECEIVABLE}) not found"},
-            status=status.HTTP_400_BAD_REQUEST,
-        )
-
-    created_by = (
-        f"{request.user.first_name} {request.user.last_name}".strip()
-        or request.user.username
-    )
-
-    with transaction.atomic():
-        # Create reversal journal entry (opposite of invoice posting):
-        # DR Revenue / CR Accounts Receivable
-        entry = JournalEntry.objects.create(
-            entry_number=_next_entry_number(),
-            date=cn.date,
-            description=f"Credit Note {cn.credit_note_number} — {cn.customer.name}",
-            reference=f"CN:{cn.credit_note_number}",
-            piece_number=cn.credit_note_number,
-            source="credit_note",
-            source_id=str(cn.id),
-            is_posted=True,
-            created_by=created_by,
-        )
-
-        # CR: Accounts Receivable (reduce the receivable)
-        JournalEntryLine.objects.create(
-            journal_entry=entry,
-            account=ar_account,
-            debit=Decimal("0"),
-            credit=cn.total,
-            description=f"Credit Note {cn.credit_note_number} — {cn.customer.name}",
-            **customer_partner(cn.customer),
-        )
-
-        # DR: Revenue account(s) — if the original invoice has a JE, mirror its CR lines
-        # Otherwise use a generic approach based on the credit note subtotal
-        if invoice.journal_entry_id:
-            # Get the revenue CR lines from the original invoice JE (exclude AR debit)
-            original_cr_lines = JournalEntryLine.objects.filter(
-                journal_entry_id=invoice.journal_entry_id,
-                credit__gt=0,
-            ).select_related("account")
-
-            # Calculate the ratio: cn.total / invoice.total
-            if invoice.total > 0:
-                ratio = cn.total / invoice.total
-            else:
-                ratio = Decimal("1")
-
-            remainder = cn.total
-            cr_lines_list = list(original_cr_lines)
-            for i, orig_line in enumerate(cr_lines_list):
-                if i == len(cr_lines_list) - 1:
-                    # Last line gets the remainder to avoid rounding issues
-                    amount = remainder
-                else:
-                    amount = (orig_line.credit * ratio).quantize(Decimal("0.01"))
-                    remainder -= amount
-
-                if amount > 0:
-                    JournalEntryLine.objects.create(
-                        journal_entry=entry,
-                        account=orig_line.account,
-                        debit=amount,
-                        credit=Decimal("0"),
-                        description=f"Credit Note {cn.credit_note_number} — Reversal",
-                    )
-        else:
-            # No original JE — debit a generic revenue line for the full amount
-            # Try to find revenue from invoice lines
-            inv_lines = invoice.lines.select_related("account").all()
-            if inv_lines:
-                if invoice.total > 0:
-                    ratio = cn.total / invoice.total
-                else:
-                    ratio = Decimal("1")
-
-                # Group by account. Account-less lines reverse against 71243
-                # — same default the posting side uses.
-                acct_totals = defaultdict(Decimal)
-                cf_unassigned = Decimal("0")
-                for line in inv_lines:
-                    if line.is_text:
-                        continue
-                    if line.account_id:
-                        acct_totals[line.account_id] += line.amount
-                    else:
-                        cf_unassigned += line.amount
-                if cf_unassigned > 0:
-                    cf_account = Account.objects.filter(code=chart.REVENUE).first()
-                    if cf_account:
-                        acct_totals[cf_account.id] += cf_unassigned
-
-                remainder = cn.subtotal
-                acct_items = list(acct_totals.items())
-                for i, (account_id, amount) in enumerate(acct_items):
-                    if i == len(acct_items) - 1:
-                        dr_amount = remainder
-                    else:
-                        dr_amount = (amount * ratio).quantize(Decimal("0.01"))
-                        remainder -= dr_amount
-
-                    if dr_amount > 0:
-                        JournalEntryLine.objects.create(
-                            journal_entry=entry,
-                            account_id=account_id,
-                            debit=dr_amount,
-                            credit=Decimal("0"),
-                            description=f"Credit Note {cn.credit_note_number} — Reversal",
-                        )
-
-                # Tax reversal
-                if cn.tax_amount > 0:
-                    tax_acct_totals = defaultdict(Decimal)
-                    for line in inv_lines:
-                        if line.tax_code_id and line.tax_code:
-                            line_tax = line.amount * line.tax_code.rate / Decimal("100")
-                            tax_acct_totals[line.tax_code.account_id] += line_tax
-
-                    # Reverse the credit note's own tax amount, split over the
-                    # tax accounts like the invoice was (the last takes the
-                    # rounding). Re-deriving it from the invoice ignored what was
-                    # entered on the credit note and could leave DR ≠ CR.
-                    base = sum(tax_acct_totals.values(), Decimal("0"))
-                    tax_items = list(tax_acct_totals.items()) if base > 0 else []
-                    tax_left = cn.tax_amount
-                    for i, (tax_acct_id, tax_total) in enumerate(tax_items):
-                        if i == len(tax_items) - 1:
-                            tax_reversal = tax_left
-                        else:
-                            tax_reversal = (cn.tax_amount * tax_total / base).quantize(Decimal("0.01"))
-                            tax_left -= tax_reversal
-                        if tax_reversal > 0:
-                            JournalEntryLine.objects.create(
-                                journal_entry=entry,
-                                account_id=tax_acct_id,
-                                debit=tax_reversal,
-                                credit=Decimal("0"),
-                                description=f"Credit Note {cn.credit_note_number} — Tax Reversal",
-                            )
-            else:
-                # Absolute fallback: debit AR again (balanced but generic)
-                JournalEntryLine.objects.create(
-                    journal_entry=entry,
-                    account=ar_account,
-                    debit=cn.total,
-                    credit=Decimal("0"),
-                    description=f"Credit Note {cn.credit_note_number} — Reversal (no lines found)",
-                    **customer_partner(cn.customer),
-                )
-
-        # The entry must balance. Rounding, a negative last share or a credit note
-        # whose tax had no account on the invoice can leave a difference: it goes
-        # on the largest reversal line, and if there is none the apply is refused.
-        sums = entry.lines.aggregate(dr=Sum("debit"), cr=Sum("credit"))
-        diff = (sums["cr"] or Decimal("0")) - (sums["dr"] or Decimal("0"))
-        if diff:
-            target = entry.lines.filter(debit__gt=0).order_by("-debit").first()
-            if not target or target.debit + diff <= 0:
-                transaction.set_rollback(True)
-                return Response(
-                    {"success": False, "message": "Could not build a balanced reversal for this credit note"},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-            target.debit += diff
-            target.save(update_fields=["debit"])
-
-        # Update invoice paid_amount
-        invoice.paid_amount += cn.total
-        if invoice.paid_amount >= invoice.total:
-            invoice.status = "paid"
-        invoice.save()
-
-        # Mark credit note as applied and link to invoice and journal entry
-        cn.status = "applied"
-        cn.invoice = invoice
-        cn.journal_entry = entry
-        cn.save()
-
-    cn.refresh_from_db()
-    invoice.refresh_from_db()
-    log_action(request.user, "post", "CreditNote", cn.id,
-               {"credit_note_number": cn.credit_note_number,
-                "invoice_number": invoice.invoice_number, "total": str(cn.total)})
-    return Response({
-        "success": True,
-        "message": "Credit note applied",
-        "credit_note": _credit_note_dict(cn),
-        "invoice": _invoice_dict(invoice, include_lines=False),
-    })
 
 
 # ─── Customer Import / Export ────────────────────────────────────────────────
@@ -1336,7 +817,7 @@ def customers_import_preview(request):
         phone = (row.get("phone") or "").strip()
         address = (row.get("address") or "").strip()
         tax_id = (row.get("tax_id") or "").strip()
-        currency = (row.get("currency") or "MAD").strip().upper()
+        currency = (row.get("currency") or "DKK").strip().upper()
         payment_terms = (row.get("payment_terms") or "").strip()
         credit_limit = (row.get("credit_limit") or "").strip()
         notes = (row.get("notes") or "").strip()
@@ -1387,7 +868,7 @@ def customers_import_preview(request):
                 "phone": phone,
                 "address": address,
                 "tax_id": tax_id,
-                "currency": currency or "MAD",
+                "currency": currency or "DKK",
                 "payment_terms": payment_terms or "30",
                 "credit_limit": credit_limit or "0",
                 "notes": notes,
@@ -1458,7 +939,7 @@ def customers_import_confirm(request):
                     phone=data.get("phone", ""),
                     address=data.get("address", ""),
                     tax_id=data.get("tax_id", ""),
-                    currency=data.get("currency", "MAD"),
+                    currency=data.get("currency", "DKK"),
                     payment_terms=int(data.get("payment_terms", 30)),
                     credit_limit=Decimal(data.get("credit_limit", "0")),
                     notes=data.get("notes", ""),
@@ -1492,11 +973,6 @@ def invoices_export(request):
         qs = qs.filter(date__gte=request.query_params["date_from"])
     if request.query_params.get("date_to"):
         qs = qs.filter(date__lte=request.query_params["date_to"])
-    if request.query_params.get("vat_quarter"):
-        qs = qs.filter(vat_quarter=request.query_params["vat_quarter"])
-    if request.query_params.get("vat_year"):
-        qs = qs.filter(vat_year=request.query_params["vat_year"])
-
     response = HttpResponse(content_type="text/csv; charset=utf-8")
     response["Content-Disposition"] = 'attachment; filename="invoices.csv"'
     response.write("\ufeff")  # BOM for Excel
@@ -1504,7 +980,7 @@ def invoices_export(request):
     writer = SafeWriter(response)
     writer.writerow([
         "invoice_number", "customer_code", "customer_name", "date", "due_date",
-        "status", "currency", "vat_quarter", "vat_year",
+        "status", "currency", "exchange_rate", "delivery_date",
         "line_description", "line_quantity", "line_unit_price",
         "line_account_code", "line_tax_code", "line_amount",
         "subtotal", "tax_amount", "total",
@@ -1512,8 +988,8 @@ def invoices_export(request):
 
     for inv in qs:
         lines = inv.lines.select_related("account", "tax_code").all()
-        vq = f"Q{inv.vat_quarter}"
-        vy = str(inv.vat_year)
+        vq = str(inv.exchange_rate)
+        vy = inv.delivery_date.isoformat() if inv.delivery_date else ""
         if lines:
             for line in lines:
                 writer.writerow([

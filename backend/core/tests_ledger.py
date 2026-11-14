@@ -1,213 +1,176 @@
-"""Ledger integrity — every write keeps DR = CR and follows the document.
+"""Bøgerne følger dokumenterne, og hver postering balancerer.
 
-Run with: python manage.py test core.tests_ledger
+Kør: manage.py test core.tests_ledger
 """
 
 from datetime import date
-from decimal import Decimal
 
-from django.contrib.auth import get_user_model
-from django.test import TestCase
-from rest_framework.test import APIClient
+from django.core.files.uploadedfile import SimpleUploadedFile
+from django.db import connection
 
-from accounts.management.commands.seed_accounts import seed_chart
-from accounts.models import Account, FiscalYear
-from core.models import Payment, TaxCode
+from accounts import chart
+from core.testing import D, LedgerTestCase, balanced
 from journals.models import JournalEntry, JournalEntryLine
-from journals.numbering import next_number
-from purchases.models import Expense, Supplier
-from sales.models import CreditNote, Customer, Invoice, InvoiceLine
+from purchases.models import Supplier
+from sales.models import Customer, Invoice, Reminder
 
 
-def balanced(entry):
-    lines = entry.lines.all()
-    return sum(x.debit for x in lines) == sum(x.credit for x in lines)
-
-
-class LedgerTests(TestCase):
-    @classmethod
-    def setUpTestData(cls):
-        seed_chart()
-        cls.acc = {a.code: a for a in Account.objects.all()}
-        cls.vat = TaxCode.objects.create(code="TVA20", name="TVA 20", rate=Decimal("20"), type="both",
-                                         account=cls.acc["4455"])
-        cls.customer = Customer.objects.create(code="CUS-0001", name="Agency")
-        cls.supplier = Supplier.objects.create(code="SUP-0001", name="Hotel")
-
+class LedgerTests(LedgerTestCase):
     def setUp(self):
-        self.api = APIClient()
-        self.api.force_authenticate(get_user_model().objects.create_user("acc", password="x", is_staff=True))
+        super().setUp()
+        self.customer = Customer.objects.create(code="K1", name="Kunde ApS", address="Vej 1, 8000 Aarhus C",
+                                                tax_id="87654321")
+        self.supplier = Supplier.objects.create(code="L1", name="Leverandør GmbH", country="DE")
 
-    def entry(self, lines, d=date(2026, 9, 1), source="manual"):
-        je = JournalEntry.objects.create(entry_number=next_number(JournalEntry, "entry_number", "JE"),
-                                         date=d, source=source, is_posted=True, description="t")
-        for code, dr, cr in lines:
-            JournalEntryLine.objects.create(journal_entry=je, account=self.acc[code],
-                                            debit=Decimal(dr), credit=Decimal(cr))
-        return je
-
-    def invoice(self, lines=(("1.5", "10.33"), ("1.5", "10.33")), tax=None):
-        inv = Invoice.objects.create(invoice_number=next_number(Invoice, "invoice_number", "INV"),
-                                     customer=self.customer, date=date(2026, 9, 1), due_date=date(2026, 10, 1))
-        for q, p in lines:
-            InvoiceLine.objects.create(invoice=inv, quantity=Decimal(q), unit_price=Decimal(p),
-                                       account=self.acc["71243"], tax_code=tax)
-        inv.refresh_from_db()
-        inv.subtotal = sum((Decimal(q) * Decimal(p) for q, p in lines), Decimal("0"))
-        inv.total = inv.subtotal
-        inv.save()
-        return inv
-
-    # 1. Tax report
-    def test_both_type_tax_is_not_counted_twice(self):
-        self.entry([("3421", "1200", "0"), ("71243", "0", "1000"), ("4455", "0", "200")])
-        data = self.api.get("/api/v1/reports/tax", {"date_from": "2026-01-01", "date_to": "2026-12-31"}).json()["data"]
-        self.assertEqual(Decimal(data["net_tax_payable"]), Decimal("200"))
-
-    # 2. Payments come from the bank statement only
-    def test_payments_are_not_booked_from_the_payments_page(self):
-        r = self.api.post("/api/v1/payments", {"type": "outgoing", "date": "2026-09-05", "amount": "500",
-                                               "bank_account_id": str(self.acc["51411"].id),
-                                               "supplier_id": str(self.supplier.id)}, format="json")
-        self.assertEqual(r.status_code, 400)
-        self.assertIn("bank statement", r.json()["message"])
-        self.assertFalse(Payment.objects.exists())
-        self.assertFalse(JournalEntry.objects.exists())
-
-    # 5 + 7. Posting balances after rounding; editing a posted invoice re-posts it
-    def test_invoice_posting_balances_and_follows_edits(self):
-        inv = self.invoice()
-        self.assertEqual(self.api.post(f"/api/v1/invoices/{inv.id}/post").status_code, 200)
-        inv.refresh_from_db()
-        self.assertTrue(balanced(inv.journal_entry))
-        self.assertEqual(inv.total, inv.journal_entry.lines.get(debit__gt=0).debit)
-        r = self.api.put(f"/api/v1/invoices/{inv.id}", {"lines": [
-            {"description": "x", "quantity": "1", "unit_price": "800", "account_id": str(self.acc["71243"].id)}]},
-            format="json")
+    def issue(self, price="1000", d="2026-02-10", **extra):
+        r = self.post("/api/v1/invoices", {"customer_id": str(self.customer.id), "date": d, **extra, "lines": [
+            {"description": "Rådgivning", "quantity": "1", "unit_price": price,
+             "tax_code_id": str(self.tax("S01").id)}]})
+        self.assertEqual(r.status_code, 201, r.content)
+        inv = r.json()["invoice"]
+        self.assertTrue(inv["is_draft_number"])
+        r = self.post(f"/api/v1/invoices/{inv['id']}/post")
         self.assertEqual(r.status_code, 200, r.content)
-        inv.refresh_from_db()
-        self.assertEqual(inv.journal_entry.lines.get(debit__gt=0).debit, Decimal("800"))
-        self.assertEqual(JournalEntry.objects.filter(source="invoice").count(), 1)
+        return r.json()["invoice"]
 
-    def test_posted_invoice_in_closed_year_cannot_be_edited(self):
-        inv = self.invoice(lines=(("1", "100"),))
-        self.api.post(f"/api/v1/invoices/{inv.id}/post")
-        FiscalYear.objects.create(name="2026", start_date=date(2026, 1, 1), end_date=date(2026, 12, 31),
-                                  is_closed=True)
-        r = self.api.put(f"/api/v1/invoices/{inv.id}", {"notes": "x"}, format="json")
-        self.assertEqual(r.status_code, 400)
+    def test_draft_invoice_gets_due_date_from_terms(self):
+        r = self.post("/api/v1/invoices", {"customer_id": str(self.customer.id), "date": "2026-02-10",
+                                           "payment_terms_code": "lm30", "lines": [
+            {"description": "x", "quantity": "2", "unit_price": "10.005", "tax_code_id": str(self.tax("S01").id)}]})
+        inv = r.json()["invoice"]
+        self.assertEqual(inv["due_date"], "2026-03-30")
+        self.assertEqual(self.delete(f"/api/v1/invoices/{inv['id']}").status_code, 200)
 
-    # 7. Credit note uses its own tax and balances
-    def test_credit_note_without_invoice_entry_balances(self):
-        inv = self.invoice(lines=(("1", "1000"),), tax=self.vat)
-        inv.tax_amount, inv.total = Decimal("200"), Decimal("1200")
-        inv.save()
-        cn = CreditNote.objects.create(credit_note_number="CN-0001", customer=self.customer, invoice=inv,
-                                       date=date(2026, 9, 10), subtotal=Decimal("100"), tax_amount=Decimal("20"),
-                                       total=Decimal("120"))
-        r = self.api.post(f"/api/v1/credit-notes/{cn.id}/apply", {}, format="json")
+    def test_credit_note_mirrors_the_invoice_with_vat(self):
+        inv = self.issue("1000")
+        r = self.post("/api/v1/credit-notes", {"customer_id": str(self.customer.id), "invoice_id": inv["id"],
+                                               "date": "2026-02-20", "total": "625"})
+        self.assertEqual(r.status_code, 201, r.content)
+        cn = r.json()["credit_note"]
+        r = self.post(f"/api/v1/credit-notes/{cn['id']}/apply")
         self.assertEqual(r.status_code, 200, r.content)
-        cn.refresh_from_db()
-        self.assertTrue(balanced(cn.journal_entry))
-        self.assertEqual(cn.journal_entry.lines.get(account=self.acc["4455"]).debit, Decimal("20"))
+        je = JournalEntry.objects.get(source="credit_note")
+        self.assertTrue(balanced(je))
+        b = self.balances(je)
+        self.assertEqual(b[(chart.REVENUE, "S01")], (D(500), 0))
+        self.assertEqual(b[(chart.VAT_OUTPUT, "S01")], (D(125), 0))
+        self.assertEqual(b[(chart.RECEIVABLE, "")], (0, D(625)))
+        self.assertEqual(r.json()["credit_note"]["credit_note_number"], "1")
 
-    # 6. TVA on margin once per period
-    def test_margin_cannot_be_recognised_twice(self):
-        self.entry([("3421", "1200", "0"), ("71243", "0", "1200")], source="invoice")
-        body = {"date_from": "2026-09-01", "date_to": "2026-09-30", "entry_date": "2026-09-30"}
-        self.assertEqual(self.api.post("/api/v1/margin-recognition/create", body, format="json").status_code, 201)
-        tva = JournalEntry.objects.get(source="tva_margin")
-        self.assertEqual(tva.lines.get(account__code="4455").credit, Decimal("200.00"))
-        self.assertEqual(tva.lines.get(account__code="71243").debit, Decimal("200.00"))
-        self.assertEqual(self.api.post("/api/v1/margin-recognition/create", body, format="json").status_code, 400)
-        overlap = {"date_from": "2026-09-15", "date_to": "2026-10-15", "entry_date": "2026-10-15"}
-        self.assertEqual(self.api.post("/api/v1/margin-recognition/create", overlap, format="json").status_code, 400)
+    def test_quote_becomes_draft_invoice(self):
+        r = self.post("/api/v1/quotes", {"customer_id": str(self.customer.id), "date": "2026-02-01", "lines": [
+            {"description": "Opgave", "quantity": "3", "unit_price": "500", "tax_code_id": str(self.tax("S01").id)}]})
+        self.assertEqual(r.status_code, 201, r.content)
+        q = r.json()["quote"]
+        self.assertEqual((D(q["total"]), q["valid_until"]), (D("1875"), "2026-03-03"))
+        r = self.post(f"/api/v1/quotes/{q['id']}/invoice", {"date": "2026-02-05"})
+        self.assertEqual(r.status_code, 201, r.content)
+        inv = Invoice.objects.get(id=r.json()["invoice_id"])
+        self.assertEqual((inv.total, str(inv.quote_id), inv.status), (D("1875"), q["id"], "draft"))
+        self.assertEqual(self.post(f"/api/v1/quotes/{q['id']}/invoice").status_code, 400)
 
-    # 3 + 10. Expenses: right bank/cash account, rounded, status not editable
-    def test_expense_accounts_rounding_and_status(self):
-        bank = Expense.objects.create(date=date(2026, 9, 3), description="Taxi", amount=Decimal("10.33"),
-                                      tax_code=self.vat, account=self.acc["61254"], payment_method="bank_transfer")
-        cash = Expense.objects.create(date=date(2026, 9, 3), description="Water", amount=Decimal("50"),
-                                      account=self.acc["61254"], payment_method="cash")
-        self.assertEqual(self.api.put(f"/api/v1/expenses/{cash.id}", {"status": "approved"},
-                                      format="multipart").status_code, 200)
-        cash.refresh_from_db()
-        self.assertEqual(cash.status, "pending")
-        # A bank-paid expense is booked from the bank statement, not here.
-        r = self.api.post(f"/api/v1/expenses/{bank.id}/approve", {"bank_account_id": str(self.acc["51411"].id)},
-                          format="json")
-        self.assertEqual(r.status_code, 400)
-        self.assertEqual(self.api.post(f"/api/v1/expenses/{bank.id}/approve").status_code, 200)
-        self.assertEqual(self.api.post(f"/api/v1/expenses/{cash.id}/approve").status_code, 200)
-        for e in (bank, cash):
-            e.refresh_from_db()
-            self.assertTrue(balanced(e.journal_entry))
-            self.assertEqual(e.journal_entry.lines.get(credit__gt=0).account.code, "51611")
-            self.assertEqual(e.journal_entry.journal.code, "CA")
+    def test_reminders_follow_renteloven(self):
+        inv = self.issue("1000", d="2026-01-05")  # netto 14 → forfald 19/1
+        self.assertEqual(self.post("/api/v1/reminders", {"invoice_id": inv["id"], "date": "2026-01-15"}).status_code,
+                         400)  # ikke forfalden
+        self.assertEqual(self.post("/api/v1/reminders", {"invoice_id": inv["id"], "date": "2026-01-25",
+                                                         "fee": "150"}).status_code, 400)  # over 100 kr.
+        r = self.post("/api/v1/reminders", {"invoice_id": inv["id"], "date": "2026-01-25"})
+        self.assertEqual(r.status_code, 201, r.content)
+        je = JournalEntry.objects.get(source="reminder")
+        self.assertEqual(self.balances(je)[(chart.REMINDER_FEES, "")], (0, D(100)))
+        self.assertEqual(self.post("/api/v1/reminders", {"invoice_id": inv["id"], "date": "2026-01-30"}).status_code,
+                         400)  # under 10 dage
+        for d in ("2026-02-04", "2026-02-14"):
+            self.assertEqual(self.post("/api/v1/reminders", {"invoice_id": inv["id"], "date": d}).status_code, 201)
+        r = self.post("/api/v1/reminders", {"invoice_id": inv["id"], "date": "2026-03-01"})
+        self.assertIn("3 rykkere", r.json()["message"])
+        self.assertEqual(Reminder.objects.count(), 3)
+        cands = self.get("/api/v1/reminders/candidates", {"date": "2026-03-01"}).json()["candidates"]
+        self.assertEqual((cands[0]["reminders_sent"], cands[0]["can_remind"]), (3, False))
 
-    # 9. An entry with dependents cannot be deleted
-    def test_entry_belonging_to_an_invoice_cannot_be_deleted(self):
-        inv = self.invoice(lines=(("1", "100"),))
-        self.api.post(f"/api/v1/invoices/{inv.id}/post")
-        inv.refresh_from_db()
-        je = inv.journal_entry
-        self.api.post(f"/api/v1/journal-entries/{je.id}/unpost")
-        self.assertEqual(self.api.delete(f"/api/v1/journal-entries/{je.id}").status_code, 400)
-        self.assertTrue(JournalEntry.objects.filter(id=je.id).exists())
+    def test_bill_in_euro_is_booked_in_dkk_with_currency_amount(self):
+        r = self.post("/api/v1/bills", {"supplier_id": str(self.supplier.id), "date": "2026-02-12",
+                                        "due_date": "2026-03-12", "bill_number": "DE-77", "currency": "EUR",
+                                        "exchange_rate": "7.4600", "lines": [
+            {"description": "Software", "quantity": "1", "unit_price": "100", "account_id": str(self.acc("2310").id),
+             "tax_code_id": str(self.tax("K260").id)}]})
+        self.assertEqual(r.status_code, 201, r.content)
+        bill = r.json()["data"]["bill"]
+        self.assertEqual(D(bill["total"]), D(100))  # EU-ydelse: leverandøren fakturerer uden moms
+        self.assertEqual(self.post(f"/api/v1/bills/{bill['id']}/approve").status_code, 200)
+        je = JournalEntry.objects.get(source="expense")
+        self.assertTrue(balanced(je))
+        cost = je.lines.get(account__code="2310")
+        self.assertEqual((cost.debit, cost.currency, cost.amount_currency), (D("746.00"), "EUR", D("100.00")))
+        ap = je.lines.get(account__code=chart.PAYABLE)
+        self.assertEqual((ap.credit, ap.partner_id), (D("746.00"), str(self.supplier.id)))
+        self.assertEqual(je.lines.get(account__code=chart.VAT_EU_SERVICES).credit, D("186.50"))
+        self.assertEqual(je.lines.get(account__code=chart.VAT_INPUT).debit, D("186.50"))
 
-    # 11. Numbering and amounts
-    def test_numbering_ignores_other_series_and_thousands_parse(self):
-        Invoice.objects.create(invoice_number="VMM-2026-0150", customer=self.customer,
-                               date=date(2026, 9, 1), due_date=date(2026, 9, 1))
-        Invoice.objects.create(invoice_number="INV-0007", customer=self.customer,
-                               date=date(2026, 9, 1), due_date=date(2026, 9, 1))
-        from sales.views import _next_invoice_number
-        self.assertEqual(_next_invoice_number(), "INV-0008")
-        from journals.views import _safe_decimal
-        self.assertEqual(_safe_decimal("1,234,567"), Decimal("1234567"))
-        self.assertEqual(_safe_decimal("1.500,50"), Decimal("1500.50"))
+    def upload_bank(self, content):
+        try:
+            return self.api.post("/api/v1/bank-statements/upload", {
+                "file": SimpleUploadedFile("kontoudtog.csv", content.encode("utf-8"), content_type="text/csv"),
+                "bank_account_id": str(self.acc(chart.BANK).id)}, format="multipart")
+        finally:
+            connection.set_tenant(self.tenant)
 
+    def test_danish_bank_csv_import_and_categorise_with_vat(self):
+        csv = ("Dato;Tekst;Beløb;Saldo\n"
+               "03-02-2026;Dankort-køb OFFICE SHOP 1234;-1.250,00;8.750,00\n"
+               "05-02-2026;Overførsel fra Kunde ApS;2.500,00;11.250,00\n")
+        r = self.upload_bank(csv)
+        self.assertEqual(r.status_code, 200, r.content)
+        txns = r.json()["data"]["transactions"]
+        self.assertEqual([(t["date"], D(t["debit"]), D(t["credit"])) for t in txns],
+                         [("2026-02-03", D("1250"), 0), ("2026-02-05", 0, D("2500"))])
+        r = self.post("/api/v1/bank-statements/confirm", {"bank_account_id": str(self.acc(chart.BANK).id),
+                                                          "transactions": txns, "filename": "kontoudtog.csv"})
+        self.assertEqual(r.status_code, 201, r.content)
+        out = JournalEntryLine.objects.get(account__code=chart.BANK, credit=D("1250"))
+        self.assertEqual(out.journal_entry.journal.code, "BANK")
+        r = self.post(f"/api/v1/transactions/{out.id}/categorize", {"lines": [
+            {"account_id": str(self.acc("2450").id), "amount": "1250", "tax_code_id": str(self.tax("K010").id)}]})
+        self.assertEqual(r.status_code, 201, r.content)
+        je = out.journal_entry
+        self.assertTrue(balanced(je))
+        b = self.balances(je)
+        self.assertEqual(b[("2450", "K010")], (D("1000.00"), 0))
+        self.assertEqual(b[(chart.VAT_INPUT, "K010")], (D("250.00"), 0))
+        self.assertFalse(je.lines.filter(account__code=chart.SUSPENSE).exists())
+        # Samme fil igen: dubletter springes over.
+        r = self.post("/api/v1/bank-statements/confirm", {"bank_account_id": str(self.acc(chart.BANK).id),
+                                                          "transactions": txns})
+        self.assertEqual(r.json()["data"]["skipped"], 2)
 
-class EuroAccountTests(TestCase):
-    """Euros on CIH 600 EUR (51413) have no dirham value until exchanged into CIH 300."""
+    def test_reports_follow_arl(self):
+        self.issue("1000")
+        self.entry([("2845", "400", "0"), (chart.BANK, "0", "400")], d=date(2026, 2, 28))
+        pnl = self.get("/api/v1/reports/profit-and-loss", {"date_from": "2026-01-01", "date_to": "2026-12-31"})
+        data = pnl.json()["data"]
+        lines = {s["key"]: D(s["amount"]) for s in data["sections"]}
+        self.assertEqual((lines["nettoomsaetning"], lines["personaleomkostninger"]), (D(1000), D(-400)))
+        self.assertEqual((lines["bruttofortjeneste"], lines["aarets_resultat"]), (D(1000), D(600)))
+        tb = self.get("/api/v1/reports/trial-balance", {"date_from": "2026-02-01", "date_to": "2026-02-28"})
+        self.assertTrue(tb.json()["data"]["is_balanced"])
+        bs = self.get("/api/v1/reports/balance-sheet", {"date": "2026-12-31"}).json()["data"]
+        self.assertTrue(bs["is_balanced"], bs)
+        self.assertEqual(D(bs["unallocated_result"]), D(600))
+        card = self.get("/api/v1/reports/account-card", {"account": chart.RECEIVABLE, "date_from": "2026-01-01",
+                                                         "date_to": "2026-12-31"}).json()["data"]
+        self.assertEqual(D(card["closing"]), D(1250))
 
-    @classmethod
-    def setUpTestData(cls):
-        seed_chart()
-        cls.acc = {a.code: a for a in Account.objects.all()}
-
-    setUp = LedgerTests.setUp
-    entry = LedgerTests.entry
-
-    def euro_receipt(self):
-        je = JournalEntry.objects.create(entry_number=next_number(JournalEntry, "entry_number", "JE"),
-                                         date=date(2026, 9, 1), source="bank", is_posted=True, description="eur")
-        for code, dr, cr in (("51413", "7000", "0"), ("34972", "0", "7000")):
-            JournalEntryLine.objects.create(journal_entry=je, account=self.acc[code], currency="EUR",
-                                            debit=Decimal(dr), credit=Decimal(cr))
-        return je
-
-    def test_eur_accounts_are_eur(self):
-        self.assertEqual(self.acc["51413"].currency, "EUR")
-        self.assertEqual(self.acc["34972"].currency, "EUR")
-        self.assertEqual(self.acc["51411"].currency, "MAD")
-
-    def test_euros_stay_out_of_dirham_reports(self):
-        self.euro_receipt()
-        self.entry([("51411", "1000", "0"), ("71243", "0", "1000")])
-        tb = self.api.get("/api/v1/reports/trial-balance").json()["data"]
-        codes = {r["account_code"]: r for r in tb["rows"]}
-        self.assertNotIn("51413", codes)
-        self.assertEqual(Decimal(tb["total_debit"]), Decimal("1000"))
-        self.assertTrue(tb["is_balanced"])
-        foreign = {r["account_code"]: r for r in tb["foreign_rows"]}
-        self.assertEqual((foreign["51413"]["currency"], Decimal(foreign["51413"]["balance"])), ("EUR", Decimal("7000")))
-        bs = self.api.get("/api/v1/reports/balance-sheet").json()["data"]
-        self.assertNotIn("51413", {r["account_code"] for r in bs["assets"]["rows"]})
-        self.assertIn("51413", {r["account_code"] for r in bs["foreign_rows"]})
-
-    def test_eur_ledger_balance_is_in_euros(self):
-        self.euro_receipt()
-        data = self.api.get(f"/api/v1/accounts/{self.acc['51413'].id}/ledger").json()["data"]
-        self.assertEqual(data["account"]["currency"], "EUR")
-        self.assertEqual(Decimal(data["lines"][-1]["running_balance"]), Decimal("7000"))
+    def test_bank_receipt_pays_invoice_and_letters_it(self):
+        inv = self.issue("1000")
+        je = self.entry([(chart.BANK, "1250", "0"), (chart.SUSPENSE, "0", "1250")], d=date(2026, 2, 20),
+                        journal="BANK", source="bank")
+        bank_line = je.lines.get(account__code=chart.BANK)
+        r = self.post(f"/api/v1/transactions/{bank_line.id}/categorize",
+                      {"lines": [{"invoice_id": inv["id"], "amount": "1250"}]})
+        self.assertEqual(r.status_code, 201, r.content)
+        invoice = Invoice.objects.get(id=inv["id"])
+        self.assertEqual((invoice.paid_amount, invoice.status), (D("1250"), "paid"))
+        ar = JournalEntryLine.objects.filter(account__code=chart.RECEIVABLE)
+        self.assertEqual({l.lettrage for l in ar}, {"AA"})
+        self.assertEqual(sum((l.debit - l.credit for l in ar), D(0)), 0)

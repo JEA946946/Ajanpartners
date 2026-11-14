@@ -1,6 +1,6 @@
 from django.urls import path
 
-from . import views
+from . import vat_views, views
 
 urlpatterns = [
     # Tax Codes
@@ -31,8 +31,13 @@ urlpatterns = [
     path("documents/<uuid:pk>/link", views.document_link, name="document-link"),
     path("documents/<uuid:pk>/download", views.document_download, name="document-download"),
     path("audit-log/verify", views.audit_log_verify, name="audit-log-verify"),
+    # Moms (core/vat.py)
+    path("vat/periods", vat_views.vat_periods, name="vat-periods"),
+    path("vat/report", vat_views.vat_report, name="vat-report"),
+    path("vat/settle", vat_views.vat_settle, name="vat-settle"),
+    path("vat/unsettle", vat_views.vat_unsettle, name="vat-unsettle"),
+    path("vat/file", vat_views.vat_file, name="vat-file"),
     # Reports
-    path("reports/tax", views.report_tax, name="report-tax"),
     path("reports/cash-flow", views.report_cash_flow, name="report-cash-flow"),
     path("reports/aging-receivable", views.report_aging_receivable, name="report-aging-receivable"),
     path("reports/aging-payable", views.report_aging_payable, name="report-aging-payable"),

@@ -55,6 +55,7 @@ interface ClientContextType {
   loading: boolean;
   firm: Firm | null;
   firmStaff: { role: string; title: string } | null;
+  mfa: { enabled: boolean; required: boolean };
   clients: ClientSummary[];
   pendingGrants: PendingGrant[];
   current: ClientDetail | null;
@@ -82,6 +83,7 @@ export const ClientProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [loading, setLoading] = useState(true);
   const [firm, setFirm] = useState<Firm | null>(null);
   const [firmStaff, setFirmStaff] = useState<{ role: string; title: string } | null>(null);
+  const [mfa, setMfa] = useState<{ enabled: boolean; required: boolean }>({ enabled: false, required: false });
   const [clients, setClients] = useState<ClientSummary[]>([]);
   const [pendingGrants, setPendingGrants] = useState<PendingGrant[]>([]);
   const [current, setCurrent] = useState<ClientDetail | null>(null);
@@ -98,6 +100,7 @@ export const ClientProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       const d = me.data.data;
       setFirm(d.firm);
       setFirmStaff(d.firm_staff);
+      setMfa(d.mfa || { enabled: false, required: false });
       setClients(d.clients);
       setPendingGrants(d.pending_grants || []);
       let chosen = getClientSlug();
@@ -139,7 +142,7 @@ export const ClientProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   return (
     <ClientContext.Provider value={{
-      loading, firm, firmStaff, clients, pendingGrants, current, slug,
+      loading, firm, firmStaff, mfa, clients, pendingGrants, current, slug,
       selectClient, clearClient, refresh: load, hasFeature,
       canWrite: !!current?.access.can_write,
     }}>

@@ -15,10 +15,21 @@ interface Journal {
   is_active: boolean;
 }
 
-// Journaux auxiliaires. Code, type and account are fixed (entries and number
-// series refer to them); the name and whether it is in use can change.
+// Journaler (BANK pr. bankkonto, KAS, KØB, SALG, LØN, DIV, PRIMO, ÅA). Kode, type og
+// konto ligger fast (posteringer og nummerserier henviser til dem); navnet og om
+// journalen er i brug kan ændres.
 const Journals: React.FC = () => {
   const { t } = useTranslation();
+  const TYPE_LABELS: Record<string, string> = {
+    bank: t('journals.types.bank', 'Bank'),
+    cash: t('journals.types.cash', 'Kasse'),
+    purchases: t('journals.types.purchases', 'Køb'),
+    sales: t('journals.types.sales', 'Salg'),
+    payroll: t('journals.types.payroll', 'Løn'),
+    misc: t('journals.types.misc', 'Diverse'),
+    opening: t('journals.types.opening', 'Primo'),
+    closing: t('journals.types.closing', 'Årsafslutning'),
+  };
   const [journals, setJournals] = useState<Journal[]>([]);
 
   const load = () => {
@@ -34,7 +45,10 @@ const Journals: React.FC = () => {
 
   return (
     <Box>
-      <Typography variant="h5" sx={{ fontWeight: 600, mb: 2 }}>{t('journals.title')}</Typography>
+      <Typography variant="h5" sx={{ fontWeight: 600, mb: 1 }}>{t('journals.title')}</Typography>
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+        {t('journals.intro', 'Hver postering ligger i én journal og får et fortløbende nummer pr. journal og år, når måneden lukkes. En ny bankkonto får automatisk sin egen bankjournal.')}
+      </Typography>
       <TableContainer component={Paper}>
         <Table size="small">
           <TableHead>
@@ -57,7 +71,7 @@ const Journals: React.FC = () => {
                     onBlur={e => e.target.value !== j.name && save(j, { name: e.target.value })}
                   />
                 </TableCell>
-                <TableCell>{t(`journals.types.${j.type}`)}</TableCell>
+                <TableCell>{TYPE_LABELS[j.type] || j.type}</TableCell>
                 <TableCell sx={{ fontFamily: 'monospace' }}>{j.account_code || '—'}</TableCell>
                 <TableCell>{j.currency}</TableCell>
                 <TableCell>

@@ -1,4 +1,4 @@
-"""Journals, month closing and reversals (see journals/closing.py)."""
+"""Journaler, månedslukning, årsafslutning og tilbageføringer (journals/closing.py)."""
 
 from datetime import date
 
@@ -41,7 +41,7 @@ def journals_detail(request, pk):
     numbers and entries already refer to them."""
     j = Journal.objects.select_related("account").filter(id=pk).first()
     if not j:
-        return Response({"success": False, "message": "Journal not found"}, status=status.HTTP_404_NOT_FOUND)
+        return Response({"success": False, "message": "Journalen findes ikke"}, status=status.HTTP_404_NOT_FOUND)
     if "name" in request.data:
         j.name = (request.data["name"] or "").strip() or j.name
     if "is_active" in request.data:
@@ -57,7 +57,7 @@ def periods_list(request):
     try:
         year = int(request.query_params.get("year") or date.today().year)
     except ValueError:
-        return Response({"success": False, "message": "Invalid year"}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({"success": False, "message": "Ugyldigt år"}, status=status.HTTP_400_BAD_REQUEST)
     nxt = closing.first_open_month()
     return Response({"success": True, "data": {
         "year": year, "months": closing.period_status(year),
@@ -80,7 +80,7 @@ def _year_month(request):
 def period_check(request):
     ym = _year_month(request)
     if not ym:
-        return Response({"success": False, "message": "year and month are required"},
+        return Response({"success": False, "message": "year og month skal angives"},
                         status=status.HTTP_400_BAD_REQUEST)
     return Response({"success": True, "data": closing.check_month(*ym)})
 
@@ -88,34 +88,77 @@ def period_check(request):
 @api_view(["POST"])
 @permission_classes([RoleWriteAccess])
 def period_close(request):
-    """Close a month: validate and number its entries. Cannot be undone."""
+    """Luk en måned: valider og nummerér dens posteringer. Kan ikke fortrydes."""
     ym = _year_month(request)
     if not ym:
-        return Response({"success": False, "message": "year and month are required"},
+        return Response({"success": False, "message": "year og month skal angives"},
                         status=status.HTTP_400_BAD_REQUEST)
     period, check = closing.close_month(*ym, closed_by=_user_name(request.user),
                                         confirm_warnings=bool(request.data.get("confirm_warnings")))
     if period is None:
-        msg = "; ".join(check["blockers"]) or "Confirm the warnings to close the month"
+        msg = "; ".join(check["blockers"]) or "Bekræft advarslerne for at lukke måneden"
         return Response({"success": False, "message": msg, "data": check}, status=status.HTTP_400_BAD_REQUEST)
     log_action(request.user, "close", "Period", period.id,
                {"period": str(period), "validated": check["validated"], "warnings": check["warnings"]})
-    return Response({"success": True, "message": f"{period} closed — {check['validated']} entries validated",
+    return Response({"success": True, "message": f"{period} er lukket – {check['validated']} posteringer valideret",
                      "data": check})
 
 
 @api_view(["POST"])
 @permission_classes([RoleWriteAccess])
 def journal_entry_reverse(request, pk):
-    """Contre-passation of a validated entry, dated `date` (default today)."""
+    """Tilbageføring af en valideret postering, dateret `date` (standard i dag)."""
     entry = JournalEntry.objects.filter(id=pk).first()
     if not entry:
-        return Response({"success": False, "message": "Journal entry not found"}, status=status.HTTP_404_NOT_FOUND)
+        return Response({"success": False, "message": "Posteringen findes ikke"}, status=status.HTTP_404_NOT_FOUND)
     on_date = _to_date(request.data.get("date")) or date.today()
     rev, err = closing.reverse_entry(entry, on_date, _user_name(request.user))
     if err:
         return Response({"success": False, "message": err}, status=status.HTTP_400_BAD_REQUEST)
     log_action(request.user, "reverse", "JournalEntry", entry.id,
                {"entry_number": entry.entry_number, "reversal": rev.entry_number, "date": str(on_date)})
-    return Response({"success": True, "message": f"Reversed by {rev.entry_number}",
+    return Response({"success": True, "message": f"Tilbageført med {rev.entry_number}",
                      "data": {"reversal_id": str(rev.id), "reversal_number": rev.entry_number}})
+
+
+# ─── Årsafslutning ────────────────────────────────────────────────────────────
+
+def _fiscal_year(request):
+    from accounts.models import FiscalYear
+    fid = request.data.get("fiscal_year_id") or request.query_params.get("fiscal_year_id")
+    return FiscalYear.objects.filter(id=fid).first() if fid else None
+
+
+@api_view(["GET"])
+@permission_classes([RoleWriteAccess])
+def year_end_status(request):
+    return Response({"success": True, "data": {"fiscal_years": closing.year_status()}})
+
+
+@api_view(["GET"])
+@permission_classes([RoleWriteAccess])
+def year_end_check(request):
+    fy = _fiscal_year(request)
+    if fy is None:
+        return Response({"success": False, "message": "fiscal_year_id mangler eller findes ikke"},
+                        status=status.HTTP_400_BAD_REQUEST)
+    return Response({"success": True, "data": closing.check_year(fy)})
+
+
+@api_view(["POST"])
+@permission_classes([RoleWriteAccess])
+def year_end_close(request):
+    """Årsafslutning: overfør resultatet, lav primo og lås året. Kan ikke fortrydes."""
+    fy = _fiscal_year(request)
+    if fy is None:
+        return Response({"success": False, "message": "fiscal_year_id mangler eller findes ikke"},
+                        status=status.HTTP_400_BAD_REQUEST)
+    template = getattr(getattr(request, "tenant", None), "chart_template", None)
+    result, check = closing.close_year(
+        fy, closed_by=_user_name(request.user), confirm_warnings=bool(request.data.get("confirm_warnings")),
+        result_account=request.data.get("result_account") or closing.result_account_code(template))
+    if result is None:
+        msg = "; ".join(check["blockers"]) or "Bekræft advarslerne for at afslutte året"
+        return Response({"success": False, "message": msg, "data": check}, status=status.HTTP_400_BAD_REQUEST)
+    log_action(request.user, "close", "FiscalYear", fy.id, {"name": fy.name, **result})
+    return Response({"success": True, "message": f"{fy.name} er afsluttet", "data": result})

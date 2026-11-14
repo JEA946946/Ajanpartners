@@ -1,6 +1,6 @@
 from django.urls import path
 
-from . import views
+from . import quotes, views
 
 urlpatterns = [
     # Customer import/export — must be before <uuid:pk>
@@ -21,4 +21,12 @@ urlpatterns = [
     path("credit-notes", views.credit_notes_list_create, name="credit-notes-list-create"),
     path("credit-notes/<uuid:pk>", views.credit_notes_detail, name="credit-notes-detail"),
     path("credit-notes/<uuid:pk>/apply", views.credit_note_apply, name="credit-note-apply"),
+    # Tilbud
+    path("quotes", quotes.quotes_list_create, name="quotes-list-create"),
+    path("quotes/<uuid:pk>", quotes.quotes_detail, name="quotes-detail"),
+    path("quotes/<uuid:pk>/status", quotes.quote_status, name="quote-status"),
+    path("quotes/<uuid:pk>/invoice", quotes.quote_to_invoice, name="quote-to-invoice"),
+    # Rykkere
+    path("reminders/candidates", quotes.reminder_candidates, name="reminder-candidates"),
+    path("reminders", quotes.reminders_list_create, name="reminders-list-create"),
 ]

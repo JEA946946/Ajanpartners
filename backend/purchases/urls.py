@@ -6,7 +6,6 @@ urlpatterns = [
     # Supplier import/export — must be before <uuid:pk>
     path("suppliers/import/preview", views.suppliers_import_preview, name="suppliers-import-preview"),
     path("suppliers/import/confirm", views.suppliers_import_confirm, name="suppliers-import-confirm"),
-    path("suppliers/import/cmr-bulk", views.suppliers_import_cmr_bulk, name="suppliers-import-cmr-bulk"),
     # Suppliers
     path("suppliers", views.suppliers_list_create, name="suppliers-list-create"),
     path("suppliers/<uuid:pk>", views.suppliers_detail, name="suppliers-detail"),

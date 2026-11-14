@@ -5,6 +5,7 @@ import {
 } from '@mui/material';
 import { useTranslation } from 'react-i18next';
 import api from '../services/api';
+import { formatMoney } from '../utils/format';
 
 interface Txn { id: string; description: string; debit: string; credit: string; currency?: string; }
 interface Account { id: string; code: string; name: string; }
@@ -43,7 +44,6 @@ const BulkCategorizeDialog: React.FC<Props> = ({ open, txns, onClose, onDone }) 
   }, [open]);
 
   const total = txns.reduce((sum, t) => sum + amountOf(t), 0);
-  const currency = txns[0]?.currency || '';
 
   const handleSave = async () => {
     if (!account) { setError(t('bankTransactions.accountRequired')); return; }
@@ -75,7 +75,7 @@ const BulkCategorizeDialog: React.FC<Props> = ({ open, txns, onClose, onDone }) 
         <Box sx={{ mb: 2, mt: 1, p: 1, bgcolor: '#f5f5f5', borderRadius: 1 }}>
           <Typography variant="body2" color="text.secondary">
             {t('billMatching.bulkSummary', { count: txns.length })} ·{' '}
-            <b>{total.toLocaleString(undefined, { minimumFractionDigits: 2 })} {currency}</b>
+            <b>{formatMoney(total)}</b>
           </Typography>
         </Box>
 

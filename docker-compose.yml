@@ -1,27 +1,81 @@
+# Ajan Partners Bogføring – lokal/selvstændig drift.
+#
+#   cp .env.example .env   # udfyld
+#   docker compose up -d --build
+#
+# Tjenester: db (Postgres 16), django (API på :8001) og worker (bankkobling og
+# krypteret backup til S3-kompatibel lagring i EU). Ingen eksterne netværk.
+name: bogforing
+
+x-backend-env: &backend-env
+  DJANGO_SETTINGS_MODULE: ${DJANGO_SETTINGS_MODULE:-config.settings.server}
+  DB_HOST: db
+  DB_NAME: ${DB_NAME:-ajanpartners}
+  DB_USER: ${DB_USER:-postgres}
+  TZ: Europe/Copenhagen
+
 services:
+  db:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME:-ajanpartners}
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?Sæt DB_PASSWORD i .env}
+      TZ: Europe/Copenhagen
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
   django:
     build:
-      context: ./backend
-      dockerfile: Dockerfile
-    image: dmc_bookkeeping_django
-    container_name: dmc_bookkeeping_django
-    volumes:
-      - ./backend:/app:z
+      context: .
+      dockerfile: backend/Dockerfile
+      target: app
+    image: bogforing-app
+    restart: unless-stopped
+    env_file:
+      - path: .env
+        required: false
     environment:
-      - DJANGO_SETTINGS_MODULE=config.settings.local
-      - DB_HOST=dmc-cmr-db
-      - DB_PASSWORD=localdev-only
+      <<: *backend-env
+    depends_on:
+      db:
+        condition: service_healthy
     ports:
-      - "8001:8001"
-    networks:
-      - dmc-cmr-network
-    command: >
-      sh -c "python manage.py makemigrations --settings=config.settings.local &&
-             python manage.py migrate --settings=config.settings.local &&
-             python manage.py seed_accounts --settings=config.settings.local &&
-             python manage.py runserver 0.0.0.0:8001 --settings=config.settings.local"
+      - "${API_PORT:-8001}:8001"
+    volumes:
+      - media:/app/media
 
-networks:
-  dmc-cmr-network:
-    external: true
-    name: dmc-cmr_dmc-cmr-network
+  worker:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+      target: worker
+    image: bogforing-worker
+    restart: unless-stopped
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      <<: *backend-env
+      PGHOST: db
+      PGUSER: ${DB_USER:-postgres}
+      PGPASSWORD: ${DB_PASSWORD}
+      PGDATABASE: ${DB_NAME:-ajanpartners}
+      MEDIA_ROOT: /app/media
+    depends_on:
+      django:
+        condition: service_started
+    volumes:
+      - media:/app/media:ro
+      # Privat age-nøgle kun til restore-test; læg den i ./secrets (ikke i git)
+      - ./secrets:/run/secrets:ro
+
+volumes:
+  pgdata:
+  media:

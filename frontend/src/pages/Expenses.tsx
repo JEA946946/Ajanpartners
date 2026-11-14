@@ -14,6 +14,7 @@ import {
 } from '@mui/icons-material';
 import { useTranslation } from 'react-i18next';
 import api from '../services/api';
+import { formatNumber } from '../utils/format';
 
 interface Supplier {
   id: string;
@@ -32,6 +33,10 @@ interface TaxCode {
   code: string;
   name: string;
   rate: string;
+  type?: string;
+  is_active?: boolean;
+  reverse_charge?: string;
+  deduction_rate?: string;
 }
 
 interface ExpenseLine {
@@ -73,7 +78,7 @@ const EMPTY_FORM = {
 };
 
 const Expenses: React.FC = () => {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
 
   const STATUS_OPTIONS = [
     { value: '', label: t('common.all') },
@@ -150,7 +155,9 @@ const Expenses: React.FC = () => {
       if (res.data.success) setAccounts(res.data.data.accounts);
     });
     api.get('/tax-codes').then(res => {
-      if (res.data.success) setTaxCodes(res.data.data.tax_codes);
+      if (res.data.success) {
+        setTaxCodes(res.data.data.tax_codes.filter((tc: TaxCode) => tc.is_active !== false && tc.type !== 'sales'));
+      }
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps -- load once on mount; filters apply when the user presses Search
   }, []);
@@ -308,7 +315,7 @@ const Expenses: React.FC = () => {
 
   const selectedSupplier = suppliers.find(s => s.id === form.supplier_id) || null;
   const acctLabel = (a: Account) => `${a.code} — ${a.name}`;
-  const fmtNum = (v: number) => v.toLocaleString(i18n.language, { minimumFractionDigits: 2 });
+  const fmtNum = (v: number) => formatNumber(v);
 
   return (
     <Box>
@@ -375,7 +382,7 @@ const Expenses: React.FC = () => {
                 </TableCell>
                 <TableCell>{exp.supplier_name || '—'}</TableCell>
                 <TableCell align="right">
-                  {parseFloat(exp.amount).toLocaleString(i18n.language, { minimumFractionDigits: 2 })}
+                  {formatNumber(exp.amount)}
                 </TableCell>
                 <TableCell>
                   {exp.is_split ? (
@@ -526,7 +533,7 @@ const Expenses: React.FC = () => {
                       >
                         <MenuItem value="">{t('common.none')}</MenuItem>
                         {taxCodes.map(tc => (
-                          <MenuItem key={tc.id} value={tc.id}>{tc.code} ({tc.rate}%)</MenuItem>
+                          <MenuItem key={tc.id} value={tc.id}>{tc.code} — {tc.name}</MenuItem>
                         ))}
                       </TextField>
                     </TableCell>
@@ -640,15 +647,15 @@ const Expenses: React.FC = () => {
                         <TableRow key={i}>
                           <TableCell>{l.description || '—'}</TableCell>
                           <TableCell>{acct ? `${acct.code} — ${acct.name}` : (viewing.account_code ? `${viewing.account_code} — ${viewing.account_name}` : '—')}</TableCell>
-                          <TableCell>{tc ? `${tc.code} (${tc.rate}%)` : '—'}</TableCell>
-                          <TableCell align="right">{parseFloat(l.amount).toLocaleString(i18n.language, { minimumFractionDigits: 2 })}</TableCell>
+                          <TableCell>{tc ? `${tc.code} — ${tc.name}` : '—'}</TableCell>
+                          <TableCell align="right">{formatNumber(l.amount)}</TableCell>
                         </TableRow>
                       );
                     })}
                     <TableRow sx={{ bgcolor: '#e8f5e9' }}>
                       <TableCell colSpan={3} align="right" sx={{ fontWeight: 700 }}>{t('common.total')}:</TableCell>
                       <TableCell align="right" sx={{ fontWeight: 700 }}>
-                        {parseFloat(viewing.amount).toLocaleString(i18n.language, { minimumFractionDigits: 2 })}
+                        {formatNumber(viewing.amount)}
                       </TableCell>
                     </TableRow>
                   </TableBody>

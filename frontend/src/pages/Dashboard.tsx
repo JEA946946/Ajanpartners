@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { formatDate } from '../utils/dateFormat';
-import { Box, Card, CardContent, Typography, Grid, TextField, Button } from '@mui/material';
+import { formatDate, formatMoney } from '../utils/format';
+import { Box, Card, CardContent, Typography, Grid, TextField, Button, Alert } from '@mui/material';
 import {
   TrendingUp as RevenueIcon,
   TrendingDown as ExpenseIcon,
@@ -20,8 +20,9 @@ interface SummaryCard {
 
 const Dashboard: React.FC = () => {
   const navigate = useNavigate();
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const [pnl, setPnl] = useState<any>(null);
+  const [nextVat, setNextVat] = useState<{ name: string; deadline: string } | null>(null);
   const [recentEntries, setRecentEntries] = useState<any[]>([]);
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
@@ -47,25 +48,35 @@ const Dashboard: React.FC = () => {
 
   useEffect(() => {
     fetchData();
+    // Næste momsfrist: den første periode, der ikke er angivet (feature "vat"; fejl ignoreres).
+    const year = new Date().getFullYear();
+    Promise.all([year, year + 1].map(y => api.get(`/vat/periods?year=${y}`).catch(() => null)))
+      .then(results => {
+        const periods = results.flatMap(r => (r?.data?.data?.periods || []) as any[]);
+        const next = periods.find(p => p.status !== 'filed');
+        if (next) setNextVat({ name: next.name, deadline: next.deadline });
+      });
   }, []);
 
   const handleApply = () => {
     fetchData(dateFrom, dateTo);
   };
 
-  const revenue = pnl ? parseFloat(pnl.revenue?.total || '0') : 0;
-  const operatingExpenses = pnl ? parseFloat(pnl.operating_expenses?.total || '0') : 0;
-  const netIncome = pnl ? parseFloat(pnl.net_income || '0') : 0;
+  const section = (key: string) => parseFloat((pnl?.sections || []).find((s: any) => s.key === key)?.amount || '0');
+  const revenue = section('nettoomsaetning');
+  const grossProfit = section('bruttofortjeneste');
+  const netIncome = pnl ? parseFloat(pnl.net_result || '0') : 0;
+  const expenses = revenue - netIncome;
 
   const cards: SummaryCard[] = [
-    { label: t('dashboard.marginRevenue'), value: `${revenue.toLocaleString(i18n.language)} MAD`, color: '#2e7d32', icon: <RevenueIcon /> },
-    { label: t('dashboard.operatingExpenses'), value: `${operatingExpenses.toLocaleString(i18n.language)} MAD`, color: '#d32f2f', icon: <ExpenseIcon /> },
-    { label: t('dashboard.netIncome'), value: `${netIncome.toLocaleString(i18n.language)} MAD`, color: netIncome >= 0 ? '#1976d2' : '#d32f2f', icon: <NetIcon /> },
+    { label: t('dashboard.revenue', 'Nettoomsætning'), value: formatMoney(revenue), color: '#2e7d32', icon: <RevenueIcon /> },
+    { label: t('dashboard.grossProfit', 'Bruttofortjeneste'), value: formatMoney(grossProfit), color: '#00796b', icon: <ExpenseIcon /> },
+    { label: t('dashboard.netIncome'), value: formatMoney(netIncome), color: netIncome >= 0 ? '#1976d2' : '#d32f2f', icon: <NetIcon /> },
   ];
 
   const chartData = [
-    { name: t('dashboard.marginRevenue'), amount: revenue },
-    { name: t('dashboard.operatingExpenses'), amount: operatingExpenses },
+    { name: t('dashboard.revenue', 'Nettoomsætning'), amount: revenue },
+    { name: t('dashboard.costs', 'Omkostninger i alt'), amount: expenses },
     { name: t('dashboard.netIncome'), amount: netIncome },
   ];
 
@@ -87,6 +98,14 @@ const Dashboard: React.FC = () => {
           <Button variant="outlined" size="small" onClick={handleApply}>{t('common.apply')}</Button>
         </Box>
       </Box>
+
+      {nextVat && (
+        <Alert severity="info" sx={{ mb: 2, cursor: 'pointer' }} onClick={() => navigate('/tax-report')}>
+          {t('dashboard.nextVat', 'Næste momsfrist: {{name}} skal angives og betales senest {{date}}.', {
+            name: nextVat.name, date: formatDate(nextVat.deadline),
+          })}
+        </Alert>
+      )}
 
       <Grid container spacing={2} sx={{ mb: 3 }}>
         {cards.map((card) => (
@@ -117,7 +136,7 @@ const Dashboard: React.FC = () => {
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="name" tick={{ fontSize: 12 }} />
                   <YAxis tick={{ fontSize: 12 }} />
-                  <Tooltip />
+                  <Tooltip formatter={(v: number) => formatMoney(v)} />
                   <Bar dataKey="amount" fill="#2e7d32" radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
@@ -151,7 +170,7 @@ const Dashboard: React.FC = () => {
                       <Typography variant="body2" sx={{ fontWeight: 500 }}>{entry.entry_number}</Typography>
                       <Typography variant="caption" color="text.secondary">{entry.description || formatDate(entry.date)}</Typography>
                     </Box>
-                    <Typography variant="body2" sx={{ fontWeight: 500 }}>{parseFloat(entry.total_debit).toLocaleString(i18n.language)} MAD</Typography>
+                    <Typography variant="body2" sx={{ fontWeight: 500 }}>{formatMoney(entry.total_debit)}</Typography>
                   </Box>
                 ))
               )}

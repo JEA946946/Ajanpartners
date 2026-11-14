@@ -1,9 +1,10 @@
-"""Closed-period enforcement.
+"""Lukkede perioder.
 
-Every endpoint that writes or removes ledger data must refuse dates that fall
-inside a closed month (journals.models.Period) or a closed fiscal year
-(accounts.models.FiscalYear with is_closed=True). Every entry of a closed month
-is validated, so this check also keeps validated entries untouched.
+Alle endpoints, der skriver eller sletter i bøgerne, skal afvise datoer i en
+lukket måned (journals.models.Period), et afsluttet regnskabsår
+(accounts.models.FiscalYear.is_closed) eller en angivet momsperiode
+(core.models.VatReturn med status "filed"). Alle posteringer i en lukket måned
+er validerede, så tjekket holder også validerede posteringer uændrede.
 """
 
 from datetime import date, datetime
@@ -24,9 +25,9 @@ def _to_date(value):
 
 
 def closed_period_error(entry_date):
-    """Message if the date falls in a closed fiscal year, else None.
+    """Fejltekst, hvis datoen ligger i en lukket periode, ellers None.
 
-    Accepts date or ISO string; None date → None (caller validates elsewhere).
+    Tager en dato eller ISO-tekst; None → None (kalderen validerer selv).
     """
     d = _to_date(entry_date)
     if d is None:
@@ -38,8 +39,13 @@ def closed_period_error(entry_date):
         is_closed=True, start_date__lte=d, end_date__gte=d,
     ).first()
     if fy:
-        return f"Date {d.isoformat()} falls in closed fiscal year '{fy.name}'. Closed years cannot be changed."
+        return f"{d.isoformat()} ligger i det afsluttede regnskabsår {fy.name}, som ikke kan ændres."
     if Period.objects.filter(year=d.year, month=d.month).exists():
-        return (f"{d.year}-{d.month:02d} is closed and its entries are validated. "
-                "Correct with a reversal entry in an open month.")
+        return (f"{d.year}-{d.month:02d} er lukket, og dens posteringer er validerede. "
+                "Ret med en tilbageføring i en åben måned.")
+    from core.models import VatReturn
+    vr = VatReturn.objects.filter(status="filed", period_start__lte=d, period_end__gte=d).first()
+    if vr:
+        return (f"Momsperioden {vr.period_start.isoformat()}–{vr.period_end.isoformat()} er angivet og låst. "
+                "Ret i en åben periode (og ret angivelsen hos Skat).")
     return None

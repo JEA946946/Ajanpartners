@@ -14,7 +14,7 @@ interface Props {
   onChange: (v: TiersOption | null) => void;
 }
 
-// Customer or supplier (compte auxiliaire) for a line on 3421/4421/4411.
+// Debitor eller kreditor på en linje på debitor-, forudbetalings- eller kreditorkontoen.
 const TiersPicker: React.FC<Props> = ({ kind, value, onChange }) => {
   const { t } = useTranslation();
   const [search, setSearch] = useState('');

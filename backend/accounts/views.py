@@ -21,7 +21,8 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from core.audit import log_action
 from core.permissions import RoleWriteAccess
 
-from .models import Account, AccountType, FiscalYear, SupplierAccountMapping
+from .models import Account, AccountType, FiscalYear
+from .standardkontoplan import ARL_LINE_NAMES, classify
 
 
 class AuthRateThrottle(AnonRateThrottle):
@@ -64,6 +65,10 @@ def _account_dict(a):
         "normal_balance": a.account_type.normal_balance if a.account_type else None,
         "parent_id": str(a.parent_id) if a.parent_id else None,
         "currency": a.currency,
+        "standard_code": a.standard_code,
+        "arl_line": a.arl_line,
+        "arl_line_name": ARL_LINE_NAMES.get(a.arl_line, ""),
+        "is_header": a.is_header,
         "description": a.description,
         "is_active": a.is_active,
         "manager_io_id": a.manager_io_id,
@@ -72,13 +77,43 @@ def _account_dict(a):
     }
 
 
+def _iso(value):
+    """A date (or an ISO string not yet parsed after create) as ISO text."""
+    if not value:
+        return None
+    return value.isoformat() if hasattr(value, "isoformat") else str(value)
+
+
+def _standard_fields(code, parent, data):
+    """standard_code and arl_line for a new or changed account: given, else the
+    parent's, else from the number itself when it lies in the standard chart."""
+    std = (data.get("standard_code") or "").strip()
+    if not std and parent is not None:
+        std = parent.standard_code
+    arl = (data.get("arl_line") or "").strip()
+    if not arl:
+        for candidate in (std, code):
+            try:
+                arl = classify(candidate)[0]
+                break
+            except (ValueError, TypeError):
+                continue
+    if not arl and parent is not None:
+        arl = parent.arl_line
+    if arl and arl not in ARL_LINE_NAMES:
+        return None, None, f"Ukendt ÅRL-linje: {arl}"
+    return std, arl, None
+
+
 def _fiscal_year_dict(fy):
     return {
         "id": str(fy.id),
         "name": fy.name,
-        "start_date": fy.start_date.isoformat() if fy.start_date else None,
-        "end_date": fy.end_date.isoformat() if fy.end_date else None,
+        "start_date": _iso(fy.start_date),
+        "end_date": _iso(fy.end_date),
         "is_closed": fy.is_closed,
+        "closed_at": fy.closed_at.isoformat() if fy.closed_at else None,
+        "closed_by": fy.closed_by,
         "created_at": fy.created_at.isoformat() if fy.created_at else None,
     }
 
@@ -240,12 +275,21 @@ def accounts_list_create(request):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+    if parent is not None and not parent.is_header:
+        return Response({"success": False, "message": "Overkontoen skal være en overskrift (gruppekonto)"},
+                        status=status.HTTP_400_BAD_REQUEST)
+    std, arl, err = _standard_fields(data["code"], parent, data)
+    if err:
+        return Response({"success": False, "message": err}, status=status.HTTP_400_BAD_REQUEST)
     account = Account.objects.create(
         code=data["code"],
         name=data["name"],
         account_type=account_type,
         parent=parent,
-        currency=data.get("currency", "MAD"),
+        currency=data.get("currency", "DKK"),
+        standard_code=std,
+        arl_line=arl,
+        is_header=bool(data.get("is_header", False)),
         description=data.get("description", ""),
         is_active=data.get("is_active", True),
     )
@@ -308,6 +352,13 @@ def accounts_detail(request, pk):
         for field in ("currency", "description", "is_active", "manager_io_id"):
             if field in data:
                 setattr(account, field, data[field])
+        if "standard_code" in data or "arl_line" in data:
+            std, arl, err = _standard_fields(account.code, account.parent, {
+                "standard_code": data.get("standard_code", account.standard_code),
+                "arl_line": data.get("arl_line", account.arl_line)})
+            if err:
+                return Response({"success": False, "message": err}, status=status.HTTP_400_BAD_REQUEST)
+            account.standard_code, account.arl_line = std, arl
         account.save()
         log_action(request.user, "update", "Account", account.id,
                    {"code": account.code, "name": account.name})
@@ -358,11 +409,8 @@ def account_ledger(request, pk):
     for line in qs:
         debit = line.debit or Decimal("0")
         credit = line.credit or Decimal("0")
-        # The balance is in the account's currency; a line in another currency
-        # (euros on a MAD account) is listed but does not move it.
-        if line.currency != account.currency:
-            pass
-        elif is_debit_normal:
+        # Debet/kredit er altid DKK; et beløb i fremmed valuta vises ved siden af.
+        if is_debit_normal:
             running_balance += debit - credit
         else:
             running_balance += credit - debit
@@ -374,10 +422,12 @@ def account_ledger(request, pk):
             "debit": str(line.debit),
             "credit": str(line.credit),
             "currency": line.currency,
+            "amount_currency": str(line.amount_currency) if line.amount_currency is not None else None,
+            "exchange_rate": str(line.exchange_rate),
             "running_balance": f"{running_balance:.2f}",
         })
 
-    totals = qs.filter(currency=account.currency).aggregate(total_debit=Sum("debit"), total_credit=Sum("credit"))
+    totals = qs.aggregate(total_debit=Sum("debit"), total_credit=Sum("credit"))
     return Response({
         "success": True,
         "data": {
@@ -409,11 +459,15 @@ def fiscal_years_list_create(request):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-    fy = FiscalYear.objects.create(
-        name=data["name"],
-        start_date=data["start_date"],
-        end_date=data["end_date"],
-    )
+    from journals.periods import _to_date
+    start, end = _to_date(data["start_date"]), _to_date(data["end_date"])
+    if not start or not end or end < start:
+        return Response({"success": False, "message": "Ugyldig periode: start_date og end_date (åååå-mm-dd)"},
+                        status=status.HTTP_400_BAD_REQUEST)
+    if FiscalYear.objects.filter(start_date__lte=end, end_date__gte=start).exists():
+        return Response({"success": False, "message": "Perioden overlapper et eksisterende regnskabsår"},
+                        status=status.HTTP_400_BAD_REQUEST)
+    fy = FiscalYear.objects.create(name=data["name"], start_date=start, end_date=end)
     log_action(request.user, "create", "FiscalYear", fy.id,
                {"name": fy.name, "start_date": str(fy.start_date), "end_date": str(fy.end_date)})
     return Response({
@@ -434,8 +488,8 @@ def fiscal_years_detail(request, pk):
             status=status.HTTP_404_NOT_FOUND,
         )
 
-    # A closed year is final (Loi 9-88). Closing happens through the year-end
-    # closing, which books the result and the opening entries; never by a flag.
+    # Et afsluttet år er endeligt (Bogføringsloven). Det lukkes kun gennem
+    # årsafslutningen (year-end/...), som bogfører resultatet og primoposteringerne.
     if fy.is_closed:
         return Response(
             {"success": False, "message": f"Fiscal year {fy.name} is closed and cannot be changed or deleted"},
@@ -444,9 +498,19 @@ def fiscal_years_detail(request, pk):
 
     if request.method == "PUT":
         data = request.data
-        for field in ("name", "start_date", "end_date"):
+        from journals.periods import _to_date
+        if "name" in data:
+            fy.name = data["name"]
+        for field in ("start_date", "end_date"):
             if field in data:
-                setattr(fy, field, data[field])
+                value = _to_date(data[field])
+                if value is None:
+                    return Response({"success": False, "message": f"Ugyldig {field}"},
+                                    status=status.HTTP_400_BAD_REQUEST)
+                setattr(fy, field, value)
+        if fy.end_date < fy.start_date:
+            return Response({"success": False, "message": "Slutdato før startdato"},
+                            status=status.HTTP_400_BAD_REQUEST)
         fy.save()
         log_action(request.user, "update", "FiscalYear", fy.id, {"name": fy.name})
         return Response({
@@ -459,77 +523,6 @@ def fiscal_years_detail(request, pk):
     fy.delete()
     log_action(request.user, "delete", "FiscalYear", pk, {"name": fy_name})
     return Response({"success": True, "message": "Fiscal year deleted"})
-
-
-# ─── Supplier Account Mappings ───────────────────────────────────────────────
-
-def _mapping_dict(m):
-    return {
-        "id": str(m.id),
-        "cmr_supplier_id": m.cmr_supplier_id,
-        "cmr_supplier_name": m.cmr_supplier_name,
-        "account_id": str(m.account_id),
-        "account_code": m.account.code,
-        "account_name": m.account.name,
-        "created_at": m.created_at.isoformat() if m.created_at else None,
-        "updated_at": m.updated_at.isoformat() if m.updated_at else None,
-    }
-
-
-@api_view(["GET", "POST"])
-@permission_classes([RoleWriteAccess])
-def supplier_mappings_list_create(request):
-    if request.method == "GET":
-        qs = SupplierAccountMapping.objects.select_related("account").order_by("cmr_supplier_name")
-        return Response({
-            "success": True,
-            "data": {"mappings": [_mapping_dict(m) for m in qs]},
-        })
-
-    # POST — create or update mapping
-    data = request.data
-    cmr_supplier_id = data.get("cmr_supplier_id")
-    account_id = data.get("account_id")
-    if not cmr_supplier_id or not account_id:
-        return Response(
-            {"success": False, "message": "cmr_supplier_id and account_id are required"},
-            status=status.HTTP_400_BAD_REQUEST,
-        )
-
-    try:
-        account = Account.objects.get(id=account_id)
-    except Account.DoesNotExist:
-        return Response(
-            {"success": False, "message": "Account not found"},
-            status=status.HTTP_400_BAD_REQUEST,
-        )
-
-    mapping, created = SupplierAccountMapping.objects.update_or_create(
-        cmr_supplier_id=cmr_supplier_id,
-        defaults={
-            "cmr_supplier_name": data.get("cmr_supplier_name", ""),
-            "account": account,
-        },
-    )
-    return Response({
-        "success": True,
-        "message": "Mapping created" if created else "Mapping updated",
-        "data": {"mapping": _mapping_dict(mapping)},
-    }, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
-
-
-@api_view(["DELETE"])
-@permission_classes([RoleWriteAccess])
-def supplier_mappings_delete(request, pk):
-    try:
-        mapping = SupplierAccountMapping.objects.get(id=pk)
-    except SupplierAccountMapping.DoesNotExist:
-        return Response(
-            {"success": False, "message": "Mapping not found"},
-            status=status.HTTP_404_NOT_FOUND,
-        )
-    mapping.delete()
-    return Response({"success": True, "message": "Mapping deleted"})
 
 
 # ─── Account Import ──────────────────────────────────────────────────────────
@@ -563,7 +556,7 @@ def accounts_import_preview(request):
         name = (row.get("name") or "").strip()
         account_type_name = (row.get("account_type") or "").strip()
         parent_code = (row.get("parent_code") or "").strip()
-        currency = (row.get("currency") or "MAD").strip().upper()
+        currency = (row.get("currency") or "DKK").strip().upper()
         description = (row.get("description") or "").strip()
 
         errors = []
@@ -616,7 +609,7 @@ def accounts_import_preview(request):
                 "account_type_id": resolved_type_id,
                 "parent_code": parent_code,
                 "parent_id": resolved_parent_id,
-                "currency": currency or "MAD",
+                "currency": currency or "DKK",
                 "description": description,
             },
         })
@@ -683,7 +676,7 @@ def accounts_import_confirm(request):
                     account.name = name
                     account.account_type = account_type
                     account.parent = parent
-                    account.currency = data.get("currency", "MAD")
+                    account.currency = data.get("currency", "DKK")
                     if data.get("description"):
                         account.description = data["description"]
                     account.save()
@@ -696,7 +689,7 @@ def accounts_import_confirm(request):
                     name=name,
                     account_type=account_type,
                     parent=parent,
-                    currency=data.get("currency", "MAD"),
+                    currency=data.get("currency", "DKK"),
                     description=data.get("description", ""),
                 )
                 created += 1

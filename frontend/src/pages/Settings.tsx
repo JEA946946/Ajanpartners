@@ -20,7 +20,22 @@ interface CompanySettings {
   logo1: string;
   logo2: string;
   logo3: string;
+  bank_reg_no: string;
+  bank_account_no: string;
+  iban: string;
+  bic: string;
+  fi_creditor_no: string;
+  gln: string;
+  default_payment_terms: string;
+  invoice_footer: string;
+  reminder_fee: string;
+  reminder_interval_days: number;
 }
+
+const INVOICE_FIELDS = ['bank_reg_no', 'bank_account_no', 'iban', 'bic', 'fi_creditor_no', 'gln',
+  'default_payment_terms', 'invoice_footer', 'reminder_fee'] as const;
+
+const PAYMENT_TERMS = ['net8', 'net14', 'net30', 'lm15', 'lm30', 'cash'];
 
 const EMPTY_SETTINGS: CompanySettings = {
   company_name: '',
@@ -30,12 +45,22 @@ const EMPTY_SETTINGS: CompanySettings = {
   tax_id: '',
   phone: '',
   email: '',
-  currency: 'MAD',
+  currency: 'DKK',
   fiscal_year_start_month: 1,
   date_format: 'DD-MM-YYYY',
   logo1: '',
   logo2: '',
   logo3: '',
+  bank_reg_no: '',
+  bank_account_no: '',
+  iban: '',
+  bic: '',
+  fi_creditor_no: '',
+  gln: '',
+  default_payment_terms: 'net14',
+  invoice_footer: '',
+  reminder_fee: '100.00',
+  reminder_interval_days: 10,
 };
 
 const DATE_FORMAT_OPTIONS = [
@@ -84,13 +109,15 @@ const Settings: React.FC = () => {
           tax_id: data.tax_id || '',
           phone: data.phone || '',
           email: data.email || '',
-          currency: data.currency || 'MAD',
+          currency: data.currency || 'DKK',
           fiscal_year_start_month: data.fiscal_year_start_month || 1,
           date_format: data.date_format || 'DD-MM-YYYY',
           logo1: data.logo1 || '',
           logo2: data.logo2 || '',
           logo3: data.logo3 || '',
-        });
+          ...Object.fromEntries(INVOICE_FIELDS.map((k) => [k, data[k] ?? EMPTY_SETTINGS[k]])),
+          reminder_interval_days: data.reminder_interval_days ?? 10,
+        } as CompanySettings);
       }
     } catch (err: any) {
       setError(err.response?.data?.message || t('settings.errorLoading'));
@@ -270,6 +297,47 @@ const Settings: React.FC = () => {
               </MenuItem>
             ))}
           </TextField>
+
+          {/* Fakturaoplysninger */}
+          <Typography variant="body2" sx={{ fontWeight: 600 }}>
+            {t('settings.invoiceSection', 'Fakturaoplysninger (betaling, FI-kort og rykkere)')}
+          </Typography>
+          <Box sx={{ display: 'flex', gap: 2 }}>
+            <TextField label={t('settings.bankRegNo', 'Reg.nr.')} value={form.bank_reg_no} size="small" sx={{ width: 120 }}
+              inputProps={{ maxLength: 4 }} onChange={e => setForm({ ...form, bank_reg_no: e.target.value })} />
+            <TextField label={t('settings.bankAccountNo', 'Kontonr.')} value={form.bank_account_no} size="small" fullWidth
+              onChange={e => setForm({ ...form, bank_account_no: e.target.value })} />
+          </Box>
+          <Box sx={{ display: 'flex', gap: 2 }}>
+            <TextField label="IBAN" value={form.iban} size="small" fullWidth
+              onChange={e => setForm({ ...form, iban: e.target.value })} />
+            <TextField label="BIC/SWIFT" value={form.bic} size="small" sx={{ width: 180 }}
+              onChange={e => setForm({ ...form, bic: e.target.value })} />
+          </Box>
+          <Box sx={{ display: 'flex', gap: 2 }}>
+            <TextField label={t('settings.fiCreditorNo', 'FI-kreditornummer (8 cifre, FI-kort +71)')} value={form.fi_creditor_no}
+              size="small" fullWidth inputProps={{ maxLength: 8 }}
+              onChange={e => setForm({ ...form, fi_creditor_no: e.target.value.replace(/\D/g, '') })} />
+            <TextField label={t('settings.gln', 'GLN/EAN (e-faktura)')} value={form.gln} size="small" fullWidth
+              inputProps={{ maxLength: 13 }} onChange={e => setForm({ ...form, gln: e.target.value.replace(/\D/g, '') })} />
+          </Box>
+          <Box sx={{ display: 'flex', gap: 2 }}>
+            <TextField label={t('settings.defaultPaymentTerms', 'Standard betalingsbetingelse')} value={form.default_payment_terms}
+              size="small" select fullWidth onChange={e => setForm({ ...form, default_payment_terms: e.target.value })}>
+              {PAYMENT_TERMS.map(code => (
+                <MenuItem key={code} value={code}>{t(`settings.terms.${code}`, {
+                  net8: 'Netto 8 dage', net14: 'Netto 14 dage', net30: 'Netto 30 dage',
+                  lm15: 'Løbende måned + 15 dage', lm30: 'Løbende måned + 30 dage', cash: 'Kontant',
+                }[code] as string)}</MenuItem>
+              ))}
+            </TextField>
+            <TextField label={t('settings.reminderFee', 'Rykkergebyr (højst 100 kr.)')} value={form.reminder_fee} size="small"
+              sx={{ width: 220 }} type="number" inputProps={{ min: 0, max: 100, step: '0.01' }}
+              helperText={t('settings.reminderFeeHelp', 'Renteloven § 9 b: højst 100 kr. pr. rykker og højst 3 rykkere')}
+              onChange={e => setForm({ ...form, reminder_fee: e.target.value })} />
+          </Box>
+          <TextField label={t('settings.invoiceFooter', 'Tekst nederst på fakturaen')} value={form.invoice_footer} size="small"
+            fullWidth multiline rows={2} onChange={e => setForm({ ...form, invoice_footer: e.target.value })} />
 
           {/* Logos */}
           <Box>

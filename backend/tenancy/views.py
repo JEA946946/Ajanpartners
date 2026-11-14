@@ -17,6 +17,7 @@ from core.permissions import IsAdmin, RoleWriteAccess
 from .access import resolve, staff_of, visible_clients
 from .features import FEATURES
 from .models import AccessGrant, ClientCompany, Firm, FirmAuditLog, FirmStaff
+from .mfa import has_mfa, mfa_required_for
 from .services import accept_grant, revoke_grant
 
 
@@ -68,6 +69,7 @@ def me(request):
         "user": {"id": str(user.id), "username": user.username, "email": user.email,
                  "first_name": user.first_name, "last_name": user.last_name},
         "firm_staff": {"role": staff.role, "title": staff.title} if staff else None,
+        "mfa": {"enabled": has_mfa(user), "required": mfa_required_for(user)},
         "firm": firm_dict(Firm.current()),
         "clients": clients,
         "pending_grants": [grant_dict(g) for g in AccessGrant.objects.filter(
@@ -168,3 +170,31 @@ def access_grant_revoke(request, pk):
     revoke_grant(grant, request.user)
     log_action(request.user, "update", "AccessGrant", grant.id, changes={"action": "revoked"})
     return Response({"success": True, "data": {"grant": grant_dict(grant)}})
+
+
+# ─── Eksportér alt ────────────────────────────────────────────────────────────
+
+def export_response(client, user):
+    import os
+
+    from django.http import FileResponse
+
+    from .export import build_export
+    path = build_export(client, user)
+    fh = open(path, "rb")
+    os.unlink(path)  # filen forsvinder, når svaret er sendt (fh holder den åben)
+    name = f"regnskabsmateriale_{client.cvr or client.slug}_{timezone.localdate():%Y%m%d}.zip"
+    return FileResponse(fh, as_attachment=True, filename=name, content_type="application/zip")
+
+
+@api_view(["GET"])
+@permission_classes([RoleWriteAccess])
+def export_all(request):
+    """Kundens administrator henter alt regnskabsmateriale (SAF-T, bilag, audit-log).
+    Virker også, når virksomheden er arkiveret (read-only)."""
+    access = request.client_access
+    if access.role != "admin":
+        return Response({"success": False, "message": "Kræver administratorrollen i virksomheden."},
+                        status=status.HTTP_403_FORBIDDEN)
+    log_action(request.user, "export", "ExportAll", request.tenant.slug)
+    return export_response(request.tenant, request.user)

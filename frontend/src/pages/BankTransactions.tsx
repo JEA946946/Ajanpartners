@@ -13,6 +13,8 @@ import {
 } from '@mui/icons-material';
 import { useTranslation } from 'react-i18next';
 import api from '../services/api';
+import { formatMoney, formatNumber } from '../utils/format';
+import { BASE_CURRENCY } from '../utils/chart';
 import { downloadBlob } from '../utils/csvExport';
 
 interface BankAccount {
@@ -30,6 +32,7 @@ interface BankTransaction {
   debit: string;
   credit: string;
   currency: string;
+  amount_currency?: string | null;
   bank_account_id: string;
   bank_account_code: string;
   bank_account_name: string;
@@ -240,13 +243,10 @@ const BankTransactions: React.FC = () => {
   const fmt = (val: string) => {
     const n = parseFloat(val);
     if (!n) return '';
-    return n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    return formatNumber(n);
   };
 
-  const fmtSummary = (val: string) => {
-    const n = parseFloat(val);
-    return n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  };
+  const fmtSummary = (val: string) => formatMoney(val);
 
   const acctLabel = (a: Account) => `${a.code} ${a.name}`;
 
@@ -307,21 +307,21 @@ const BankTransactions: React.FC = () => {
       </Paper>
 
       {/* Summary bar */}
-      {/* One block per currency: euros on 51413 are never added to dirhams */}
+      {/* Totaler i DKK (bankposteringer er altid i DKK; valutabeløb vises pr. linje) */}
       <Paper sx={{ p: 1.5, mb: 2, display: 'flex', gap: 3, alignItems: 'center', flexWrap: 'wrap' }}>
         {summaries.map(summary => (
           <React.Fragment key={summary.currency}>
             <Box>
               <Typography variant="caption" color="text.secondary">{t('bankTransactions.totalDebits')}</Typography>
-              <Typography variant="body2" fontWeight={600}>{fmtSummary(summary.total_debit)} {summary.currency}</Typography>
+              <Typography variant="body2" fontWeight={600}>{fmtSummary(summary.total_debit)}</Typography>
             </Box>
             <Box>
               <Typography variant="caption" color="text.secondary">{t('bankTransactions.totalCredits')}</Typography>
-              <Typography variant="body2" fontWeight={600}>{fmtSummary(summary.total_credit)} {summary.currency}</Typography>
+              <Typography variant="body2" fontWeight={600}>{fmtSummary(summary.total_credit)}</Typography>
             </Box>
             <Box>
               <Typography variant="caption" color="text.secondary">{t('bankTransactions.net')}</Typography>
-              <Typography variant="body2" fontWeight={600}>{fmtSummary(summary.net)} {summary.currency}</Typography>
+              <Typography variant="body2" fontWeight={600}>{fmtSummary(summary.net)}</Typography>
             </Box>
           </React.Fragment>
         ))}
@@ -367,7 +367,14 @@ const BankTransactions: React.FC = () => {
                   <TableCell>{txn.reference}</TableCell>
                   <TableCell sx={{ whiteSpace: 'nowrap' }}>{txn.bank_account_code} - {txn.bank_account_name}</TableCell>
                   <TableCell align="right">{fmt(txn.debit)}</TableCell>
-                  <TableCell align="right">{fmt(txn.credit)}</TableCell>
+                  <TableCell align="right">
+                    {fmt(txn.credit)}
+                    {txn.currency && txn.currency !== BASE_CURRENCY && txn.amount_currency && (
+                      <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                        {formatMoney(Math.abs(parseFloat(txn.amount_currency)), txn.currency)}
+                      </Typography>
+                    )}
+                  </TableCell>
                   <TableCell align="right">
                     {matched ? (
                       <Chip size="small" color="success" variant="outlined" label={t('bankTransactions.matched')} sx={{ height: 22 }} />
@@ -519,7 +526,7 @@ const BankTransactions: React.FC = () => {
                 <TableRow sx={{ bgcolor: '#e8f5e9' }}>
                   <TableCell colSpan={3} align="right" sx={{ fontWeight: 700 }}>{t('common.total')}:</TableCell>
                   <TableCell align="right" sx={{ fontWeight: 700 }}>
-                    {txnTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })} {sourceTxn?.currency}
+                    {formatMoney(txnTotal)}
                   </TableCell>
                   <TableCell />
                 </TableRow>
@@ -532,7 +539,7 @@ const BankTransactions: React.FC = () => {
             </Button>
             {sourceTxn && (
               <Typography variant="caption" color={txnTotal.toFixed(2) === (parseFloat(sourceTxn.credit || '0') || parseFloat(sourceTxn.debit || '0')).toFixed(2) ? 'text.secondary' : 'warning.main'}>
-                {t('bankTransactions.txnAmount')}: {(parseFloat(sourceTxn.credit || '0') || parseFloat(sourceTxn.debit || '0')).toLocaleString(undefined, { minimumFractionDigits: 2 })} {sourceTxn.currency}
+                {t('bankTransactions.txnAmount')}: {formatMoney(parseFloat(sourceTxn.credit || '0') || parseFloat(sourceTxn.debit || '0'))}
               </Typography>
             )}
           </Box>

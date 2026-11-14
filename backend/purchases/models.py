@@ -17,14 +17,19 @@ class Supplier(models.Model):
     phone = models.CharField(max_length=50, blank=True, default="")
     address = models.TextField(blank=True, default="")
     tax_id = models.CharField(max_length=50, blank=True, default="")
-    currency = models.CharField(max_length=3, default="MAD")
-    payment_terms = models.IntegerField(default=30, help_text="Days until due")
+    country = models.CharField(max_length=2, blank=True, default="DK", help_text="ISO 3166-1 alpha-2")
+    currency = models.CharField(max_length=3, default="DKK")
+    payment_terms = models.IntegerField(default=30, help_text="Dage til forfald")
     notes = models.TextField(blank=True, default="")
     default_account = models.ForeignKey(
         Account, on_delete=models.SET_NULL, null=True, blank=True,
         related_name="default_suppliers",
     )
-    cmr_id = models.CharField(max_length=36, blank=True, default="", db_index=True)
+    # Forslag til momskode på nye regninger (fx K260 for en EU-leverandør af ydelser).
+    default_tax_code = models.ForeignKey(
+        "core.TaxCode", on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="default_suppliers",
+    )
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -59,11 +64,9 @@ class Bill(models.Model):
     tax_amount = models.DecimalField(max_digits=15, decimal_places=2, default=0)
     total = models.DecimalField(max_digits=15, decimal_places=2, default=0)
     paid_amount = models.DecimalField(max_digits=15, decimal_places=2, default=0)
-    currency = models.CharField(max_length=3, default="MAD")
-    vat_quarter = models.IntegerField(
-        default=1, choices=[(1, "Q1"), (2, "Q2"), (3, "Q3"), (4, "Q4")]
-    )
-    vat_year = models.IntegerField(default=2025)
+    currency = models.CharField(max_length=3, default="DKK")
+    # DKK pr. 1 enhed af currency.
+    exchange_rate = models.DecimalField(max_digits=12, decimal_places=6, default=1)
     reference = models.CharField(max_length=200, blank=True, default="")
     notes = models.TextField(blank=True, default="")
     journal_entry = models.ForeignKey(
@@ -129,8 +132,8 @@ class BillPaymentLink(models.Model):
         related_name="bill_payment_links",
     )
     amount = models.DecimalField(max_digits=15, decimal_places=2)
-    # The posted clearing entry (legacy: DR 4411 / CR the old client-funds account). Without it,
-    # matching only bumped paid_amount and both balance-sheet accounts grew forever.
+    # En eventuel særskilt udligningspostering (normalt None: bankens mellemregningsben
+    # omposteres direkte til kreditorer).
     clearing_entry = models.ForeignKey(
         "journals.JournalEntry",
         on_delete=models.SET_NULL,
@@ -150,10 +153,9 @@ class BillPaymentLink(models.Model):
 
 
 class BankTransactionCategorization(models.Model):
-    """Reconciles a bank transaction (journal entry line) by booking it directly
-    to an expense/tax account — a reclassification out of the 34971 suspense
-    into the agency's own accounts. The `journal_entry` is the posted
-    reclassification entry (DR expense/tax, CR suspense)."""
+    """Afstemmer en banklinje ved at bogføre den direkte på en konto: en
+    ompostering fra mellemregningskontoen (chart.SUSPENSE). `journal_entry` er
+    omposteringen."""
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     journal_entry_line = models.OneToOneField(

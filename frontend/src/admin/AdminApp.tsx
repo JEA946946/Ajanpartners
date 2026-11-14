@@ -1,11 +1,44 @@
-import React from 'react';
-import { Box, Typography } from '@mui/material';
+import React, { Suspense } from 'react';
+import { Navigate, Route, Routes } from 'react-router-dom';
+import { Box, CircularProgress } from '@mui/material';
+import { AdminProvider } from './AdminContext';
+import AdminLayout from './AdminLayout';
 
-/** Admin-portalen for Ajan Partners. Bygges ud i admin/-mappen. */
+const ClientsList = React.lazy(() => import('./pages/ClientsList'));
+const CreateClient = React.lazy(() => import('./pages/CreateClient'));
+const ClientDetail = React.lazy(() => import('./pages/ClientDetail'));
+const Deadlines = React.lazy(() => import('./pages/Deadlines'));
+const Tasks = React.lazy(() => import('./pages/Tasks'));
+const StaffPage = React.lazy(() => import('./pages/StaffPage'));
+const Packages = React.lazy(() => import('./pages/Packages'));
+const FirmAuditLog = React.lazy(() => import('./pages/FirmAuditLog'));
+const FirmSettings = React.lazy(() => import('./pages/FirmSettings'));
+
+const Loader = () => (
+  <Box sx={{ display: 'flex', justifyContent: 'center', mt: 8 }}><CircularProgress /></Box>
+);
+
+/** Admin-portalen for Ajan Partners (/admin/*). */
 const AdminApp: React.FC = () => (
-  <Box sx={{ p: 4 }}>
-    <Typography variant="h5">Ajan Partners – admin</Typography>
-  </Box>
+  <AdminProvider>
+    <AdminLayout>
+      <Suspense fallback={<Loader />}>
+        <Routes>
+          <Route index element={<Navigate to="clients" replace />} />
+          <Route path="clients" element={<ClientsList />} />
+          <Route path="clients/new" element={<CreateClient />} />
+          <Route path="clients/:slug" element={<ClientDetail />} />
+          <Route path="deadlines" element={<Deadlines />} />
+          <Route path="tasks" element={<Tasks />} />
+          <Route path="staff" element={<StaffPage />} />
+          <Route path="packages" element={<Packages />} />
+          <Route path="audit-log" element={<FirmAuditLog />} />
+          <Route path="settings" element={<FirmSettings />} />
+          <Route path="*" element={<Navigate to="clients" replace />} />
+        </Routes>
+      </Suspense>
+    </AdminLayout>
+  </AdminProvider>
 );
 
 export default AdminApp;

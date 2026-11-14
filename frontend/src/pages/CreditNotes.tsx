@@ -15,6 +15,8 @@ import {
 } from '@mui/icons-material';
 import { useTranslation } from 'react-i18next';
 import api from '../services/api';
+import { formatMoney, formatNumber } from '../utils/format';
+import EInvoiceSendButton from '../components/EInvoiceSendButton';
 
 interface Customer {
   id: string;
@@ -27,6 +29,8 @@ interface Invoice {
   customer_id: string;
   customer_name?: string;
   total: string;
+  balance_due?: string;
+  journal_entry_id?: string | null;
 }
 
 interface CreditNote {
@@ -55,7 +59,7 @@ const EMPTY_FORM = {
 };
 
 const CreditNotes: React.FC = () => {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
 
   const STATUS_OPTIONS = [
     { value: '', label: t('common.all') },
@@ -110,7 +114,8 @@ const CreditNotes: React.FC = () => {
       if (res.data.success) setCustomers(res.data.data.customers);
     });
     api.get('/invoices').then(res => {
-      if (res.data.success) setInvoices(res.data.data.invoices);
+      // Kun udstedte fakturaer kan krediteres.
+      if (res.data.success) setInvoices((res.data.invoices || []).filter((i: any) => i.journal_entry_id));
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps -- load once on mount; filters apply when the user presses Search
   }, []);
@@ -169,8 +174,8 @@ const CreditNotes: React.FC = () => {
     const payload = {
       ...form,
       invoice_id: form.invoice_id || null,
-      subtotal: parseFloat(form.subtotal) || 0,
-      tax_amount: parseFloat(form.tax_amount) || 0,
+      subtotal: 0,
+      tax_amount: 0,
       total: parseFloat(form.total) || 0,
     };
     try {
@@ -290,15 +295,15 @@ const CreditNotes: React.FC = () => {
               <TableRow key={cn.id} hover sx={{ '& td': { py: 0.3, whiteSpace: 'nowrap' } }}>
                 <TableCell>
                   <Typography sx={{ fontFamily: 'monospace', fontWeight: 500, fontSize: '0.8rem' }}>
-                    {cn.credit_note_number}
+                    {cn.credit_note_number.startsWith('UDK-') ? t('creditNotes.draftNumber', 'Kladde') : cn.credit_note_number}
                   </Typography>
                 </TableCell>
                 <TableCell>{cn.customer_name}</TableCell>
                 <TableCell>{cn.invoice_number || '—'}</TableCell>
                 <TableCell>{formatDate(cn.date)}</TableCell>
-                <TableCell align="right">{parseFloat(cn.subtotal).toLocaleString(i18n.language, { minimumFractionDigits: 2 })}</TableCell>
-                <TableCell align="right">{parseFloat(cn.tax_amount).toLocaleString(i18n.language, { minimumFractionDigits: 2 })}</TableCell>
-                <TableCell align="right">{parseFloat(cn.total).toLocaleString(i18n.language, { minimumFractionDigits: 2 })}</TableCell>
+                <TableCell align="right">{formatNumber(cn.subtotal)}</TableCell>
+                <TableCell align="right">{formatNumber(cn.tax_amount)}</TableCell>
+                <TableCell align="right">{formatNumber(cn.total)}</TableCell>
                 <TableCell>{getStatusChip(cn.status)}</TableCell>
                 <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
                   <Tooltip title={t('common.view')}>
@@ -313,7 +318,7 @@ const CreditNotes: React.FC = () => {
                           <EditIcon sx={{ fontSize: 16 }} />
                         </IconButton>
                       </Tooltip>
-                      <Tooltip title={t('common.apply')}>
+                      <Tooltip title={t('creditNotes.post', 'Bogfør kreditnota')}>
                         <IconButton size="small" sx={{ p: 0.3 }} color="success" onClick={() => handleApply(cn.id)}>
                           <ApplyIcon sx={{ fontSize: 16 }} />
                         </IconButton>
@@ -324,6 +329,9 @@ const CreditNotes: React.FC = () => {
                         </IconButton>
                       </Tooltip>
                     </>
+                  )}
+                  {cn.status === 'applied' && (
+                    <EInvoiceSendButton documentId={cn.id} documentType="credit_note" />
                   )}
                 </TableCell>
               </TableRow>
@@ -376,48 +384,26 @@ const CreditNotes: React.FC = () => {
               options={filteredInvoices}
               value={selectedInvoice}
               onChange={(_, val) => setForm(prev => ({ ...prev, invoice_id: val?.id || '' }))}
-              getOptionLabel={(o) => `${o.invoice_number}${o.customer_name ? ` — ${o.customer_name}` : ''} (${parseFloat(o.total).toLocaleString(i18n.language, { minimumFractionDigits: 2 })})`}
+              getOptionLabel={(o) => `${o.invoice_number}${o.customer_name ? ` — ${o.customer_name}` : ''} (${formatMoney(o.balance_due || o.total)})`}
               isOptionEqualToValue={(o, v) => o.id === v.id}
-              renderInput={(params) => <TextField {...params} label={t('creditNotes.invoiceOptional')} />}
+              renderInput={(params) => <TextField {...params} label={t('creditNotes.invoiceRequired', 'Faktura, der krediteres *')} />}
             />
             <TextField
               label={`${t('common.date')} *`} type="date" value={form.date} size="small"
               onChange={e => setForm(prev => ({ ...prev, date: e.target.value }))}
               InputLabelProps={{ shrink: true }}
             />
-            <Box sx={{ display: 'flex', gap: 2 }}>
-              <TextField
-                label={`${t('common.subtotal')} *`} type="number" value={form.subtotal} size="small" fullWidth
-                onChange={e => {
-                  const subtotal = parseFloat(e.target.value) || 0;
-                  const taxAmount = parseFloat(form.tax_amount) || 0;
-                  setForm(prev => ({
-                    ...prev,
-                    subtotal: e.target.value,
-                    total: (subtotal + taxAmount).toFixed(2),
-                  }));
-                }}
-                inputProps={{ min: 0, step: '0.01' }}
-              />
-              <TextField
-                label={t('common.tax')} type="number" value={form.tax_amount} size="small" fullWidth
-                onChange={e => {
-                  const taxAmount = parseFloat(e.target.value) || 0;
-                  const subtotal = parseFloat(form.subtotal) || 0;
-                  setForm(prev => ({
-                    ...prev,
-                    tax_amount: e.target.value,
-                    total: (subtotal + taxAmount).toFixed(2),
-                  }));
-                }}
-                inputProps={{ min: 0, step: '0.01' }}
-              />
-              <TextField
-                label={t('common.total')} type="number" value={form.total} size="small" fullWidth
-                onChange={e => setForm(prev => ({ ...prev, total: e.target.value }))}
-                inputProps={{ min: 0, step: '0.01' }}
-              />
-            </Box>
+            <TextField
+              label={t('creditNotes.totalInclVat', 'Beløb inkl. moms *')} type="number" value={form.total} size="small" fullWidth
+              onChange={e => setForm(prev => ({ ...prev, total: e.target.value }))}
+              inputProps={{ min: 0, step: '0.01' }}
+              helperText={t('creditNotes.splitHelp', 'Momsen fordeles som på fakturaen (samme momskoder og satser), når kreditnotaen bogføres.')}
+            />
+            {selectedInvoice && (
+              <Alert severity="info">
+                {t('creditNotes.invoiceBalance', 'Fakturaens restbeløb: {{amount}}', { amount: formatMoney(selectedInvoice.balance_due || selectedInvoice.total) })}
+              </Alert>
+            )}
             <TextField
               label={t('invoices.remarks')} value={form.notes} size="small" fullWidth multiline rows={3}
               onChange={e => setForm(prev => ({ ...prev, notes: e.target.value }))}
@@ -429,7 +415,7 @@ const CreditNotes: React.FC = () => {
           <Button
             variant="contained"
             onClick={handleSave}
-            disabled={!form.customer_id || !form.date || !form.subtotal}
+            disabled={!form.customer_id || !form.date || !form.invoice_id || !(parseFloat(form.total) > 0)}
             sx={{ bgcolor: '#2e7d32' }}
           >
             {editing ? t('common.update') : t('common.create')}
@@ -471,19 +457,19 @@ const CreditNotes: React.FC = () => {
                   <TableRow>
                     <TableCell sx={{ fontWeight: 600 }}>{t('common.subtotal')}</TableCell>
                     <TableCell align="right">
-                      {parseFloat(viewing.subtotal).toLocaleString(i18n.language, { minimumFractionDigits: 2 })}
+                      {formatMoney(viewing.subtotal)}
                     </TableCell>
                   </TableRow>
                   <TableRow>
                     <TableCell sx={{ fontWeight: 600 }}>{t('common.tax')}</TableCell>
                     <TableCell align="right">
-                      {parseFloat(viewing.tax_amount).toLocaleString(i18n.language, { minimumFractionDigits: 2 })}
+                      {formatMoney(viewing.tax_amount)}
                     </TableCell>
                   </TableRow>
                   <TableRow>
                     <TableCell sx={{ fontWeight: 600 }}>{t('common.total')}</TableCell>
                     <TableCell align="right" sx={{ fontWeight: 600 }}>
-                      {parseFloat(viewing.total).toLocaleString(i18n.language, { minimumFractionDigits: 2 })}
+                      {formatMoney(viewing.total)}
                     </TableCell>
                   </TableRow>
                 </TableBody>
@@ -498,6 +484,7 @@ const CreditNotes: React.FC = () => {
           )}
         </DialogContent>
         <DialogActions>
+          {viewing?.status === 'applied' && <EInvoiceSendButton documentId={viewing.id} documentType="credit_note" />}
           <Button onClick={() => setViewDialogOpen(false)}>{t('common.close')}</Button>
         </DialogActions>
       </Dialog>

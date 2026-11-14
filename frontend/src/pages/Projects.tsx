@@ -13,6 +13,7 @@ import {
 } from '@mui/icons-material';
 import { useTranslation } from 'react-i18next';
 import api from '../services/api';
+import { formatNumber } from '../utils/format';
 
 /* ---------- interfaces ---------- */
 
@@ -89,7 +90,7 @@ const EMPTY_FORM = {
 /* ---------- component ---------- */
 
 const Projects: React.FC = () => {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
 
   const STATUS_OPTIONS = [
     { value: '', label: t('common.all') },
@@ -313,7 +314,7 @@ const Projects: React.FC = () => {
   /* ======================== formatters ======================== */
 
   const fmtNum = (v: string | number) =>
-    parseFloat(String(v)).toLocaleString(i18n.language, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    formatNumber(String(v));
 
   /* ======================== render: detail view ======================== */
 

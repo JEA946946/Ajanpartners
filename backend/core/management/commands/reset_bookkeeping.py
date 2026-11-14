@@ -1,184 +1,97 @@
-"""Start the books over on the PCGM chart.
+"""Nulstil én kundes bøger (kun til opstart og test – kunderne har ingen rigtige tal endnu).
 
-Deletes every number (journal entries, invoices, bills, expenses, payments,
-payroll runs, bank reconciliations and receipts, audit log), seeds the PCGM
-chart, re-points master data (suppliers, employees, tax codes, rules) from the
-old Manager.io accounts to PCGM accounts, and deletes the old accounts.
+Sletter alle tal i kundens skema (posteringer, fakturaer, tilbud, rykkere,
+regninger, udgifter, betalinger, lønkørsler, bankafstemninger, momsangivelser,
+lukkede perioder, nummerserier og kundens audit-log), genåbner regnskabsårene og
+opretter standardkontoplanen, momskoderne og journalerne igen.
 
-Kept: users and roles, company settings, customers, suppliers, employees,
-leave, public holidays, projects, journals, fiscal years (reopened). Closed
-months and journal number series start over.
+Bevares: brugere, virksomhedsindstillinger, debitorer, kreditorer, medarbejdere,
+projekter, journaler, bankregler, regnskabsår (genåbnes) og konti.
 
-    python manage.py reset_bookkeeping            # dry run, shows what would go
-    python manage.py reset_bookkeeping --confirm  # does it, in one transaction
+    manage.py reset_bookkeeping --client <slug>            # prøvekørsel, ændrer intet
+    manage.py reset_bookkeeping --client <slug> --confirm  # gør det, i én transaktion
+
+En kunde, der er i drift (status "active"), kræver også --force. Bogføringsloven
+kræver, at regnskabsmateriale opbevares i 5 år: brug aldrig kommandoen på en
+kunde, der har bogført rigtige tal.
 """
 
-from datetime import date
-
-from django.core.management.base import BaseCommand
+from django.apps import apps
+from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
+from django_tenants.utils import schema_context
 
-from accounts import chart
-from accounts.management.commands.seed_accounts import seed_chart
-from accounts.models import Account, FiscalYear, SupplierAccountMapping
-from accounts.pcgm import all_accounts
-from core.models import (AuditLog, BankReconciliation, BankReconciliationLine, BankRule, Document, Payment,
-                         PaymentAllocation, ProjectTransaction, TaxCode)
-from journals.models import (BankDescriptionMapping, BankStatementUpload, InvoiceReceipt, JournalEntry,
-                             JournalEntryLine, JournalSequence, Period)
-from journals.signals import allow_reset
-from payroll.models import Employee, PayrollLine, PayrollRun
-from purchases.models import (BankTransactionCategorization, Bill, BillLine, BillPaymentLink, Expense,
-                              ExpenseLine, Supplier)
-from sales.models import CreditNote, Invoice, InvoiceLine
-
-# Children before parents, so no PROTECT link blocks a delete.
+# Børn før forældre, så ingen PROTECT-relation blokerer.
 TRANSACTIONAL = [
-    InvoiceReceipt, BillPaymentLink, BankTransactionCategorization,
-    PaymentAllocation, Payment,
-    BankReconciliationLine, BankReconciliation,
-    ProjectTransaction, Document,
-    ExpenseLine, Expense,
-    BillLine, Bill,
-    CreditNote, InvoiceLine, Invoice,
-    PayrollLine, PayrollRun,
-    JournalEntryLine, JournalEntry,
-    JournalSequence, Period,
-    BankStatementUpload, AuditLog,
-]
-
-# Old Manager.io code → PCGM code. Exact codes first, then the longest prefix.
-OLD_EXACT = {
-    "101001": chart.BANK_CIH300, "101002": chart.BANK_CIH600, "101003": chart.BANK_CIH600_EUR,
-    "101004": chart.BANK_BP09,
-    "120000": chart.RECEIVABLE, "200000": chart.PAYABLE, "210000": chart.TVA_MARGIN,
-    "220000": chart.CNSS_PAYABLE, "230000": "4488", "240000": chart.CLIENT_ADVANCES,
-    "300000": "1111", "310000": "1161",
-    "420000": chart.REVENUE, "471000": chart.SUSPENSE, "471100": chart.EUR_UNEXCHANGED,
-    "533500": chart.COST_TRANSPORT,   # flight tickets
-    "533550": chart.COST_OTHER,       # visa
-    "563900": chart.COST_ACTIVITIES,  # golf
-    "572210": chart.SOCIAL_CHARGES,   # CNSS
-    "592301": "61448",                # ONMT
-    "592302": "61254",                # office supplies
-    "592303": "61312",                # rent
-    "592304": "61348",                # insurance
-    "592305": "61455", "592308": "61455",  # Maroc Telecom, Inwi
-    "592306": "61251",                # Amendis (water, electricity)
-    "592307": chart.FEES,             # accountant
-    "598000": chart.INTEREST,
-    "598501": "61612",                # patente
-    "598503": chart.TVA_DUE,
-}
-OLD_PREFIX = [
-    ("100", chart.CASH),
-    ("510", chart.COST_OTHER), ("513", chart.COST_OTHER),
-    ("514", chart.COST_ACTIVITIES),
-    ("523", chart.COST_HOTELS),
-    ("5331", chart.COST_RESTAURANTS),
-    ("5336", chart.COST_GUIDES), ("5436", chart.COST_GUIDES),
-    ("5538", chart.COST_TRANSPORT),
-    ("5722", chart.SALARIES),
-    ("5980", chart.BANK_FEES),
-    ("5985", "61678"),
+    "purchases.BillPaymentLink", "purchases.BankTransactionCategorization",
+    "core.PaymentAllocation", "core.Payment",
+    "core.BankReconciliationLine", "core.BankReconciliation",
+    "core.ProjectTransaction", "core.Document",
+    "core.VatReturn",
+    "purchases.ExpenseLine", "purchases.Expense",
+    "purchases.BillLine", "purchases.Bill",
+    "sales.Reminder", "sales.CreditNote", "sales.InvoiceLine", "sales.Invoice",
+    "sales.QuoteLine", "sales.Quote",
+    # Løn (payroll/): kun kørsler og deres linjer; medarbejderne bevares.
+    "payroll.PayrollLine", "payroll.PayrollRun",
+    "journals.JournalEntryLine", "journals.JournalEntry",
+    "journals.JournalSequence", "journals.Period",
+    "journals.BankStatementUpload", "core.AuditLog",
 ]
 
 
-def pcgm_for(old_code):
-    """The PCGM code an old account's links move to, or None."""
-    if old_code in OLD_EXACT:
-        return OLD_EXACT[old_code]
-    for prefix, new in sorted(OLD_PREFIX, key=lambda p: -len(p[0])):
-        if old_code.startswith(prefix):
-            return new
-    return None
+def _model(label):
+    try:
+        return apps.get_model(label)
+    except LookupError:  # en app har omdøbt eller fjernet modellen
+        return None
 
 
 class Command(BaseCommand):
-    help = "Delete all numbers and move the books to the PCGM chart (needs --confirm)"
+    help = "Slet alle tal i én kundes bøger og opret kontoplanen igen (kræver --client og --confirm)"
 
     def add_arguments(self, parser):
-        parser.add_argument("--confirm", action="store_true", help="Actually delete; without it nothing changes")
+        parser.add_argument("--client", required=True, help="Kundens slug (tenancy.ClientCompany.slug)")
+        parser.add_argument("--confirm", action="store_true", help="Slet faktisk; uden den ændres intet")
+        parser.add_argument("--force", action="store_true", help="Også for en aktiv kunde")
 
     def handle(self, *args, **options):
-        confirm = options["confirm"]
-        with transaction.atomic(), allow_reset():
-            self.run()
-            if not confirm:
-                transaction.set_rollback(True)
-                self.stdout.write(self.style.WARNING("Dry run — nothing changed. Run with --confirm to do it."))
-            else:
-                self.stdout.write(self.style.SUCCESS("Done. The books start empty on the PCGM chart."))
+        from tenancy.models import ClientCompany
 
-    def run(self):
+        client = ClientCompany.objects.filter(slug=options["client"]).first()
+        if client is None:
+            raise CommandError(f"Kunden '{options['client']}' findes ikke")
+        if client.status == "archived":
+            raise CommandError("Kunden er arkiveret (read-only i 5 år) og kan ikke nulstilles")
+        if client.status == "active" and not options["force"]:
+            raise CommandError("Kunden er i drift. Brug --force, hvis bøgerne kun indeholder testdata")
+        with schema_context(client.schema_name):
+            from journals.signals import allow_reset
+            with transaction.atomic(), allow_reset():
+                self.run(client)
+                if not options["confirm"]:
+                    transaction.set_rollback(True)
+                    self.stdout.write(self.style.WARNING("Prøvekørsel – intet er ændret. Brug --confirm."))
+                else:
+                    self.stdout.write(self.style.SUCCESS(f"{client.name}: bøgerne starter forfra."))
+
+    def run(self, client):
+        from accounts.management.commands.seed_accounts import seed_chart
+        from accounts.models import FiscalYear
+
         out = self.stdout.write
-
-        out("1. Deleting numbers")
-        InvoiceReceipt.objects.update(exchanged_from=None)
-        for model in TRANSACTIONAL:
-            n, _ = model.objects.all().delete()
-            out(f"   {model.__name__}: {n} rows")
-
-        out("2. Seeding PCGM")
-        out(f"   {seed_chart()} new accounts")
-        keep = {code for code, *_ in all_accounts()}
-        by_code = {a.code: a for a in Account.objects.filter(code__in=keep)}
-
-        def target(account):
-            if account is None or account.code in keep:
-                return account
-            new = pcgm_for(account.code)
-            return by_code.get(new) if new else None
-
-        out("3. Moving master data to PCGM accounts")
-        moved = cleared = 0
-        for s in Supplier.objects.select_related("default_account"):
-            new = target(s.default_account)
-            if new != s.default_account:
-                s.default_account = new
-                s.save(update_fields=["default_account"])
-                moved += new is not None
-                cleared += new is None
-        out(f"   Suppliers: {moved} moved, {cleared} cleared")
-
-        n = 0
-        for e in Employee.objects.select_related("salary_account"):
-            new = target(e.salary_account) or by_code[chart.SALARIES]
-            if new != e.salary_account:
-                e.salary_account = new
-                e.save(update_fields=["salary_account"])
-                n += 1
-        out(f"   Employees: {n} moved")
-
-        n = 0
-        for t in TaxCode.objects.select_related("account"):
-            if t.account.code in keep:
+        out(f"Kunde: {client.name} (skema {client.schema_name})")
+        out("1. Sletter tal")
+        for label in TRANSACTIONAL:
+            model = _model(label)
+            if model is None:
                 continue
-            t.account = by_code[chart.TVA_RECOVERABLE if t.type == "purchase" else chart.TVA_MARGIN]
-            t.save(update_fields=["account"])
-            n += 1
-        out(f"   Tax codes: {n} moved")
+            n, _ = model.objects.all().delete()
+            out(f"   {label}: {n} rækker")
 
-        for model in (SupplierAccountMapping, BankRule, BankDescriptionMapping):
-            moved = dropped = 0
-            for row in model.objects.select_related("account"):
-                new = target(row.account)
-                if new is None:
-                    row.delete()
-                    dropped += 1
-                elif new != row.account:
-                    row.account = new
-                    row.save(update_fields=["account"])
-                    moved += 1
-            out(f"   {model.__name__}: {moved} moved, {dropped} deleted")
+        out("2. Genåbner regnskabsår")
+        n = FiscalYear.objects.filter(is_closed=True).update(is_closed=False, closed_at=None, closed_by="")
+        out(f"   {n} genåbnet")
 
-        out("4. Deleting old accounts")
-        old = Account.objects.exclude(code__in=keep)
-        old.update(parent=None)
-        n, _ = old.delete()
-        out(f"   {n} old accounts deleted, {Account.objects.count()} PCGM accounts")
-
-        n = FiscalYear.objects.filter(is_closed=True).update(is_closed=False)
-        _, created = FiscalYear.objects.get_or_create(
-            start_date=date(2026, 1, 1), defaults={"name": "2026", "end_date": date(2026, 12, 31)})
-        out(f"5. Fiscal years reopened: {n}{', 2026 created' if created else ''}")
+        out(f"3. Kontoplan ({client.chart_template}), momskoder og journaler")
+        out(f"   {seed_chart(client.chart_template or 'standard')} nye konti")

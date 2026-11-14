@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { formatDate } from '../utils/dateFormat';
+import { formatDate, formatMoney, formatNumber } from '../utils/format';
+import { BASE_CURRENCY, CUSTOMER_PREPAYMENTS, PAYABLE, RECEIVABLE } from '../utils/chart';
 import {
   Box, Typography, Button, Table, TableBody, TableCell, TableContainer,
   TableHead, TableRow, Paper, IconButton, Dialog, DialogTitle, DialogContent,
@@ -20,6 +21,13 @@ interface Account {
   id: string;
   code: string;
   name: string;
+  is_header?: boolean;
+}
+
+interface TaxCodeOption {
+  id: string;
+  code: string;
+  name: string;
 }
 
 interface JournalLine {
@@ -32,10 +40,16 @@ interface JournalLine {
   description: string;
   partner_id?: string;
   partner_name?: string;
+  vat_code?: string;
+  currency?: string;
+  exchange_rate?: string;
+  amount_currency?: string | null;
 }
 
-// Lines on these accounts need their customer or supplier (compte auxiliaire).
-const TIERS_KIND: Record<string, 'customer' | 'supplier'> = { '3421': 'customer', '4421': 'customer', '4411': 'supplier' };
+// Linjer på disse konti skal have deres debitor eller kreditor.
+const TIERS_KIND: Record<string, 'customer' | 'supplier'> = {
+  [RECEIVABLE]: 'customer', [CUSTOMER_PREPAYMENTS]: 'customer', [PAYABLE]: 'supplier',
+};
 
 interface Journal {
   id: number;
@@ -44,11 +58,11 @@ interface Journal {
   is_active: boolean;
 }
 
-// draft: not in the books yet; brouillard: in the books, still editable;
-// validated: its month is closed — numbered for good and never changed.
-type EntryStatus = 'draft' | 'brouillard' | 'validated';
+// draft: kladde, ikke i bøgerne; posted: bogført, kan stadig rettes;
+// validated: måneden er lukket — endeligt nummereret og ændres aldrig.
+type EntryStatus = 'draft' | 'posted' | 'validated';
 
-const STATUS_COLOR: Record<EntryStatus, string> = { draft: '#ed6c02', brouillard: '#1976d2', validated: '#2e7d32' };
+const STATUS_COLOR: Record<EntryStatus, string> = { draft: '#ed6c02', posted: '#1976d2', validated: '#2e7d32' };
 
 interface JournalEntry {
   id: string;
@@ -72,24 +86,32 @@ interface JournalEntry {
   lines?: JournalLine[];
 }
 
-const EMPTY_LINE: JournalLine = { account_id: '', debit: '0', credit: '0', description: '' };
+const EMPTY_LINE: JournalLine = {
+  account_id: '', debit: '0', credit: '0', description: '', vat_code: '', currency: BASE_CURRENCY, exchange_rate: '1',
+};
 
 const JournalEntries: React.FC = () => {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
 
   const SOURCE_OPTIONS = [
     { value: '', label: t('journal.allSources') },
     { value: 'manual', label: t('journal.manual') },
     { value: 'bank', label: t('journal.bankSource') },
-    { value: 'cmr_invoice', label: t('journal.cmrInvoice') },
-    { value: 'cmr_payment', label: t('journal.cmrPayment') },
-    { value: 'margin_recognition', label: t('journal.marginRecognition') },
-    { value: 'tva_margin', label: t('journal.tvaMargin') },
+    { value: 'invoice', label: t('journal.sourceInvoice', 'Faktura') },
+    { value: 'credit_note', label: t('journal.sourceCreditNote', 'Kreditnota') },
+    { value: 'reminder', label: t('journal.sourceReminder', 'Rykker') },
+    { value: 'expense', label: t('journal.sourceExpense', 'Regning/udgift') },
+    { value: 'payroll', label: t('journal.sourcePayroll', 'Løn') },
+    { value: 'vat_settlement', label: t('journal.sourceVat', 'Momsafregning') },
+    { value: 'reversal', label: t('journal.sourceReversal', 'Tilbageføring') },
+    { value: 'opening', label: t('journal.sourceOpening', 'Primo') },
+    { value: 'closing', label: t('journal.sourceClosing', 'Årsafslutning') },
   ];
 
   const [entries, setEntries] = useState<JournalEntry[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [journals, setJournals] = useState<Journal[]>([]);
+  const [taxCodes, setTaxCodes] = useState<TaxCodeOption[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [viewDialogOpen, setViewDialogOpen] = useState(false);
   const [editing, setEditing] = useState<JournalEntry | null>(null);
@@ -114,7 +136,7 @@ const JournalEntries: React.FC = () => {
   const [totalCount, setTotalCount] = useState(0);
 
   // Form state
-  const [form, setForm] = useState({ date: '', description: '', reference: '', piece_number: '', journal_code: 'OD' });
+  const [form, setForm] = useState({ date: '', description: '', reference: '', piece_number: '', journal_code: 'DIV' });
   const [lines, setLines] = useState<JournalLine[]>([{ ...EMPTY_LINE }, { ...EMPTY_LINE }]);
 
   useEffect(() => {
@@ -144,8 +166,11 @@ const JournalEntries: React.FC = () => {
   useEffect(() => {
     fetchEntries();
     api.get('/accounts?is_active=true').then(res => {
-      if (res.data.success) setAccounts(res.data.data.accounts);
+      if (res.data.success) setAccounts(res.data.data.accounts.filter((a: Account) => !a.is_header));
     });
+    api.get('/tax-codes').then(res => {
+      if (res.data.success) setTaxCodes(res.data.data.tax_codes || []);
+    }).catch(() => { /* momskoder kræver pakken med moms */ });
     api.get('/journals').then(res => {
       if (res.data.success) setJournals(res.data.data.journals);
     });
@@ -199,12 +224,16 @@ const JournalEntries: React.FC = () => {
           description: l.description,
           partner_id: l.partner_id,
           partner_name: l.partner_name,
+          vat_code: l.vat_code || '',
+          currency: l.currency || BASE_CURRENCY,
+          exchange_rate: l.exchange_rate || '1',
+          amount_currency: l.amount_currency ?? null,
         })));
       }
     } else {
       setEditing(null);
       setForm({ date: new Date().toISOString().split('T')[0], description: '', reference: '', piece_number: '',
-                journal_code: 'OD' });
+                journal_code: 'DIV' });
       setLines([{ ...EMPTY_LINE }, { ...EMPTY_LINE }]);
     }
     setDialogOpen(true);
@@ -288,7 +317,7 @@ const JournalEntries: React.FC = () => {
     }
   };
 
-  // Pièce justificative attached to the entry being viewed.
+  // Bilag vedhæftet den viste postering.
   const handleAttach = async (file: File | undefined) => {
     if (!file || !viewing) return;
     const body = new FormData();
@@ -319,6 +348,12 @@ const JournalEntries: React.FC = () => {
       alert(err.response?.data?.message || t('journal.errorSaving'));
     }
   };
+
+  const statusLabel = (st: EntryStatus) => ({
+    draft: t('journal.status.draft'),
+    posted: t('journal.status.posted', 'Bogført'),
+    validated: t('journal.status.validated'),
+  } as Record<EntryStatus, string>)[st] || st;
 
   const tiersKind = (accountId: string) => TIERS_KIND[accounts.find(a => a.id === accountId)?.code || ''];
 
@@ -401,7 +436,7 @@ const JournalEntries: React.FC = () => {
         >
           <MenuItem value="">{t('common.all')}</MenuItem>
           <MenuItem value="draft">{t('journal.status.draft')}</MenuItem>
-          <MenuItem value="brouillard">{t('journal.status.brouillard')}</MenuItem>
+          <MenuItem value="posted">{t('journal.status.posted', 'Bogført')}</MenuItem>
           <MenuItem value="validated">{t('journal.status.validated')}</MenuItem>
         </TextField>
         <TextField
@@ -448,11 +483,11 @@ const JournalEntries: React.FC = () => {
                 </TableCell>
                 <TableCell>{entry.description}</TableCell>
                 <TableCell>{entry.reference}</TableCell>
-                <TableCell align="right">{parseFloat(entry.total_debit).toLocaleString(i18n.language)}</TableCell>
-                <TableCell align="right">{parseFloat(entry.total_credit).toLocaleString(i18n.language)}</TableCell>
+                <TableCell align="right">{formatNumber(entry.total_debit)}</TableCell>
+                <TableCell align="right">{formatNumber(entry.total_credit)}</TableCell>
                 <TableCell>
                   <Chip
-                    label={t(`journal.status.${entry.status}`) + (entry.reversed_by ? ` · ${t('journal.reversedBy', { number: entry.reversed_by })}` : '')}
+                    label={statusLabel(entry.status) + (entry.reversed_by ? ` · ${t('journal.reversedBy', { number: entry.reversed_by })}` : '')}
                     size="small"
                     sx={{
                       bgcolor: STATUS_COLOR[entry.status],
@@ -470,7 +505,7 @@ const JournalEntries: React.FC = () => {
                       <Tooltip title={t('common.delete')}><IconButton size="small" sx={{ p: 0.3 }} color="error" onClick={() => handleDelete(entry.id)}><DeleteIcon sx={{ fontSize: 14 }} /></IconButton></Tooltip>
                     </>
                   )}
-                  {entry.status === 'brouillard' && entry.source === 'manual' && (
+                  {entry.status === 'posted' && entry.source === 'manual' && (
                     <>
                       <Tooltip title={t('journal.editUnpostRepost')}><IconButton size="small" sx={{ p: 0.3 }} onClick={() => handleEditPosted(entry)}><EditIcon sx={{ fontSize: 14 }} /></IconButton></Tooltip>
                       <Tooltip title={t('journal.unpost')}><IconButton size="small" sx={{ p: 0.3 }} color="warning" onClick={() => handleUnpost(entry.id)}><UnpostIcon sx={{ fontSize: 14 }} /></IconButton></Tooltip>
@@ -544,8 +579,10 @@ const JournalEntries: React.FC = () => {
               <TableRow sx={{ bgcolor: '#f5f5f5' }}>
                 <TableCell sx={{ fontWeight: 600, width: '40%' }}>{t('common.account')}</TableCell>
                 <TableCell sx={{ fontWeight: 600 }}>{t('common.description')}</TableCell>
-                <TableCell align="right" sx={{ fontWeight: 600 }}>{t('common.debit')}</TableCell>
-                <TableCell align="right" sx={{ fontWeight: 600 }}>{t('common.credit')}</TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>{t('journal.vatCode', 'Momskode')}</TableCell>
+                <TableCell align="right" sx={{ fontWeight: 600 }}>{t('journal.debitDkk', 'Debet (DKK)')}</TableCell>
+                <TableCell align="right" sx={{ fontWeight: 600 }}>{t('journal.creditDkk', 'Kredit (DKK)')}</TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>{t('journal.currency', 'Valuta')}</TableCell>
                 <TableCell sx={{ width: 40 }} />
               </TableRow>
             </TableHead>
@@ -582,6 +619,15 @@ const JournalEntries: React.FC = () => {
                   </TableCell>
                   <TableCell sx={{ p: 0.5 }}>
                     <TextField
+                      select value={line.vat_code || ''} size="small" sx={{ width: 110 }}
+                      onChange={e => updateLine(i, 'vat_code', e.target.value)}
+                    >
+                      <MenuItem value="">—</MenuItem>
+                      {taxCodes.map(tc => <MenuItem key={tc.id} value={tc.code}>{tc.code} {tc.name}</MenuItem>)}
+                    </TextField>
+                  </TableCell>
+                  <TableCell sx={{ p: 0.5 }}>
+                    <TextField
                       value={line.debit} size="small" type="number" sx={{ width: 100 }}
                       onChange={e => updateLine(i, 'debit', e.target.value)}
                       inputProps={{ min: 0, step: '0.01' }}
@@ -595,6 +641,28 @@ const JournalEntries: React.FC = () => {
                     />
                   </TableCell>
                   <TableCell sx={{ p: 0.5 }}>
+                    <Box sx={{ display: 'flex', gap: 0.5 }}>
+                      <TextField
+                        value={line.currency || BASE_CURRENCY} size="small" sx={{ width: 70 }}
+                        onChange={e => updateLine(i, 'currency', e.target.value.toUpperCase().slice(0, 3))}
+                      />
+                      {(line.currency || BASE_CURRENCY) !== BASE_CURRENCY && (
+                        <>
+                          <TextField
+                            value={line.exchange_rate || ''} size="small" type="number" sx={{ width: 90 }}
+                            label={t('journal.rate', 'Kurs')} inputProps={{ step: '0.0001' }}
+                            onChange={e => updateLine(i, 'exchange_rate', e.target.value)}
+                          />
+                          <TextField
+                            value={line.amount_currency || ''} size="small" type="number" sx={{ width: 100 }}
+                            label={t('journal.amountCurrency', 'Valutabeløb')}
+                            onChange={e => updateLine(i, 'amount_currency', e.target.value)}
+                          />
+                        </>
+                      )}
+                    </Box>
+                  </TableCell>
+                  <TableCell sx={{ p: 0.5 }}>
                     <IconButton size="small" onClick={() => removeLine(i)} disabled={lines.length <= 2}>
                       <RemoveLineIcon sx={{ fontSize: 16 }} />
                     </IconButton>
@@ -603,14 +671,14 @@ const JournalEntries: React.FC = () => {
               ))}
               {/* Totals row */}
               <TableRow>
-                <TableCell colSpan={2} align="right" sx={{ fontWeight: 600 }}>{t('common.totals') + ':'}</TableCell>
-                <TableCell align="right" sx={{ fontWeight: 600 }}>{totalDebit.toFixed(2)}</TableCell>
-                <TableCell align="right" sx={{ fontWeight: 600 }}>{totalCredit.toFixed(2)}</TableCell>
-                <TableCell />
+                <TableCell colSpan={3} align="right" sx={{ fontWeight: 600 }}>{t('common.totals') + ':'}</TableCell>
+                <TableCell align="right" sx={{ fontWeight: 600 }}>{formatNumber(totalDebit)}</TableCell>
+                <TableCell align="right" sx={{ fontWeight: 600 }}>{formatNumber(totalCredit)}</TableCell>
+                <TableCell colSpan={2} />
               </TableRow>
               {!isBalanced && (
                 <TableRow>
-                  <TableCell colSpan={5}>
+                  <TableCell colSpan={7}>
                     <Typography variant="caption" color="error">
                       {t('journal.notBalanced', { diff: Math.abs(totalDebit - totalCredit).toFixed(2) })}
                     </Typography>
@@ -622,6 +690,9 @@ const JournalEntries: React.FC = () => {
           <Button startIcon={<AddLineIcon />} onClick={addLine} size="small" sx={{ mt: 1 }}>
             {t('journal.addLine')}
           </Button>
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
+            {t('journal.dkkHint', 'Debet og kredit er altid i DKK. Er bilaget i fremmed valuta, angives valuta, kurs (DKK pr. 1 enhed) og evt. valutabeløbet. Nye posteringer får et kladdenummer (KL-…) og det endelige nummer, når måneden lukkes.')}
+          </Typography>
         </DialogContent>
         <DialogActions>
           <Button onClick={handleDialogClose}>{t('common.cancel')}</Button>
@@ -634,10 +705,10 @@ const JournalEntries: React.FC = () => {
       {/* View Dialog */}
       <Dialog open={viewDialogOpen} onClose={() => setViewDialogOpen(false)} maxWidth="md" fullWidth>
         <DialogTitle>
-          {viewing?.journal_code} · {viewing?.entry_number} — {viewing?.date}
+          {viewing?.journal_code} · {viewing?.entry_number} — {formatDate(viewing?.date)}
           {viewing && (
             <Chip
-              label={t(`journal.status.${viewing.status}`)}
+              label={statusLabel(viewing.status)}
               size="small"
               sx={{ ml: 2, bgcolor: STATUS_COLOR[viewing.status], color: '#fff' }}
             />
@@ -662,6 +733,7 @@ const JournalEntries: React.FC = () => {
               <TableRow sx={{ bgcolor: '#f5f5f5' }}>
                 <TableCell sx={{ fontWeight: 600 }}>{t('common.account')}</TableCell>
                 <TableCell sx={{ fontWeight: 600 }}>{t('common.description')}</TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>{t('journal.vatCode', 'Momskode')}</TableCell>
                 <TableCell align="right" sx={{ fontWeight: 600 }}>{t('common.debit')}</TableCell>
                 <TableCell align="right" sx={{ fontWeight: 600 }}>{t('common.credit')}</TableCell>
               </TableRow>
@@ -677,18 +749,26 @@ const JournalEntries: React.FC = () => {
                       <Typography variant="caption" color="text.secondary">{line.partner_name}</Typography>
                     )}
                   </TableCell>
-                  <TableCell>{line.description}</TableCell>
-                  <TableCell align="right">{parseFloat(line.debit) > 0 ? parseFloat(line.debit).toLocaleString(i18n.language) : ''}</TableCell>
-                  <TableCell align="right">{parseFloat(line.credit) > 0 ? parseFloat(line.credit).toLocaleString(i18n.language) : ''}</TableCell>
+                  <TableCell>
+                    {line.description}
+                    {line.amount_currency && line.currency !== BASE_CURRENCY && (
+                      <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                        {formatMoney(line.amount_currency, line.currency)} × {line.exchange_rate}
+                      </Typography>
+                    )}
+                  </TableCell>
+                  <TableCell>{line.vat_code}</TableCell>
+                  <TableCell align="right">{parseFloat(line.debit) > 0 ? formatNumber(line.debit) : ''}</TableCell>
+                  <TableCell align="right">{parseFloat(line.credit) > 0 ? formatNumber(line.credit) : ''}</TableCell>
                 </TableRow>
               ))}
               <TableRow>
-                <TableCell colSpan={2} align="right" sx={{ fontWeight: 600 }}>{t('common.totals') + ':'}</TableCell>
+                <TableCell colSpan={3} align="right" sx={{ fontWeight: 600 }}>{t('common.totals') + ':'}</TableCell>
                 <TableCell align="right" sx={{ fontWeight: 600 }}>
-                  {viewing ? parseFloat(viewing.total_debit).toLocaleString(i18n.language) : ''}
+                  {viewing ? formatNumber(viewing.total_debit) : ''}
                 </TableCell>
                 <TableCell align="right" sx={{ fontWeight: 600 }}>
-                  {viewing ? parseFloat(viewing.total_credit).toLocaleString(i18n.language) : ''}
+                  {viewing ? formatNumber(viewing.total_credit) : ''}
                 </TableCell>
               </TableRow>
             </TableBody>

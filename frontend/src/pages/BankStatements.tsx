@@ -9,12 +9,14 @@ import { CloudUpload as UploadIcon, CheckCircle as ConfirmIcon } from '@mui/icon
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import api from '../services/api';
-import { isTreasury } from '../utils/chart';
+import { BASE_CURRENCY, SUSPENSE, isTreasury } from '../utils/chart';
+import { formatNumber } from '../utils/format';
 
 interface BankAccount {
   id: string;
   code: string;
   name: string;
+  currency?: string;
 }
 
 interface ParsedTransaction {
@@ -38,7 +40,7 @@ interface UploadRecord {
 }
 
 const BankStatements: React.FC = () => {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const fileRef = useRef<HTMLInputElement>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -48,6 +50,7 @@ const BankStatements: React.FC = () => {
   const [activeStep, setActiveStep] = useState(0);
   const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
   const [selectedBank, setSelectedBank] = useState('');
+  const [exchangeRate, setExchangeRate] = useState('');
   const [transactions, setTransactions] = useState<ParsedTransaction[]>([]);
   const [fileFormat, setFileFormat] = useState('');
   const [uploading, setUploading] = useState(false);
@@ -68,7 +71,7 @@ const BankStatements: React.FC = () => {
     api.get('/accounts?is_active=true').then(res => {
       if (res.data.success) {
         const accts = res.data.data.accounts;
-        setBankAccounts(accts.filter((a: any) => isTreasury(a.code)));
+        setBankAccounts(accts.filter((a: any) => isTreasury(a)));
       }
     });
     fetchHistory();
@@ -109,8 +112,15 @@ const BankStatements: React.FC = () => {
   const totalDebit = transactions.reduce((sum, t) => sum + parseFloat(t.debit || '0'), 0);
   const totalCredit = transactions.reduce((sum, t) => sum + parseFloat(t.credit || '0'), 0);
 
+  const bankCurrency = bankAccounts.find(a => a.id === selectedBank)?.currency || BASE_CURRENCY;
+  const foreign = bankCurrency !== BASE_CURRENCY;
+
   const handleConfirm = async () => {
     setError('');
+    if (foreign && !(parseFloat(exchangeRate.replace(',', '.')) > 0)) {
+      setError(t('bankStatements.rateRequired', 'Bankkontoen er i {{cur}}: angiv kursen (DKK pr. 1 {{cur}}).', { cur: bankCurrency }));
+      return;
+    }
     setConfirming(true);
 
     try {
@@ -118,6 +128,7 @@ const BankStatements: React.FC = () => {
         bank_account_id: selectedBank,
         transactions,
         filename: selectedFile?.name || 'bank_statement',
+        ...(foreign ? { exchange_rate: exchangeRate.replace(',', '.') } : {}),
       }, { timeout: 60000 });
       if (res.data.success) {
         setCreatedCount(res.data.data.count);
@@ -167,6 +178,13 @@ const BankStatements: React.FC = () => {
               ))}
             </TextField>
 
+            <Typography variant="caption" color="text.secondary">
+              {t('bankStatements.formatHint', 'CSV- eller Excel-eksport fra banken (Danske Bank, Nordea, Jyske Bank, Sydbank, Lunar m.fl.). Fx semikolonsepareret: Dato;Tekst;Beløb;Saldo med danske beløb (1.250,00, negativt = udbetaling). Separate kolonner for ind- og udbetaling virker også.')}
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+              {t('bankStatements.suspenseHint', 'Hver linje bogføres mod {{account}} Uafklarede poster, til den afstemmes (bogføres på en konto eller matches med en regning).', { account: SUSPENSE })}
+            </Typography>
+
             <Button
               variant="outlined"
               component="label"
@@ -215,10 +233,10 @@ const BankStatements: React.FC = () => {
                 <TableBody>
                   {uploadHistory.map(u => (
                     <TableRow key={u.id} hover>
-                      <TableCell>{u.uploaded_at ? new Date(u.uploaded_at).toLocaleDateString() : ''}</TableCell>
+                      <TableCell>{u.uploaded_at ? formatDate(u.uploaded_at) : ''}</TableCell>
                       <TableCell>{u.filename}</TableCell>
                       <TableCell>{u.bank_account_code} — {u.bank_account_name}</TableCell>
-                      <TableCell>{u.date_from} {t('bankStatements.to')} {u.date_to}</TableCell>
+                      <TableCell>{formatDate(u.date_from)} {t('bankStatements.to')} {formatDate(u.date_to)}</TableCell>
                       <TableCell align="right">{u.transaction_count}</TableCell>
                       <TableCell>{u.uploaded_by}</TableCell>
                     </TableRow>
@@ -241,7 +259,15 @@ const BankStatements: React.FC = () => {
             <Typography variant="body2" color="text.secondary">
               {t('bankStatements.transactionsParsed', { count: transactions.length, format: fileFormat })}
             </Typography>
-            <Box sx={{ display: 'flex', gap: 1 }}>
+            <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+              {foreign && (
+                <TextField
+                  label={t('bankStatements.exchangeRate', 'Kurs (DKK pr. 1 {{cur}})', { cur: bankCurrency })}
+                  value={exchangeRate} size="small" sx={{ width: 200 }}
+                  onChange={e => setExchangeRate(e.target.value)}
+                  helperText={t('bankStatements.exchangeRateHint', 'Beløbene bogføres i DKK; valutabeløbet gemmes')}
+                />
+              )}
               <Button variant="outlined" size="small" onClick={() => { setActiveStep(0); setTransactions([]); setSelectedFile(null);}}>
                 {t('common.back')}
               </Button>
@@ -269,8 +295,8 @@ const BankStatements: React.FC = () => {
                   <TableCell sx={{ fontWeight: 600, py: 0.5 }}>{t('common.date')}</TableCell>
                   <TableCell sx={{ fontWeight: 600, py: 0.5 }}>{t('common.description')}</TableCell>
                   <TableCell sx={{ fontWeight: 600, py: 0.5 }}>{t('common.reference')}</TableCell>
-                  <TableCell align="right" sx={{ fontWeight: 600, py: 0.5 }}>{t('common.debit')}</TableCell>
-                  <TableCell align="right" sx={{ fontWeight: 600, py: 0.5 }}>{t('common.credit')}</TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 600, py: 0.5 }}>{t('bankStatements.moneyOut', 'Udbetaling')}</TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 600, py: 0.5 }}>{t('bankStatements.moneyIn', 'Indbetaling')}</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -282,10 +308,10 @@ const BankStatements: React.FC = () => {
                     </TableCell>
                     <TableCell>{txn.reference}</TableCell>
                     <TableCell align="right">
-                      {parseFloat(txn.debit) > 0 ? parseFloat(txn.debit).toLocaleString(i18n.language, { minimumFractionDigits: 2 }) : ''}
+                      {parseFloat(txn.debit) > 0 ? formatNumber(txn.debit) : ''}
                     </TableCell>
                     <TableCell align="right">
-                      {parseFloat(txn.credit) > 0 ? parseFloat(txn.credit).toLocaleString(i18n.language, { minimumFractionDigits: 2 }) : ''}
+                      {parseFloat(txn.credit) > 0 ? formatNumber(txn.credit) : ''}
                     </TableCell>
                   </TableRow>
                 ))}
@@ -293,10 +319,10 @@ const BankStatements: React.FC = () => {
                 <TableRow sx={{ bgcolor: '#f5f5f5' }}>
                   <TableCell colSpan={3} align="right" sx={{ fontWeight: 600 }}>{t('common.totals') + ':'}</TableCell>
                   <TableCell align="right" sx={{ fontWeight: 600 }}>
-                    {totalDebit.toLocaleString(i18n.language, { minimumFractionDigits: 2 })}
+                    {formatNumber(totalDebit)}
                   </TableCell>
                   <TableCell align="right" sx={{ fontWeight: 600 }}>
-                    {totalCredit.toLocaleString(i18n.language, { minimumFractionDigits: 2 })}
+                    {formatNumber(totalCredit)}
                   </TableCell>
                 </TableRow>
               </TableBody>

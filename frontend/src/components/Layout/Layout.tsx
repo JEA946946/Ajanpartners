@@ -22,6 +22,8 @@ import {
   CreditCard as CreditCardIcon,
   ReceiptLong as ReceiptLongIcon,
   MoneyOff as MoneyOffIcon,
+  RequestPage as QuoteIcon,
+  NotificationsActive as ReminderIcon,
   Payment as PaymentIcon,
   AccountBalance as AccountBalanceIcon,
   Rule as RuleIcon,
@@ -34,6 +36,9 @@ import {
   RequestQuote as RequestQuoteIcon,
   MenuBook as MenuBookIcon,
   Badge as BadgeIcon,
+  Forum as InboxIcon,
+  MoveToInbox as EInvoiceInboxIcon,
+  SyncAlt as BankFeedIcon,
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
@@ -92,6 +97,8 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         { text: t('sidebar.customers'), icon: <PeopleIcon fontSize="small" />, path: '/customers' },
         { text: t('sidebar.invoices'), icon: <ReceiptLongIcon fontSize="small" />, path: '/invoices', feature: 'invoicing' },
         { text: t('sidebar.creditNotes'), icon: <MoneyOffIcon fontSize="small" />, path: '/credit-notes', feature: 'invoicing' },
+        { text: t('sidebar.quotes', 'Tilbud'), icon: <QuoteIcon fontSize="small" />, path: '/quotes', feature: 'invoicing' },
+        { text: t('sidebar.reminders', 'Rykkere'), icon: <ReminderIcon fontSize="small" />, path: '/reminders', feature: 'invoicing' },
       ],
     },
     {
@@ -100,6 +107,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         { text: t('sidebar.suppliers'), icon: <StoreIcon fontSize="small" />, path: '/suppliers' },
         { text: t('sidebar.bills'), icon: <RequestQuoteIcon fontSize="small" />, path: '/bills', feature: 'purchases' },
         { text: t('sidebar.expenses'), icon: <ShoppingCartIcon fontSize="small" />, path: '/expenses', feature: 'purchases' },
+        { text: 'E-faktura (indbakke)', icon: <EInvoiceInboxIcon fontSize="small" />, path: '/einvoice/inbox', feature: 'einvoice_receive' },
       ],
     },
     {
@@ -116,6 +124,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         { text: t('sidebar.payments'), icon: <PaymentIcon fontSize="small" />, path: '/payments', feature: 'bank' },
         { text: t('sidebar.reconciliation'), icon: <AccountBalanceIcon fontSize="small" />, path: '/bank-reconciliation', feature: 'bank' },
         { text: t('sidebar.bankRules'), icon: <RuleIcon fontSize="small" />, path: '/bank-rules', feature: 'bank' },
+        { text: 'Bankkobling', icon: <BankFeedIcon fontSize="small" />, path: '/bank-feeds', feature: 'bank_feed' },
       ],
     },
     {
@@ -147,10 +156,12 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       label: t('sidebar.system'),
       items: [
         { text: t('sidebar.documents'), icon: <DescriptionIcon fontSize="small" />, path: '/documents' },
+        { text: 'Beskeder fra revisor', icon: <InboxIcon fontSize="small" />, path: '/inbox' },
         { text: t('sidebar.auditLog'), icon: <HistoryIcon fontSize="small" />, path: '/audit-log' },
         { text: t('sidebar.settings'), icon: <SettingsIcon fontSize="small" />, path: '/settings' },
         { text: t('sidebar.users'), icon: <ManageAccountsIcon fontSize="small" />, path: '/users' },
         { text: 'Revisoradgang', icon: <AccessIcon fontSize="small" />, path: '/settings/access' },
+        { text: 'Eksport af data', icon: <DescriptionIcon fontSize="small" />, path: '/settings/export' },
       ],
     },
   ];
@@ -205,11 +216,12 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             <Typography variant="body2" sx={{ fontSize: '12px', color: '#fff' }}>
               {user?.first_name} {user?.last_name}
             </Typography>
-            <Avatar sx={{ bgcolor: 'rgba(255,255,255,0.2)', width: 28, height: 28, fontSize: '12px' }}>
+            <Avatar onClick={() => navigate('/profile')} title="Min profil"
+              sx={{ cursor: 'pointer', bgcolor: 'rgba(255,255,255,0.2)', width: 28, height: 28, fontSize: '12px' }}>
               {user?.first_name?.charAt(0)}{user?.last_name?.charAt(0)}
             </Avatar>
             <Select
-              value={(i18n.resolvedLanguage || i18n.language || 'en').substring(0, 2)}
+              value={(i18n.resolvedLanguage || i18n.language || 'da').substring(0, 2)}
               onChange={(e) => i18n.changeLanguage(e.target.value as string)}
               size="small"
               variant="standard"

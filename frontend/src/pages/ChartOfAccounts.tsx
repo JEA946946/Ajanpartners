@@ -1,9 +1,10 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { formatDate } from '../utils/dateFormat';
+import { formatDate, formatMoney, formatNumber } from '../utils/format';
+import { BASE_CURRENCY } from '../utils/chart';
 import {
   Box, Typography, Button, Table, TableBody, TableCell, TableContainer,
   TableHead, TableRow, Paper, IconButton, Dialog, DialogTitle, DialogContent,
-  DialogActions, TextField, MenuItem, Chip, Autocomplete,
+  DialogActions, TextField, MenuItem, Chip, Autocomplete, FormControlLabel, Switch, Checkbox, Alert,
 } from '@mui/material';
 import {
   Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon,
@@ -31,6 +32,10 @@ interface Account {
   normal_balance: string;
   parent_id: string | null;
   currency: string;
+  standard_code: string;
+  arl_line: string;
+  arl_line_name: string;
+  is_header: boolean;
   description: string;
   is_active: boolean;
 }
@@ -43,6 +48,7 @@ interface LedgerLine {
   debit: string;
   credit: string;
   currency: string;
+  amount_currency: string | null;
   running_balance: string;
 }
 
@@ -55,13 +61,23 @@ const TYPE_COLORS: Record<string, string> = {
 };
 
 const ChartOfAccounts: React.FC = () => {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const [searchParams, setSearchParams] = useSearchParams();
+  const TYPE_LABELS: Record<string, string> = {
+    Asset: t('accounts.typeAsset', 'Aktiv'),
+    Liability: t('accounts.typeLiability', 'Gæld'),
+    Equity: t('accounts.typeEquity', 'Egenkapital'),
+    Revenue: t('accounts.typeRevenue', 'Indtægt'),
+    Expense: t('accounts.typeExpense', 'Omkostning'),
+  };
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [accountTypes, setAccountTypes] = useState<AccountType[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Account | null>(null);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const [showInactive, setShowInactive] = useState(false);
+  const [search, setSearch] = useState('');
+  const [saveError, setSaveError] = useState('');
 
   // Ledger dialog state
   const [ledgerOpen, setLedgerOpen] = useState(false);
@@ -73,7 +89,7 @@ const ChartOfAccounts: React.FC = () => {
   const [ledgerDateTo, setLedgerDateTo] = useState('');
 
   // Form state
-  const [form, setForm] = useState({ code: '', name: '', account_type_id: '', parent_id: '', currency: 'MAD', description: '' });
+  const [form, setForm] = useState({ code: '', name: '', account_type_id: '', parent_id: '', currency: BASE_CURRENCY, description: '', standard_code: '', is_header: false });
 
   const fetchData = () => {
     api.get('/accounts').then(res => {
@@ -147,11 +163,14 @@ const ChartOfAccounts: React.FC = () => {
         parent_id: account.parent_id || '',
         currency: account.currency,
         description: account.description,
+        standard_code: account.standard_code,
+        is_header: account.is_header,
       });
     } else {
       setEditing(null);
-      setForm({ code: '', name: '', account_type_id: '', parent_id: '', currency: 'MAD', description: '' });
+      setForm({ code: '', name: '', account_type_id: '', parent_id: '', currency: BASE_CURRENCY, description: '', standard_code: '', is_header: false });
     }
+    setSaveError('');
     setDialogOpen(true);
   };
 
@@ -170,7 +189,7 @@ const ChartOfAccounts: React.FC = () => {
       setDialogOpen(false);
       fetchData();
     } catch (err: any) {
-      alert(err.response?.data?.message || t('accounts.errorSaving'));
+      setSaveError(err.response?.data?.message || t('accounts.errorSaving'));
     }
   };
 
@@ -188,28 +207,47 @@ const ChartOfAccounts: React.FC = () => {
   const [importOpen, setImportOpen] = useState(false);
 
   const handleExportAccounts = () => {
-    const headers = ['code', 'name', 'account_type', 'parent_code', 'currency', 'description'];
+    const headers = ['code', 'name', 'account_type', 'parent_code', 'currency', 'description', 'standard_code', 'arl_line'];
     const codeToAccount = Object.fromEntries(accounts.map(a => [a.id, a]));
     const rows = accounts.map(a => {
       const parent = a.parent_id ? codeToAccount[a.parent_id] : null;
       return [
         a.code, a.name, a.account_type_name, parent ? parent.code : '',
-        a.currency, a.description,
+        a.currency, a.description, a.standard_code, a.arl_line,
       ];
     });
     exportToCSV('chart_of_accounts.csv', headers, rows);
   };
 
   // Build tree structure (memoized to avoid re-rendering table on form keystrokes)
+  // Synlige konti: aktive (eller alle) og søgning; overskrifter vises, hvis de har synlige konti under sig.
+  const visibleIds = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    const byId = Object.fromEntries(accounts.map(a => [a.id, a]));
+    const ids = new Set<string>();
+    for (const a of accounts) {
+      if (a.is_header) continue;
+      if (!showInactive && !a.is_active) continue;
+      if (q && !a.code.toLowerCase().includes(q) && !a.name.toLowerCase().includes(q)
+          && !(a.standard_code || '').includes(q)) continue;
+      let cur: Account | undefined = a;
+      while (cur) {
+        ids.add(cur.id);
+        cur = cur.parent_id ? byId[cur.parent_id] : undefined;
+      }
+    }
+    return ids;
+  }, [accounts, showInactive, search]);
+
   const childrenMap = useMemo(() => {
     const map: Record<string, Account[]> = {};
-    for (const a of accounts) {
+    for (const a of accounts.filter(x => visibleIds.has(x.id))) {
       const pid = a.parent_id || '__root__';
       if (!map[pid]) map[pid] = [];
       map[pid].push(a);
     }
     return map;
-  }, [accounts]);
+  }, [accounts, visibleIds]);
 
   const topLevel = childrenMap['__root__'] || [];
   const childrenOf = (parentId: string) => childrenMap[parentId] || [];
@@ -222,7 +260,7 @@ const ChartOfAccounts: React.FC = () => {
 
       return (
         <React.Fragment key={account.id}>
-          <TableRow hover sx={{ opacity: account.is_active ? 1 : 0.5 }}>
+          <TableRow hover sx={{ opacity: account.is_active ? 1 : 0.5, bgcolor: account.is_header ? '#fafafa' : undefined }}>
             <TableCell sx={{ pl: 2 + depth * 3, whiteSpace: 'nowrap' }}>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                 {hasChildren && (
@@ -230,31 +268,42 @@ const ChartOfAccounts: React.FC = () => {
                     {isExpanded ? <ExpandLess sx={{ fontSize: 16 }} /> : <ExpandMore sx={{ fontSize: 16 }} />}
                   </IconButton>
                 )}
-                <Typography variant="body2" sx={{ fontWeight: hasChildren ? 600 : 400, fontFamily: 'monospace' }}>
+                <Typography variant="body2" sx={{ fontWeight: account.is_header ? 600 : 400, fontFamily: 'monospace' }}>
                   {account.code}
                 </Typography>
               </Box>
             </TableCell>
             <TableCell>
-              <Typography variant="body2" sx={{ fontWeight: hasChildren ? 600 : 400 }}>
+              <Typography variant="body2" sx={{ fontWeight: account.is_header ? 600 : 400 }}>
                 {account.name}
               </Typography>
             </TableCell>
             <TableCell>
-              <Chip
-                label={account.account_type_name}
-                size="small"
-                sx={{ bgcolor: TYPE_COLORS[account.account_type_name] || '#666', color: '#fff', height: 20, fontSize: '11px' }}
-              />
+              <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>{account.standard_code}</Typography>
             </TableCell>
             <TableCell>
-              <Typography variant="caption">{account.normal_balance}</Typography>
+              {!account.is_header && <Typography variant="caption">{account.arl_line_name}</Typography>}
             </TableCell>
-            <TableCell>{account.currency}</TableCell>
+            <TableCell>
+              {account.is_header ? (
+                <Typography variant="caption" color="text.secondary">{t('accounts.header', 'Overskrift')}</Typography>
+              ) : (
+                <Chip
+                  label={TYPE_LABELS[account.account_type_name] || account.account_type_name}
+                  size="small"
+                  sx={{ bgcolor: TYPE_COLORS[account.account_type_name] || '#666', color: '#fff', height: 20, fontSize: '11px' }}
+                />
+              )}
+            </TableCell>
+            <TableCell>{account.is_header ? '' : account.currency}</TableCell>
             <TableCell align="right">
-              <IconButton size="small" onClick={() => openLedger(account)}><ViewIcon sx={{ fontSize: 16 }} /></IconButton>
+              {!account.is_header && (
+                <IconButton size="small" onClick={() => openLedger(account)}><ViewIcon sx={{ fontSize: 16 }} /></IconButton>
+              )}
               <IconButton size="small" onClick={() => handleOpen(account)}><EditIcon sx={{ fontSize: 16 }} /></IconButton>
-              <IconButton size="small" onClick={() => handleDelete(account.id)} color="error"><DeleteIcon sx={{ fontSize: 16 }} /></IconButton>
+              {!account.is_header && (
+                <IconButton size="small" onClick={() => handleDelete(account.id)} color="error"><DeleteIcon sx={{ fontSize: 16 }} /></IconButton>
+              )}
             </TableCell>
           </TableRow>
           {hasChildren && isExpanded && children.map(child => renderRow(child, depth + 1))}
@@ -263,10 +312,11 @@ const ChartOfAccounts: React.FC = () => {
     };
     return topLevel.map(a => renderRow(a));
   // eslint-disable-next-line react-hooks/exhaustive-deps -- the row helpers are recreated every render and only read accounts and expanded
-  }, [accounts, expanded]);
+  }, [accounts, expanded, visibleIds]);
 
+  // Konti lægges under en overskrift (gruppekonto) i standardkontoplanen.
   const parentOptions = useMemo(() =>
-    accounts.filter(a => a.id !== editing?.id),
+    accounts.filter(a => a.id !== editing?.id && a.is_header),
     [accounts, editing?.id]
   );
 
@@ -275,6 +325,12 @@ const ChartOfAccounts: React.FC = () => {
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
         <Typography variant="h5" sx={{ fontWeight: 600 }}>{t('accounts.title')}</Typography>
         <Box sx={{ display: 'flex', gap: 1 }}>
+          <TextField size="small" placeholder={t('common.search')} value={search} onChange={e => setSearch(e.target.value)}
+            sx={{ width: 200 }} />
+          <FormControlLabel
+            control={<Switch size="small" checked={showInactive} onChange={e => setShowInactive(e.target.checked)} />}
+            label={t('accounts.showInactive', 'Vis inaktive konti')}
+          />
           <Button variant="outlined" startIcon={<DownloadIcon />} onClick={handleExportAccounts} size="small">
             {t('importExport.export')}
           </Button>
@@ -287,14 +343,19 @@ const ChartOfAccounts: React.FC = () => {
         </Box>
       </Box>
 
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+        {t('accounts.introDk', 'Kontoplanen følger Erhvervsstyrelsens standardkontoplan. Hver konto har standardkontoplanens nummer (bruges i SAF-T) og en linje i årsregnskabslovens skema, som rapporterne grupperer efter. Overskrifter kan ikke bogføres på. Inaktive konti kan aktiveres, når der er brug for dem.')}
+      </Typography>
+
       <TableContainer component={Paper}>
         <Table size="small">
           <TableHead>
             <TableRow sx={{ bgcolor: '#f5f5f5' }}>
               <TableCell sx={{ fontWeight: 600 }}>{t('common.code')}</TableCell>
               <TableCell sx={{ fontWeight: 600 }}>{t('common.name')}</TableCell>
+              <TableCell sx={{ fontWeight: 600 }}>{t('accounts.standardCode', 'Standardkonto')}</TableCell>
+              <TableCell sx={{ fontWeight: 600 }}>{t('accounts.arlLine', 'ÅRL-linje')}</TableCell>
               <TableCell sx={{ fontWeight: 600 }}>{t('common.type')}</TableCell>
-              <TableCell sx={{ fontWeight: 600 }}>{t('accounts.normalBalance')}</TableCell>
               <TableCell sx={{ fontWeight: 600 }}>{t('common.currency')}</TableCell>
               <TableCell align="right" sx={{ fontWeight: 600 }}>{t('common.actions')}</TableCell>
             </TableRow>
@@ -309,6 +370,7 @@ const ChartOfAccounts: React.FC = () => {
       <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="sm" fullWidth>
         <DialogTitle>{editing ? t('accounts.editAccount') : t('accounts.addAccount')}</DialogTitle>
         <DialogContent>
+          {saveError && <Alert severity="error" sx={{ mb: 1 }}>{saveError}</Alert>}
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
             <Box sx={{ display: 'flex', gap: 2 }}>
               <TextField
@@ -326,7 +388,7 @@ const ChartOfAccounts: React.FC = () => {
                 onChange={e => setForm({ ...form, account_type_id: e.target.value })}
               >
                 {accountTypes.map(at => (
-                  <MenuItem key={at.id} value={String(at.id)}>{at.name} ({at.normal_balance})</MenuItem>
+                  <MenuItem key={at.id} value={String(at.id)}>{TYPE_LABELS[at.name] || at.name}</MenuItem>
                 ))}
               </TextField>
               <TextField
@@ -349,10 +411,22 @@ const ChartOfAccounts: React.FC = () => {
                 ).slice(0, 50);
               }}
               renderInput={(params) => (
-                <TextField {...params} label={t('accounts.parentAccount')} placeholder={t('accounts.noParent')} />
+                <TextField {...params} label={t('accounts.parentGroup', 'Gruppe i standardkontoplanen')} placeholder={t('accounts.noParent')} />
               )}
               isOptionEqualToValue={(option, value) => option.id === value.id}
             />
+            <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+              <TextField
+                label={t('accounts.standardCode', 'Standardkonto')} value={form.standard_code} size="small" sx={{ width: 160 }}
+                onChange={e => setForm({ ...form, standard_code: e.target.value })}
+                helperText={t('accounts.standardCodeHint', 'Tomt = gruppens/eget nummer')}
+              />
+              <FormControlLabel
+                control={<Checkbox size="small" checked={form.is_header} disabled={!!editing}
+                  onChange={e => setForm({ ...form, is_header: e.target.checked })} />}
+                label={t('accounts.isHeader', 'Overskrift (kan ikke bogføres på)')}
+              />
+            </Box>
             <TextField
               label={t('common.description')} value={form.description} size="small" multiline rows={2}
               onChange={e => setForm({ ...form, description: e.target.value })}
@@ -370,7 +444,7 @@ const ChartOfAccounts: React.FC = () => {
       {/* Ledger Dialog */}
       <Dialog open={ledgerOpen} onClose={closeLedger} maxWidth="lg" fullWidth>
         <DialogTitle>
-          {t('accounts.accountLedger')} — {ledgerAccount?.code} {ledgerAccount?.name} ({ledgerAccount?.currency})
+          {t('accounts.accountLedger')} — {ledgerAccount?.code} {ledgerAccount?.name}
         </DialogTitle>
         <DialogContent>
           <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', mb: 2, mt: 1 }}>
@@ -409,15 +483,18 @@ const ChartOfAccounts: React.FC = () => {
                     </TableCell>
                     <TableCell>{line.description}</TableCell>
                     <TableCell align="right">
-                      {parseFloat(line.debit) > 0 ? parseFloat(line.debit).toLocaleString(i18n.language) : ''}
-                      {parseFloat(line.debit) > 0 && line.currency !== ledgerAccount?.currency ? ` ${line.currency}` : ''}
+                      {parseFloat(line.debit) > 0 ? formatNumber(line.debit) : ''}
                     </TableCell>
                     <TableCell align="right">
-                      {parseFloat(line.credit) > 0 ? parseFloat(line.credit).toLocaleString(i18n.language) : ''}
-                      {parseFloat(line.credit) > 0 && line.currency !== ledgerAccount?.currency ? ` ${line.currency}` : ''}
+                      {parseFloat(line.credit) > 0 ? formatNumber(line.credit) : ''}
+                      {line.amount_currency && line.currency !== BASE_CURRENCY && (
+                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                          {formatMoney(line.amount_currency, line.currency)}
+                        </Typography>
+                      )}
                     </TableCell>
                     <TableCell align="right" sx={{ fontWeight: 500 }}>
-                      {parseFloat(line.running_balance).toLocaleString(i18n.language)}
+                      {formatNumber(line.running_balance)}
                     </TableCell>
                   </TableRow>
                 ))}
@@ -432,10 +509,10 @@ const ChartOfAccounts: React.FC = () => {
                   <TableRow sx={{ bgcolor: '#e8f5e9' }}>
                     <TableCell colSpan={3} sx={{ fontWeight: 700 }}>{t('common.totals')}</TableCell>
                     <TableCell align="right" sx={{ fontWeight: 700 }}>
-                      {parseFloat(ledgerTotalDebit).toLocaleString(i18n.language)}
+                      {formatNumber(ledgerTotalDebit)}
                     </TableCell>
                     <TableCell align="right" sx={{ fontWeight: 700 }}>
-                      {parseFloat(ledgerTotalCredit).toLocaleString(i18n.language)}
+                      {formatNumber(ledgerTotalCredit)}
                     </TableCell>
                     <TableCell />
                   </TableRow>

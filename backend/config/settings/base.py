@@ -7,6 +7,7 @@ from pathlib import Path
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
 SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "django-insecure-ajanpartners-dev-key")
+FIELD_ENCRYPTION_KEY = os.environ.get("FIELD_ENCRYPTION_KEY", "heaLWg7ka4H2pYafe6SzLc7qIcdRymDnilQiu-hipHw=")  # Fernet-nøgle til CPR (payroll); kun dev-default
 
 DEBUG = False
 
@@ -16,6 +17,7 @@ SHARED_APPS = [
     "django_tenants",
     "tenancy",
     "firm",
+    "integrations",
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
@@ -35,6 +37,8 @@ TENANT_APPS = [
     "purchases",
     "core",
     "payroll",
+    "einvoice",
+    "saft",
 ]
 
 INSTALLED_APPS = list(SHARED_APPS) + [app for app in TENANT_APPS if app not in SHARED_APPS]
@@ -96,7 +100,16 @@ DATABASES = {
     }
 }
 
-AUTH_PASSWORD_VALIDATORS = []
+AUTH_PASSWORD_VALIDATORS = [
+    {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
+    {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator", "OPTIONS": {"min_length": 10}},
+    {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
+    {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
+]
+
+# To-faktor-login (TOTP). Medarbejdere i revisorhuset skal have MFA, før de kan
+# bruge admin-portalen eller åbne en kundes bøger.
+FIRM_MFA_REQUIRED = os.environ.get("FIRM_MFA_REQUIRED", "1") == "1"
 
 LANGUAGE_CODE = "da"
 TIME_ZONE = "Europe/Copenhagen"

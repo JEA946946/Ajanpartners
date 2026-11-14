@@ -13,7 +13,9 @@ interface AuthContextType {
   user: User | null;
   token: string | null;
   isAuthenticated: boolean;
-  login: (username: string, password: string) => Promise<boolean>;
+  /** true = logget ind; { mfaToken } = trin 2 (to-faktor-kode) mangler. */
+  login: (username: string, password: string) => Promise<boolean | { mfaToken: string }>;
+  verifyMfa: (mfaToken: string, code: string) => Promise<boolean>;
   logout: () => void;
   loading: boolean;
 }
@@ -85,10 +87,34 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setLoading(false);
   }, []);
 
-  const login = async (username: string, password: string): Promise<boolean> => {
+  const acceptTokens = (data: any) => {
+    setUser(data.user);
+    setToken(data.token);
+    localStorage.setItem('bk_token', data.token);
+    if (data.refreshToken) localStorage.setItem('bk_refreshToken', data.refreshToken);
+  };
+
+  const verifyMfa = async (mfaToken: string, code: string): Promise<boolean> => {
+    setLoading(true);
+    try {
+      const response = await api.post('/auth/mfa/verify', { mfa_token: mfaToken, code });
+      if (response.data.success) {
+        acceptTokens(response.data.data);
+        return true;
+      }
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const login = async (username: string, password: string): Promise<boolean | { mfaToken: string }> => {
     setLoading(true);
     try {
       const response = await api.post('/auth/login', { username, password });
+      if (response.data.success && response.data.data.mfa_required) {
+        return { mfaToken: response.data.data.mfa_token };
+      }
       if (response.data.success) {
         setUser(response.data.data.user);
         setToken(response.data.data.token);
@@ -112,7 +138,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   return (
-    <AuthContext.Provider value={{ user, token, isAuthenticated: !!user && !!token, login, logout, loading }}>
+    <AuthContext.Provider value={{ user, token, isAuthenticated: !!user && !!token, login, verifyMfa, logout, loading }}>
       {children}
     </AuthContext.Provider>
   );

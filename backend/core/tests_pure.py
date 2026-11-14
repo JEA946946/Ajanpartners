@@ -110,26 +110,24 @@ class ClosedPeriodDateCoercionTests(SimpleTestCase):
 
 
 class RoleTests(SimpleTestCase):
+    """Rollen kommer fra kundens adgang (request.client_access, sat af tenancy-middleware'en)."""
+
     class _User:
-        def __init__(self, role=None, staff=False, superuser=False, auth=True):
+        def __init__(self, auth=True):
             self.is_authenticated = auth
-            self.is_staff = staff
-            self.is_superuser = superuser
-            if role is not None:
-                self.role = type("R", (), {"role": role})()
+
+    def req(self, role=None, auth=True):
+        access = type("A", (), {"role": role})() if role else None
+        return type("Req", (), {"user": self._User(auth), "client_access": access})()
 
     def test_anonymous_has_no_role(self):
-        self.assertIsNone(get_role(self._User(auth=False)))
+        self.assertIsNone(get_role(self.req("admin", auth=False)))
 
-    def test_staff_is_admin(self):
-        self.assertEqual(get_role(self._User(staff=True)), "admin")
+    def test_without_access_no_role(self):
+        self.assertIsNone(get_role(self.req()))
 
-    def test_missing_role_defaults_viewer(self):
-        u = self._User()  # no .role attribute
-        self.assertEqual(get_role(u), "viewer")
-
-    def test_explicit_role(self):
-        self.assertEqual(get_role(self._User(role="accountant")), "accountant")
+    def test_role_from_access(self):
+        self.assertEqual(get_role(self.req("accountant")), "accountant")
 
 
 class LoginLookupTests(SimpleTestCase):
@@ -165,10 +163,33 @@ class LoginLookupTests(SimpleTestCase):
         self.assertIsNone(self._lookup("nobody@vmmorocco.com"))
 
 
-class MarginTvaTests(SimpleTestCase):
-    def test_guide_example(self):
-        # Law/guide_fiscal_complet_agence.pdf §6A: margin TTC 2,000 → TVA 333.33
-        from accounts import chart
+class DanishRulesTests(SimpleTestCase):
+    def test_payment_terms(self):
+        from datetime import date
+        from sales.invoicing import due_date_for
+        self.assertEqual(due_date_for(date(2026, 1, 10), "net8"), date(2026, 1, 18))
+        self.assertEqual(due_date_for(date(2026, 1, 10), "net30"), date(2026, 2, 9))
+        self.assertEqual(due_date_for(date(2026, 1, 10), "lm15"), date(2026, 2, 15))
+        self.assertEqual(due_date_for(date(2026, 2, 3), "lm30"), date(2026, 3, 30))
 
-        self.assertEqual(chart.margin_tva(Decimal("2000")), Decimal("333.33"))
-        self.assertEqual(chart.margin_tva(Decimal("134000")), Decimal("22333.33"))
+    def test_fi_card_line_has_15_digit_payment_id_with_mod10_check(self):
+        from sales.invoicing import _mod10, fi_line, fi_payment_id
+        pid = fi_payment_id("1234")
+        self.assertEqual(len(pid), 15)
+        self.assertEqual(pid[-1], _mod10(pid[:-1]))
+        self.assertEqual(_mod10("7992739871"), "3")  # Luhn-eksempel
+        self.assertEqual(fi_line("1234", "12345678"), f"+71<{pid}+12345678<")
+        self.assertEqual(fi_line("1234", ""), "")
+
+    def test_standard_chart_classification(self):
+        from accounts.standardkontoplan import all_accounts, classify
+        self.assertEqual(classify("1010"), ("nettoomsaetning", "Revenue"))
+        self.assertEqual(classify("2845"), ("personaleomkostninger", "Expense"))
+        self.assertEqual(classify("6480"), ("likvide_beholdninger", "Asset"))
+        self.assertEqual(classify("7840"), ("kortfristet_gaeld", "Liability"))
+        self.assertEqual(classify("6940"), ("overfoert_resultat", "Equity"))
+        codes = {a["code"] for a in all_accounts()}
+        from accounts import chart
+        for name, value in vars(chart).items():
+            if name.isupper() and isinstance(value, str) and value.isdigit():
+                self.assertIn(value, codes, name)

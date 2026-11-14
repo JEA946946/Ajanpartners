@@ -21,12 +21,12 @@ import {
 import { useTranslation } from 'react-i18next';
 import api from '../services/api';
 import CategorizeTransactionDialog from '../components/CategorizeTransactionDialog';
-import MatchInvoiceDialog from '../components/MatchInvoiceDialog';
 import BulkCategorizeDialog from '../components/BulkCategorizeDialog';
 import MatchToBillsDialog from '../components/MatchToBillsDialog';
 import ReconciliationDetailDialog from '../components/ReconciliationDetailDialog';
 import BillEditDialog from '../components/BillEditDialog';
 import { isTreasury } from '../utils/chart';
+import { formatNumber } from '../utils/format';
 
 interface Account {
   id: string;
@@ -121,7 +121,6 @@ const BankReconciliation: React.FC = () => {
   const [bmSelectedTxn, setBmSelectedTxn] = useState<BankTransaction | null>(null);
   const [bmSuggestions, setBmSuggestions] = useState<BillSuggestion[]>([]);
   const [catOpen, setCatOpen] = useState(false);
-  const [invOpen, setInvOpen] = useState(false);
   const [bmSelectedIds, setBmSelectedIds] = useState<Set<string>>(new Set());
   const [bulkOpen, setBulkOpen] = useState(false);
   const [matchBillsOpen, setMatchBillsOpen] = useState(false);
@@ -161,7 +160,7 @@ const BankReconciliation: React.FC = () => {
             ...a,
             label: `${a.code} — ${a.name}`,
           }))
-          .filter((a: Account) => isTreasury(a.code));
+          .filter((a: any) => isTreasury(a));
         setBankAccounts(accts);
       }
     }).catch(() => {});
@@ -537,7 +536,7 @@ const BankReconciliation: React.FC = () => {
 
   const formatAmount = (val: string) => {
     const num = parseFloat(val || '0');
-    return num > 0 ? num.toLocaleString(i18n.language, { minimumFractionDigits: 2 }) : '';
+    return num > 0 ? formatNumber(num) : '';
   };
 
   // ─── Statistics computations ───────────────────────────────────────
@@ -555,7 +554,7 @@ const BankReconciliation: React.FC = () => {
   const statsBmLinkedAmount = bmTransactions.filter(t => bmLinkedIds.has(t.id)).reduce((sum, t) => sum + (parseFloat(t.credit || '0') || parseFloat(t.debit || '0')), 0);
   const statsBmPct = statsBmTotal > 0 ? Math.round((statsBmLinked / statsBmTotal) * 100) : 0;
 
-  const fmtStat = (n: number) => n.toLocaleString(i18n.language, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const fmtStat = (n: number) => formatNumber(n);
 
   return (
     <Box>
@@ -720,7 +719,7 @@ const BankReconciliation: React.FC = () => {
                     </TableCell>
                     <TableCell>{formatDate(session.date)}</TableCell>
                     <TableCell align="right">
-                      {parseFloat(session.statement_balance).toLocaleString(i18n.language, { minimumFractionDigits: 2 })}
+                      {formatNumber(session.statement_balance)}
                     </TableCell>
                     <TableCell align="center">
                       <Typography variant="body2" component="span" sx={{ color: '#2e7d32', fontWeight: 600 }}>
@@ -799,7 +798,7 @@ const BankReconciliation: React.FC = () => {
                 <Box sx={{ textAlign: 'right' }}>
                   <Typography variant="caption" color="text.secondary">{t('reconciliation.statementBalance')}</Typography>
                   <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-                    {parseFloat(selectedSession.statement_balance).toLocaleString(i18n.language, { minimumFractionDigits: 2 })}
+                    {formatNumber(selectedSession.statement_balance)}
                   </Typography>
                 </Box>
                 <Chip
@@ -821,13 +820,13 @@ const BankReconciliation: React.FC = () => {
               <Box>
                 <Typography variant="caption" color="text.secondary">{t('reconciliation.reconciledTotal')}</Typography>
                 <Typography variant="body1" sx={{ fontWeight: 600, color: '#2e7d32' }}>
-                  {totalMatched.toLocaleString(i18n.language, { minimumFractionDigits: 2 })}
+                  {formatNumber(totalMatched)}
                 </Typography>
               </Box>
               <Box>
                 <Typography variant="caption" color="text.secondary">{t('reconciliation.unreconciledTotal')}</Typography>
                 <Typography variant="body1" sx={{ fontWeight: 600, color: '#ed6c02' }}>
-                  {totalUnmatched.toLocaleString(i18n.language, { minimumFractionDigits: 2 })}
+                  {formatNumber(totalUnmatched)}
                 </Typography>
               </Box>
               <Box>
@@ -836,7 +835,7 @@ const BankReconciliation: React.FC = () => {
                   variant="body1"
                   sx={{ fontWeight: 600, color: Math.abs(difference) < 0.01 ? '#2e7d32' : '#d32f2f' }}
                 >
-                  {difference.toLocaleString(i18n.language, { minimumFractionDigits: 2 })}
+                  {formatNumber(difference)}
                 </Typography>
               </Box>
               <Box>
@@ -1201,7 +1200,7 @@ const BankReconciliation: React.FC = () => {
                             onClick={() => {
                               if (isLinked) { setDetailTxn(txn); return; }
                               const incoming = !(parseFloat(txn.credit || '0') > 0);
-                              if (incoming) { setBmSelectedTxn(txn); setBmSuggestions([]); setInvOpen(true); }
+                              if (incoming) { setBmSelectedTxn(txn); setBmSuggestions([]); setCatOpen(true); }
                               else fetchBmSuggestions(txn);
                             }}
                           >
@@ -1231,8 +1230,8 @@ const BankReconciliation: React.FC = () => {
                             <TableCell align="right" sx={{ fontFamily: 'monospace', whiteSpace: 'nowrap',
                               color: parseFloat(txn.credit || '0') > 0 ? undefined : '#2e7d32' }}>
                               {parseFloat(txn.credit || '0') > 0
-                                ? `−${parseFloat(txn.credit || '0').toLocaleString(i18n.language, { minimumFractionDigits: 2 })}`
-                                : `+${parseFloat(txn.debit || '0').toLocaleString(i18n.language, { minimumFractionDigits: 2 })}`}
+                                ? `−${formatNumber(txn.credit || '0')}`
+                                : `+${formatNumber(txn.debit || '0')}`}
                             </TableCell>
                           </TableRow>
                         );
@@ -1323,10 +1322,10 @@ const BankReconciliation: React.FC = () => {
                           </TableCell>
                           <TableCell sx={{ whiteSpace: 'nowrap' }}>{formatDate(bill.date)}</TableCell>
                           <TableCell align="right" sx={{ fontFamily: 'monospace', whiteSpace: 'nowrap' }}>
-                            {parseFloat(bill.total).toLocaleString(i18n.language, { minimumFractionDigits: 2 })}
+                            {formatNumber(bill.total)}
                           </TableCell>
                           <TableCell align="right" sx={{ fontFamily: 'monospace', whiteSpace: 'nowrap' }}>
-                            {parseFloat(bill.balance_due).toLocaleString(i18n.language, { minimumFractionDigits: 2 })}
+                            {formatNumber(bill.balance_due)}
                           </TableCell>
                           <TableCell align="center" sx={{ px: 0.5 }}>
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, justifyContent: 'center' }}>
@@ -1373,20 +1372,6 @@ const BankReconciliation: React.FC = () => {
           <CircularProgress />
         </Box>
       )}
-
-      {/* Money in: match to a CRM invoice (worth the MAD received) */}
-      <MatchInvoiceDialog
-        open={invOpen}
-        txn={bmSelectedTxn}
-        onClose={() => setInvOpen(false)}
-        onBookToAccount={() => { setInvOpen(false); setCatOpen(true); }}
-        onDone={() => {
-          if (bmSelectedTxn) setBmLinkedIds(prev => new Set(prev).add(bmSelectedTxn.id));
-          setInvOpen(false);
-          setBmSelectedTxn(null);
-          setSuccess(t('matchInvoice.matched'));
-        }}
-      />
 
       {/* Categorize (book to account) dialog */}
       <CategorizeTransactionDialog
@@ -1624,7 +1609,7 @@ const BankReconciliation: React.FC = () => {
                     </TableCell>
                     <TableCell sx={{ whiteSpace: 'nowrap' }}>{formatDate(m.transaction_date)}</TableCell>
                     <TableCell align="right" sx={{ fontFamily: 'monospace', whiteSpace: 'nowrap' }}>
-                      {parseFloat(m.amount).toLocaleString(i18n.language, { minimumFractionDigits: 2 })}
+                      {formatNumber(m.amount)}
                     </TableCell>
                     <TableCell sx={{ fontFamily: 'monospace', whiteSpace: 'nowrap' }}>{m.bill_number}</TableCell>
                     <TableCell sx={{ maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>

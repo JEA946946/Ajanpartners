@@ -19,7 +19,4 @@ urlpatterns = [
     # Fiscal years
     path("fiscal-years", views.fiscal_years_list_create),
     path("fiscal-years/<uuid:pk>", views.fiscal_years_detail),
-    # Supplier account mappings
-    path("supplier-mappings", views.supplier_mappings_list_create),
-    path("supplier-mappings/<uuid:pk>", views.supplier_mappings_delete),
 ]

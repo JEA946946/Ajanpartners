@@ -1,9 +1,16 @@
-"""Seed account types and the Moroccan chart of accounts (PCGM)."""
+"""Opret kontoplan (Erhvervsstyrelsens standardkontoplan), momskoder og journaler
+i den aktuelle kundes skema. Kaldes af tenancy/services.py: create_client.
 
-from django.core.management.base import BaseCommand
+    manage.py tenant_command seed_accounts --template=standard --schema=c_kunde
+
+Opretter aldrig brugere.
+"""
+
+from django.core.management.base import BaseCommand, CommandError
+from django.db import transaction
 
 from accounts.models import Account, AccountType
-from accounts.pcgm import OWN_ACCOUNTS, all_accounts, parent_code
+from accounts.standardkontoplan import TEMPLATES, active_codes, all_accounts
 
 
 ACCOUNT_TYPES = [
@@ -12,16 +19,14 @@ ACCOUNT_TYPES = [
     {"name": "Equity", "normal_balance": "credit", "display_order": 3},
     {"name": "Revenue", "normal_balance": "credit", "display_order": 4},
     {"name": "Expense", "normal_balance": "debit", "display_order": 5},
-    # Class 8 (result accounts) and class 0 (off-balance) are kept inactive.
-    {"name": "Result", "normal_balance": "credit", "display_order": 6},
-    {"name": "Special", "normal_balance": "debit", "display_order": 7},
 ]
 
 
-def seed_chart():
-    """Create missing account types and PCGM accounts and set parents. Returns
-    the number of new accounts. Existing accounts are never renamed; our own
-    accounts get their currency (51413 and 34972 are EUR)."""
+def seed_chart(template="standard"):
+    """Opret manglende kontotyper og konti, sæt overkonti, standardnummer og
+    ÅRL-linje. Eksisterende konti omdøbes ikke, og deres aktiv-status ændres ikke.
+    Returnerer antallet af nye konti."""
+    active = active_codes(template)
     type_map = {}
     for t in ACCOUNT_TYPES:
         obj, _ = AccountType.objects.get_or_create(
@@ -32,32 +37,38 @@ def seed_chart():
 
     rows = all_accounts()
     created_count = 0
-    for code, name, type_name, currency, is_active in rows:
-        _, created = Account.objects.get_or_create(
-            code=code,
-            defaults={
-                "name": name,
-                "account_type": type_map[type_name],
-                "currency": currency,
-                "is_active": is_active,
-            },
-        )
-        created_count += created
+    with transaction.atomic():
+        by_code = {a.code: a for a in Account.objects.all()}
+        for row in rows:
+            header = row["kind"] != "K"
+            acc = by_code.get(row["code"])
+            if acc is None:
+                acc = Account.objects.create(
+                    code=row["code"], name=row["name"], account_type=type_map[row["type"]],
+                    currency="DKK", standard_code=row["standard_code"], arl_line=row["arl_line"],
+                    is_header=header, is_active=header or row["code"] in active,
+                )
+                by_code[acc.code] = acc
+                created_count += 1
+            else:
+                changed = []
+                for field, value in (("standard_code", row["standard_code"]), ("arl_line", row["arl_line"]),
+                                     ("is_header", header)):
+                    if not getattr(acc, field) and value:
+                        setattr(acc, field, value)
+                        changed.append(field)
+                if changed:
+                    acc.save(update_fields=changed)
+        for row in rows:
+            acc = by_code[row["code"]]
+            parent_id = by_code[row["parent"]].id if row["parent"] else None
+            if acc.parent_id != parent_id:
+                acc.parent_id = parent_id
+                acc.save(update_fields=["parent"])
 
-    known = {code for code, *_ in rows}
-    by_code = {a.code: a for a in Account.objects.filter(code__in=known)}
-    for code in known:
-        parent = parent_code(code, known)
-        child = by_code[code]
-        parent_id = by_code[parent].id if parent else None
-        if child.parent_id != parent_id:
-            child.parent_id = parent_id
-            child.save(update_fields=["parent"])
-    for code, _, currency in OWN_ACCOUNTS:
-        if by_code[code].currency != currency:
-            by_code[code].currency = currency
-            by_code[code].save(update_fields=["currency"])
+    from core.vat_codes import seed_tax_codes
     from journals.journal_for import seed_journals
+    seed_tax_codes()
     seed_journals()
     return created_count
 
@@ -67,8 +78,11 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser):
         parser.add_argument("--template", default="standard",
-                            help="Kontoplanskabelon: standard | holding | enkeltmand")
+                            help="Kontoplanskabelon: " + " | ".join(TEMPLATES))
 
     def handle(self, *args, **options):
-        created_count = seed_chart()
-        self.stdout.write(self.style.SUCCESS(f"Kontoplan oprettet, {created_count} nye konti"))
+        template = options["template"] or "standard"
+        if template not in TEMPLATES:
+            raise CommandError(f"Ukendt skabelon '{template}'. Vælg en af: {', '.join(TEMPLATES)}")
+        created_count = seed_chart(template)
+        self.stdout.write(self.style.SUCCESS(f"Kontoplan ({template}) oprettet, {created_count} nye konti"))

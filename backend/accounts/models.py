@@ -42,7 +42,13 @@ class Account(models.Model):
         blank=True,
         related_name="children",
     )
-    currency = models.CharField(max_length=3, default="MAD")
+    currency = models.CharField(max_length=3, default="DKK")
+    # Erhvervsstyrelsens standardkontoplan: nummeret, kontoen svarer til (SAF-T
+    # GroupingCode/StandardAccountID), og linjen i årsregnskabslovens skema.
+    standard_code = models.CharField(max_length=10, blank=True, default="", db_index=True)
+    arl_line = models.CharField(max_length=40, blank=True, default="", db_index=True)
+    # Overskrift (hovedkonto/gruppekonto): kan ikke bogføres på.
+    is_header = models.BooleanField(default=False)
     description = models.TextField(blank=True, default="")
     is_active = models.BooleanField(default=True)
     manager_io_id = models.CharField(max_length=100, blank=True, default="")
@@ -65,6 +71,8 @@ class FiscalYear(models.Model):
     start_date = models.DateField()
     end_date = models.DateField()
     is_closed = models.BooleanField(default=False)
+    closed_at = models.DateTimeField(null=True, blank=True)
+    closed_by = models.CharField(max_length=200, blank=True, default="")
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -73,24 +81,3 @@ class FiscalYear(models.Model):
 
     def __str__(self):
         return self.name
-
-
-class SupplierAccountMapping(models.Model):
-    """Maps a CMR supplier to a bookkeeping expense account."""
-
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    cmr_supplier_id = models.CharField(max_length=36, unique=True, db_index=True)
-    cmr_supplier_name = models.CharField(max_length=255, blank=True, default="")
-    account = models.ForeignKey(
-        Account,
-        on_delete=models.PROTECT,
-        related_name="supplier_mappings",
-    )
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-
-    class Meta:
-        db_table = "supplier_account_mappings"
-
-    def __str__(self):
-        return f"{self.cmr_supplier_name} → {self.account.code}"

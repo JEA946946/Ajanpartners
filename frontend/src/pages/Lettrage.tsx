@@ -5,7 +5,8 @@ import {
 } from '@mui/material';
 import { useTranslation } from 'react-i18next';
 import api from '../services/api';
-import { formatDate } from '../utils/dateFormat';
+import { formatDate, formatNumber } from '../utils/format';
+import { BASE_CURRENCY, CUSTOMER_PREPAYMENTS, PAYABLE, RECEIVABLE } from '../utils/chart';
 
 interface Tiers {
   partner_id: string;
@@ -29,14 +30,19 @@ interface Line {
   lettrage: string;
 }
 
-const ACCOUNTS = ['4411', '3421', '4421'];
+const ACCOUNTS = [PAYABLE, RECEIVABLE, CUSTOMER_PREPAYMENTS];
 
-// Lettrage: lines of one tiers that settle each other (an invoice and its
-// payments) get the same code. Fully paid bills and invoices are lettered
-// automatically; the rest is done here.
+// Udligning: linjer for samme debitor/kreditor, der udligner hinanden (en faktura
+// og betalingerne af den), får samme kode. Fuldt betalte regninger og fakturaer
+// udlignes automatisk; resten gøres her.
 const Lettrage: React.FC = () => {
-  const { t, i18n } = useTranslation();
-  const [account, setAccount] = useState('4411');
+  const { t } = useTranslation();
+  const ACCOUNT_NAMES: Record<string, string> = {
+    [PAYABLE]: t('lettrage.payables', 'Kreditorer'),
+    [RECEIVABLE]: t('lettrage.receivables', 'Debitorer'),
+    [CUSTOMER_PREPAYMENTS]: t('lettrage.prepayments', 'Forudbetalinger fra kunder'),
+  };
+  const [account, setAccount] = useState(PAYABLE);
   const [tiers, setTiers] = useState<Tiers[]>([]);
   const [filter, setFilter] = useState('');
   const [selectedTiers, setSelectedTiers] = useState<Tiers | null>(null);
@@ -107,8 +113,7 @@ const Lettrage: React.FC = () => {
     }
   };
 
-  const fmt = (v: string | number) =>
-    (typeof v === 'string' ? parseFloat(v) : v).toLocaleString(i18n.language, { minimumFractionDigits: 2 });
+  const fmt = (v: string | number) => formatNumber(v);
 
   return (
     <Box>
@@ -116,7 +121,7 @@ const Lettrage: React.FC = () => {
         <Typography variant="h5" sx={{ fontWeight: 600 }}>{t('lettrage.title')}</Typography>
         <TextField select size="small" label={t('common.account')} value={account} sx={{ width: 240 }}
           onChange={e => setAccount(e.target.value)}>
-          {ACCOUNTS.map(a => <MenuItem key={a} value={a}>{a} — {t(`lettrage.accounts.${a}`)}</MenuItem>)}
+          {ACCOUNTS.map(a => <MenuItem key={a} value={a}>{a} — {ACCOUNT_NAMES[a]}</MenuItem>)}
         </TextField>
       </Box>
       {message && <Alert severity={message.type} sx={{ mb: 2 }} onClose={() => setMessage(null)}>{message.text}</Alert>}
@@ -133,7 +138,7 @@ const Lettrage: React.FC = () => {
                     onClick={() => setSelectedTiers(x)} sx={{ cursor: 'pointer' }}>
                     <TableCell>{x.partner_name}</TableCell>
                     <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
-                      {fmt(x.open_balance)} {x.currency !== 'MAD' ? x.currency : ''}
+                      {fmt(x.open_balance)} {x.currency && x.currency !== BASE_CURRENCY ? x.currency : ''}
                       {x.open_lines > 0 && <Chip size="small" label={x.open_lines} sx={{ ml: 1, height: 18 }} />}
                     </TableCell>
                   </TableRow>

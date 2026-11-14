@@ -8,12 +8,14 @@ DEBUG = False
 
 # Required secrets — fail hard at boot if unset (no insecure fallbacks).
 SECRET_KEY = os.environ["DJANGO_SECRET_KEY"]
+# CPR-numre og MFA-hemmeligheder krypteres med denne nøgle; ingen dev-default i produktion.
+FIELD_ENCRYPTION_KEY = os.environ["FIELD_ENCRYPTION_KEY"]
 
 ALLOWED_HOSTS = os.environ.get(
     "DJANGO_ALLOWED_HOSTS", "bogfoering.ajanpartners.dk"
 ).split(",")
 
-DATABASES["default"]["HOST"] = os.environ.get("DB_HOST", "dmc-cmr-db")  # noqa: F405
+DATABASES["default"]["HOST"] = os.environ.get("DB_HOST", "db")  # noqa: F405
 DATABASES["default"]["PASSWORD"] = os.environ["DB_PASSWORD"]  # noqa: F405
 
 CORS_ALLOWED_ORIGINS = os.environ.get(

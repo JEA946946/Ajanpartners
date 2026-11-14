@@ -56,20 +56,33 @@ class IsAdmin(BasePermission):
         return bool(access and access.role == "admin" and access.can_write)
 
 
+def _firm_staff_with_mfa(request, perm):
+    """FirmStaff, hvis brugeren er medarbejder og har to-faktor (når det kræves)."""
+    from tenancy.access import staff_of
+    from tenancy.mfa import has_mfa, mfa_required_for
+    staff = staff_of(request.user)
+    if staff is None:
+        return None
+    if mfa_required_for(request.user) and not has_mfa(request.user):
+        perm.message = {"success": False,
+                        "message": "Slå to-faktor-login til under Min profil, før du bruger admin-portalen.",
+                        "code": "mfa_setup_required"}
+        return None
+    return staff
+
+
 class IsFirmStaff(BasePermission):
     """Medarbejder i revisorhuset (admin-portalen, public-skemaet)."""
 
     message = "Kun for medarbejdere i Ajan Partners."
 
     def has_permission(self, request, view):
-        from tenancy.access import staff_of
-        return staff_of(request.user) is not None
+        return _firm_staff_with_mfa(request, self) is not None
 
 
 class IsFirmPartner(BasePermission):
     message = "Kræver partnerrollen i Ajan Partners."
 
     def has_permission(self, request, view):
-        from tenancy.access import staff_of
-        staff = staff_of(request.user)
+        staff = _firm_staff_with_mfa(request, self)
         return bool(staff and staff.is_partner)

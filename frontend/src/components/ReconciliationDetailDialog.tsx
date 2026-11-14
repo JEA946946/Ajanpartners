@@ -7,20 +7,19 @@ import {
 import { Edit as EditIcon, LinkOff as UnlinkIcon } from '@mui/icons-material';
 import { useTranslation } from 'react-i18next';
 import { formatDate } from '../utils/dateFormat';
+import { formatNumber } from '../utils/format';
 import api from '../services/api';
 
 interface Txn { id: string; description: string; }
 
 interface JeLine { account_code: string; account_name: string; debit: string; credit: string; }
 interface Detail {
-  type: 'categorization' | 'bill' | 'invoice' | null;
+  type: 'categorization' | 'bill' | null;
   amount?: string;
   categorized_by?: string;
   created_at?: string;
   journal_entry?: { id: string; entry_number: string; date: string; lines: JeLine[] };
   bill?: { id: string; bill_number: string; supplier_name: string | null; total: string; status: string };
-  invoices?: Array<{ invoice_number: string; customer_name: string; trip_reference: string; currency: string;
-    covered_amount: string; amount_mad: string | null; rate: string | null; awaiting_exchange?: boolean }>;
 }
 
 interface Props {
@@ -32,7 +31,7 @@ interface Props {
 }
 
 const ReconciliationDetailDialog: React.FC<Props> = ({ open, txn, onClose, onRemoved, onEdit }) => {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const [detail, setDetail] = useState<Detail | null>(null);
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -71,7 +70,7 @@ const ReconciliationDetailDialog: React.FC<Props> = ({ open, txn, onClose, onRem
     if (await doDelete() && txn) onEdit(txn);
   };
 
-  const fmt = (v: string) => parseFloat(v || '0').toLocaleString(i18n.language, { minimumFractionDigits: 2 });
+  const fmt = (v: string) => formatNumber(v || '0');
 
   return (
     <Dialog open={open} onClose={busy ? undefined : onClose} maxWidth="sm" fullWidth>
@@ -115,22 +114,6 @@ const ReconciliationDetailDialog: React.FC<Props> = ({ open, txn, onClose, onRem
               <Chip size="small" label={detail.bill.status} sx={{ ml: 1, height: 20 }} />
             </Typography>
           </Box>
-        ) : detail?.type === 'invoice' && detail.invoices ? (
-          <Box sx={{ p: 1 }}>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>{t('matchInvoice.matchedTo')}</Typography>
-            {detail.invoices.map(inv => (
-              <Box key={inv.invoice_number} sx={{ mb: 1 }}>
-                <Typography variant="body1" sx={{ fontWeight: 600 }}>
-                  {inv.invoice_number} — {inv.customer_name || '—'} {inv.trip_reference ? `(${inv.trip_reference})` : ''}
-                </Typography>
-                <Typography variant="body2">
-                  {inv.awaiting_exchange || inv.amount_mad === null
-                    ? `${fmt(inv.covered_amount)} ${inv.currency} — ${t('matchInvoice.awaiting')}`
-                    : `${fmt(inv.covered_amount)} ${inv.currency} = ${fmt(inv.amount_mad)} MAD${inv.rate && inv.currency !== 'MAD' ? ` · ${t('matchInvoice.rate')} ${inv.rate}` : ''}`}
-                </Typography>
-              </Box>
-            ))}
-          </Box>
         ) : (
           <Typography variant="body2" color="text.secondary" sx={{ py: 2 }}>
             {t('billMatching.notReconciled')}
@@ -144,7 +127,7 @@ const ReconciliationDetailDialog: React.FC<Props> = ({ open, txn, onClose, onRem
             {t('common.edit')}
           </Button>
         )}
-        {(detail?.type === 'categorization' || detail?.type === 'bill' || detail?.type === 'invoice') && (
+        {(detail?.type === 'categorization' || detail?.type === 'bill') && (
           <Button onClick={handleRemove} disabled={busy} color="error" variant="outlined"
             startIcon={busy ? <CircularProgress size={14} /> : <UnlinkIcon sx={{ fontSize: 16 }} />}>
             {t('billMatching.removeReconciliation')}

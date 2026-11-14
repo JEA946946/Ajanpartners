@@ -4,18 +4,19 @@ import {
   Box, Typography, Button, Table, TableBody, TableCell, TableContainer,
   TableHead, TableRow, Paper, IconButton, Dialog, DialogTitle, DialogContent,
   DialogActions, TextField, Chip, FormControlLabel, Switch, InputAdornment,
-  CircularProgress, Alert, MenuItem,
+  Alert, MenuItem,
 } from '@mui/material';
 import {
   Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon,
   Search as SearchIcon, Receipt as StatementIcon,
   Upload as UploadIcon, Download as DownloadIcon,
-  CloudDownload as CmrIcon, CheckCircle as CheckCircleIcon,
 } from '@mui/icons-material';
 import { useTranslation } from 'react-i18next';
 import api from '../services/api';
 import { exportToCSV } from '../utils/csvExport';
 import ImportDialog from '../components/ImportDialog';
+import { PAYMENT_TERMS } from './Invoices';
+import { formatMoney } from '../utils/format';
 
 interface Customer {
   id: string;
@@ -24,9 +25,17 @@ interface Customer {
   email: string;
   phone: string;
   address: string;
+  postal_code: string;
+  city: string;
+  country: string;
   tax_id: string;
+  vat_zone: string;
+  is_business: boolean;
+  is_public: boolean;
+  ean: string;
   currency: string;
   payment_terms: number;
+  payment_terms_code: string;
   credit_limit: string;
   notes: string;
   is_active: boolean;
@@ -41,18 +50,13 @@ interface StatementLine {
   balance: string;
 }
 
-interface CMRClient {
-  id: string;
-  name: string;
-  email: string;
-  phone: string;
-  address: string;
-  tax_id: string;
-  currency: string;
-  already_imported: boolean;
-}
 
-const CURRENCY_OPTIONS = ['EUR', 'USD', 'MAD', 'GBP', 'DKK'];
+const CURRENCY_OPTIONS = ['DKK', 'EUR', 'SEK', 'NOK', 'USD', 'GBP'];
+const VAT_ZONES = [
+  { value: 'dk', key: 'customers.vatZone.dk', label: 'Danmark' },
+  { value: 'eu', key: 'customers.vatZone.eu', label: 'EU (uden for Danmark)' },
+  { value: 'abroad', key: 'customers.vatZone.abroad', label: 'Uden for EU' },
+];
 
 const EMPTY_FORM = {
   code: '',
@@ -60,15 +64,22 @@ const EMPTY_FORM = {
   email: '',
   phone: '',
   address: '',
+  postal_code: '',
+  city: '',
+  country: 'DK',
   tax_id: '',
-  currency: 'EUR',
-  payment_terms: '30',
+  vat_zone: 'dk',
+  is_business: true,
+  is_public: false,
+  ean: '',
+  currency: 'DKK',
+  payment_terms_code: 'net14',
   credit_limit: '0',
   notes: '',
 };
 
 const Customers: React.FC = () => {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
 
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [search, setSearch] = useState('');
@@ -110,9 +121,16 @@ const Customers: React.FC = () => {
         email: customer.email || '',
         phone: customer.phone || '',
         address: customer.address || '',
+        postal_code: customer.postal_code || '',
+        city: customer.city || '',
+        country: customer.country || 'DK',
         tax_id: customer.tax_id || '',
-        currency: customer.currency || 'EUR',
-        payment_terms: String(customer.payment_terms ?? 30),
+        vat_zone: customer.vat_zone || 'dk',
+        is_business: customer.is_business ?? true,
+        is_public: !!customer.is_public,
+        ean: customer.ean || '',
+        currency: customer.currency || 'DKK',
+        payment_terms_code: customer.payment_terms_code || 'net14',
         credit_limit: customer.credit_limit || '0',
         notes: customer.notes || '',
       });
@@ -120,13 +138,23 @@ const Customers: React.FC = () => {
       setEditing(null);
       setForm({ ...EMPTY_FORM });
     }
+    setFormError('');
     setDialogOpen(true);
   };
 
+  const [formError, setFormError] = useState('');
+
   const handleSave = async () => {
+    if (form.is_public && !/^\d{13}$/.test(form.ean)) {
+      setFormError(t('customers.eanRequired', 'En offentlig kunde skal have et EAN-/GLN-nummer på 13 cifre'));
+      return;
+    }
+    if (form.ean && !/^\d{13}$/.test(form.ean)) {
+      setFormError(t('customers.eanInvalid', 'EAN-/GLN-nummeret skal være 13 cifre'));
+      return;
+    }
     const payload = {
       ...form,
-      payment_terms: parseInt(form.payment_terms) || 30,
       credit_limit: parseFloat(form.credit_limit) || 0,
     };
     try {
@@ -138,7 +166,7 @@ const Customers: React.FC = () => {
       setDialogOpen(false);
       fetchCustomers();
     } catch (err: any) {
-      alert(err.response?.data?.message || t('customers.errorSaving'));
+      setFormError(err.response?.data?.message || t('customers.errorSaving'));
     }
   };
 
@@ -157,7 +185,15 @@ const Customers: React.FC = () => {
     setStatementOpen(true);
     api.get(`/customers/${customer.id}/statement`).then(res => {
       if (res.data.success) {
-        setStatementLines(res.data.statement || []);
+        // Kontoudtog: fakturaer (debet) og kreditnotaer (kredit) med løbende saldo.
+        const items = [
+          ...(res.data.invoices || []).filter((i: any) => !i.is_draft_number).map((i: any) => ({
+            id: i.id, date: i.date, type: 'invoice', reference: i.invoice_number, amount: parseFloat(i.total) })),
+          ...(res.data.credit_notes || []).filter((c: any) => c.status === 'applied').map((c: any) => ({
+            id: c.id, date: c.date, type: 'credit_note', reference: c.credit_note_number, amount: -parseFloat(c.total) })),
+        ].sort((a, b) => a.date.localeCompare(b.date));
+        let bal = 0;
+        setStatementLines(items.map(x => { bal += x.amount; return { ...x, amount: String(x.amount), balance: String(bal) }; }));
       }
     }).catch(() => {
       setStatementLines([]);
@@ -170,58 +206,15 @@ const Customers: React.FC = () => {
     setStatementLines([]);
   };
 
-  // CMR Picker
-  const [cmrOpen, setCmrOpen] = useState(false);
-  const [cmrClients, setCmrClients] = useState<CMRClient[]>([]);
-  const [cmrLoading, setCmrLoading] = useState(false);
-  const [cmrError, setCmrError] = useState('');
-  const [cmrSearch, setCmrSearch] = useState('');
-
-  const openCmrPicker = () => {
-    setCmrOpen(true);
-    setCmrError('');
-    setCmrSearch('');
-    setCmrLoading(true);
-    api.get('/cmr/clients').then(res => {
-      if (res.data.success) setCmrClients(res.data.data.clients);
-    }).catch((err: any) => {
-      setCmrError(err.response?.data?.message || t('customers.cmrFetchError'));
-    }).finally(() => setCmrLoading(false));
-  };
-
-  const handleCmrSelect = (cli: CMRClient) => {
-    setCmrOpen(false);
-    setEditing(null);
-    setForm({
-      code: '',
-      name: cli.name,
-      email: cli.email || '',
-      phone: cli.phone || '',
-      address: cli.address || '',
-      tax_id: cli.tax_id || '',
-      currency: cli.currency || 'EUR',
-      payment_terms: '30',
-      credit_limit: '0',
-      notes: '',
-    });
-    setDialogOpen(true);
-  };
-
-  const filteredCmrClients = cmrSearch.trim()
-    ? cmrClients.filter(c =>
-        c.name.toLowerCase().includes(cmrSearch.toLowerCase()) ||
-        (c.email && c.email.toLowerCase().includes(cmrSearch.toLowerCase()))
-      )
-    : cmrClients;
 
   // Import/Export
   const [importOpen, setImportOpen] = useState(false);
 
   const handleExportCustomers = () => {
-    const headers = ['code', 'name', 'email', 'phone', 'address', 'tax_id', 'currency', 'payment_terms', 'credit_limit', 'notes'];
+    const headers = ['code', 'name', 'email', 'phone', 'address', 'postal_code', 'city', 'country', 'tax_id', 'ean', 'currency', 'payment_terms_code', 'credit_limit', 'notes'];
     const rows = customers.map(c => [
-      c.code, c.name, c.email, c.phone, c.address, c.tax_id,
-      c.currency, String(c.payment_terms), c.credit_limit, c.notes,
+      c.code, c.name, c.email, c.phone, c.address, c.postal_code, c.city, c.country, c.tax_id, c.ean,
+      c.currency, c.payment_terms_code, c.credit_limit, c.notes,
     ]);
     exportToCSV('customers.csv', headers, rows);
   };
@@ -244,9 +237,6 @@ const Customers: React.FC = () => {
           </Button>
           <Button variant="outlined" startIcon={<UploadIcon />} onClick={() => setImportOpen(true)} size="small">
             {t('importExport.import')}
-          </Button>
-          <Button variant="outlined" startIcon={<CmrIcon />} onClick={openCmrPicker} size="small" color="success">
-            {t('customers.pickFromCmr')}
           </Button>
           <Button variant="contained" startIcon={<AddIcon />} onClick={() => handleOpen()} sx={{ bgcolor: '#2e7d32' }}>
             {t('customers.addCustomer')}
@@ -312,7 +302,7 @@ const Customers: React.FC = () => {
                 <TableCell>{customer.email}</TableCell>
                 <TableCell>{customer.phone}</TableCell>
                 <TableCell>{customer.currency}</TableCell>
-                <TableCell>{customer.payment_terms} {t('common.days')}</TableCell>
+                <TableCell>{t(PAYMENT_TERMS.find(p => p.code === customer.payment_terms_code)?.key || '', PAYMENT_TERMS.find(p => p.code === customer.payment_terms_code)?.label || '')}</TableCell>
                 <TableCell>
                   <Chip
                     label={customer.is_active ? t('common.active') : t('common.inactive')}
@@ -374,15 +364,44 @@ const Customers: React.FC = () => {
                 onChange={e => setForm({ ...form, phone: e.target.value })}
               />
             </Box>
+            {formError && <Alert severity="error">{formError}</Alert>}
             <TextField
               label={t('common.address')} value={form.address} size="small" fullWidth multiline rows={2}
               onChange={e => setForm({ ...form, address: e.target.value })}
             />
             <Box sx={{ display: 'flex', gap: 2 }}>
+              <TextField label={t('customers.postalCode', 'Postnr.')} value={form.postal_code} size="small" sx={{ width: 120 }}
+                onChange={e => setForm({ ...form, postal_code: e.target.value })} />
+              <TextField label={t('customers.city', 'By')} value={form.city} size="small" fullWidth
+                onChange={e => setForm({ ...form, city: e.target.value })} />
+              <TextField label={t('customers.country', 'Land (ISO)')} value={form.country} size="small" sx={{ width: 110 }}
+                onChange={e => setForm({ ...form, country: e.target.value.toUpperCase().slice(0, 2) })} />
+            </Box>
+            <Box sx={{ display: 'flex', gap: 2 }}>
+              <TextField select label={t('customers.vatZoneLabel', 'Momszone')} value={form.vat_zone} size="small" sx={{ width: 220 }}
+                onChange={e => setForm({ ...form, vat_zone: e.target.value })}>
+                {VAT_ZONES.map(z => <MenuItem key={z.value} value={z.value}>{t(z.key, z.label)}</MenuItem>)}
+              </TextField>
+              <FormControlLabel control={<Switch size="small" checked={form.is_business}
+                onChange={e => setForm({ ...form, is_business: e.target.checked })} />}
+                label={<Typography variant="body2">{t('customers.isBusiness', 'Erhvervskunde')}</Typography>} />
+              <FormControlLabel control={<Switch size="small" checked={form.is_public}
+                onChange={e => setForm({ ...form, is_public: e.target.checked })} />}
+                label={<Typography variant="body2">{t('customers.isPublic', 'Offentlig kunde')}</Typography>} />
+            </Box>
+            <Box sx={{ display: 'flex', gap: 2 }}>
               <TextField
-                label={t('customers.taxId')} value={form.tax_id} size="small" fullWidth
+                label={form.vat_zone === 'dk' ? t('customers.cvr', 'CVR-/SE-nummer') : t('customers.euVat', 'Momsnummer (fx DE123456789)')}
+                value={form.tax_id} size="small" fullWidth
+                helperText={form.vat_zone === 'eu' && form.is_business ? t('customers.euVatHelp', 'Kræves ved EU-salg uden moms (omvendt betalingspligt)') : ''}
                 onChange={e => setForm({ ...form, tax_id: e.target.value })}
               />
+              <TextField label={t('customers.ean', 'EAN-/GLN-nummer')} value={form.ean} size="small" fullWidth
+                required={form.is_public}
+                helperText={form.is_public ? t('customers.eanHelp', '13 cifre – kræves for e-faktura til offentlige kunder') : ''}
+                onChange={e => setForm({ ...form, ean: e.target.value.replace(/\D/g, '').slice(0, 13) })} />
+            </Box>
+            <Box sx={{ display: 'flex', gap: 2 }}>
               <TextField
                 label={t('common.currency')} value={form.currency} size="small" sx={{ width: 120 }}
                 onChange={e => setForm({ ...form, currency: e.target.value })}
@@ -394,12 +413,12 @@ const Customers: React.FC = () => {
               </TextField>
             </Box>
             <Box sx={{ display: 'flex', gap: 2 }}>
-              <TextField
-                label={t('customers.paymentTermsDays')} value={form.payment_terms} size="small"
-                type="number" sx={{ width: 220 }}
-                onChange={e => setForm({ ...form, payment_terms: e.target.value })}
-                inputProps={{ min: 0 }}
-              />
+              <TextField select
+                label={t('customers.paymentTerms')} value={form.payment_terms_code} size="small" sx={{ width: 260 }}
+                onChange={e => setForm({ ...form, payment_terms_code: e.target.value })}
+              >
+                {PAYMENT_TERMS.map(p => <MenuItem key={p.code} value={p.code}>{t(p.key, p.label)}</MenuItem>)}
+              </TextField>
               <TextField
                 label={t('customers.creditLimit')} value={form.credit_limit} size="small" fullWidth
                 type="number"
@@ -444,7 +463,7 @@ const Customers: React.FC = () => {
                     <TableCell>{formatDate(line.date)}</TableCell>
                     <TableCell>
                       <Chip
-                        label={line.type === 'invoice' ? t('common.invoice') : line.type === 'payment' ? t('common.payment') : line.type}
+                        label={line.type === 'invoice' ? t('common.invoice') : line.type === 'credit_note' ? t('customers.creditNote', 'Kreditnota') : line.type}
                         size="small"
                         sx={{
                           bgcolor: line.type === 'invoice' ? '#1976d2' : '#2e7d32',
@@ -460,10 +479,10 @@ const Customers: React.FC = () => {
                       </Typography>
                     </TableCell>
                     <TableCell align="right">
-                      {parseFloat(line.amount).toLocaleString(i18n.language, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      {formatMoney(line.amount)}
                     </TableCell>
                     <TableCell align="right" sx={{ fontWeight: 500 }}>
-                      {parseFloat(line.balance).toLocaleString(i18n.language, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      {formatMoney(line.balance)}
                     </TableCell>
                   </TableRow>
                 ))}
@@ -494,91 +513,6 @@ const Customers: React.FC = () => {
         entityName={t('customers.title')}
       />
 
-      {/* CMR Client Picker Dialog */}
-      <Dialog open={cmrOpen} onClose={() => setCmrOpen(false)} maxWidth="md" fullWidth>
-        <DialogTitle>{t('customers.cmrPickerTitle')}</DialogTitle>
-        <DialogContent>
-          {cmrError && <Alert severity="error" sx={{ mb: 2 }}>{cmrError}</Alert>}
-          <TextField
-            label={t('common.search')}
-            value={cmrSearch}
-            size="small"
-            fullWidth
-            sx={{ mb: 2, mt: 1 }}
-            onChange={e => setCmrSearch(e.target.value)}
-            InputProps={{
-              endAdornment: (
-                <InputAdornment position="end">
-                  <SearchIcon sx={{ fontSize: 18, color: 'text.secondary' }} />
-                </InputAdornment>
-              ),
-            }}
-          />
-          {cmrLoading ? (
-            <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
-              <CircularProgress />
-            </Box>
-          ) : (
-            <TableContainer component={Paper} variant="outlined" sx={{ maxHeight: 400 }}>
-              <Table size="small" stickyHeader>
-                <TableHead>
-                  <TableRow sx={{ bgcolor: '#f5f5f5' }}>
-                    <TableCell sx={{ fontWeight: 600 }}>{t('common.name')}</TableCell>
-                    <TableCell sx={{ fontWeight: 600 }}>{t('common.email')}</TableCell>
-                    <TableCell sx={{ fontWeight: 600 }}>{t('common.phone')}</TableCell>
-                    <TableCell align="right" sx={{ fontWeight: 600 }}>{t('common.actions')}</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {filteredCmrClients.map(cli => (
-                    <TableRow key={cli.id} hover>
-                      <TableCell>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                          {cli.name}
-                          {cli.already_imported && (
-                            <Chip
-                              icon={<CheckCircleIcon sx={{ fontSize: 14 }} />}
-                              label={t('customers.alreadyImported')}
-                              size="small"
-                              color="success"
-                              variant="outlined"
-                              sx={{ height: 20, fontSize: '11px' }}
-                            />
-                          )}
-                        </Box>
-                      </TableCell>
-                      <TableCell>{cli.email}</TableCell>
-                      <TableCell>{cli.phone}</TableCell>
-                      <TableCell align="right">
-                        <Button
-                          size="small"
-                          variant="outlined"
-                          onClick={() => handleCmrSelect(cli)}
-                          sx={{ minWidth: 'auto', fontSize: '12px' }}
-                        >
-                          {t('customers.selectClient')}
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                  {filteredCmrClients.length === 0 && !cmrLoading && (
-                    <TableRow>
-                      <TableCell colSpan={4} align="center" sx={{ py: 3 }}>
-                        <Typography variant="body2" color="text.secondary">
-                          {t('customers.noCmrClients')}
-                        </Typography>
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
-            </TableContainer>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setCmrOpen(false)}>{t('common.close')}</Button>
-        </DialogActions>
-      </Dialog>
     </Box>
   );
 };

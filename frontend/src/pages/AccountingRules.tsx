@@ -4,421 +4,239 @@ import {
   TableContainer, TableHead, TableRow, Paper, Tabs, Tab, Alert,
 } from '@mui/material';
 import { useTranslation } from 'react-i18next';
+import {
+  BANK, CASH, PAYABLE, RECEIVABLE, RETAINED_EARNINGS, OWNER_RESULT, SUSPENSE, VAT_EU_GOODS,
+  VAT_EU_SERVICES, VAT_INPUT, VAT_OUTPUT, VAT_SETTLEMENT, REMINDER_FEES, FX_GAIN, FX_LOSS,
+} from '../utils/chart';
+
+// De danske bogføringsregler, som systemet følger. Teksten er på dansk (lovtekst);
+// overskrifterne kan oversættes.
+
+type Row = [string, string];
+
+const Section: React.FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => (
+  <Card>
+    <CardContent>
+      <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1 }}>{title}</Typography>
+      {children}
+    </CardContent>
+  </Card>
+);
+
+const P: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+  <Typography variant="body2" sx={{ mb: 1 }}>{children}</Typography>
+);
+
+const RuleTable: React.FC<{ head: [string, string]; rows: Row[] }> = ({ head, rows }) => (
+  <TableContainer component={Paper} variant="outlined">
+    <Table size="small">
+      <TableHead>
+        <TableRow>
+          <TableCell sx={{ fontWeight: 600, width: '35%' }}>{head[0]}</TableCell>
+          <TableCell sx={{ fontWeight: 600 }}>{head[1]}</TableCell>
+        </TableRow>
+      </TableHead>
+      <TableBody>
+        {rows.map(([a, b]) => (
+          <TableRow key={a}>
+            <TableCell sx={{ verticalAlign: 'top' }}>{a}</TableCell>
+            <TableCell>{b}</TableCell>
+          </TableRow>
+        ))}
+      </TableBody>
+    </Table>
+  </TableContainer>
+);
 
 const AccountingRules: React.FC = () => {
   const { t } = useTranslation();
   const [tab, setTab] = useState(0);
 
-  const sectionTitle = (text: string) => (
-    <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1 }}>{text}</Typography>
-  );
-
-  // ─── Tab 0: Overview ───────────────────────────────────────────────
-  const renderOverview = () => (
+  const bookkeeping = (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-      <Card>
-        <CardContent>
-          {sectionTitle(t('accountingRules.marginSchemeTitle'))}
-          <Typography variant="body2" sx={{ mb: 1 }}>{t('accountingRules.marginSchemeDesc')}</Typography>
-          <Typography variant="body2" sx={{ mb: 1, fontFamily: 'monospace', bgcolor: 'grey.100', p: 1, borderRadius: 1 }}>
-            {t('accountingRules.marginFormula')}
-          </Typography>
-          <Typography variant="body2" sx={{ fontFamily: 'monospace', bgcolor: 'grey.100', p: 1, borderRadius: 1 }}>
-            {t('accountingRules.tvaFormula')}
-          </Typography>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardContent>
-          {sectionTitle(t('accountingRules.calcExampleTitle'))}
-          <Typography variant="body2" sx={{ mb: 1 }}>{t('accountingRules.calcExampleIntro')}</Typography>
-          <TableContainer component={Paper} variant="outlined">
-            <Table size="small">
-              <TableBody>
-                <TableRow><TableCell>{t('accountingRules.calcSalesPrice')}</TableCell><TableCell align="right">560.000 DH</TableCell></TableRow>
-                <TableRow><TableCell>{t('accountingRules.calcPurchases')}</TableCell><TableCell align="right">426.000 DH</TableCell></TableRow>
-                <TableRow><TableCell sx={{ fontWeight: 600 }}>{t('accountingRules.calcMarginTTC')}</TableCell><TableCell align="right" sx={{ fontWeight: 600 }}>134.000 DH</TableCell></TableRow>
-                <TableRow><TableCell>{t('accountingRules.calcMarginHT')}</TableCell><TableCell align="right">111.667 DH</TableCell></TableRow>
-                <TableRow><TableCell sx={{ fontWeight: 600 }}>{t('accountingRules.calcTVADue')}</TableCell><TableCell align="right" sx={{ fontWeight: 600 }}>22.333 DH</TableCell></TableRow>
-              </TableBody>
-            </Table>
-          </TableContainer>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardContent>
-          {sectionTitle(t('accountingRules.marginVsCommissionTitle'))}
-          <TableContainer component={Paper} variant="outlined">
-            <Table size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell sx={{ fontWeight: 600 }}>{t('accountingRules.aspect')}</TableCell>
-                  <TableCell sx={{ fontWeight: 600 }}>{t('accountingRules.marginRegime')}</TableCell>
-                  <TableCell sx={{ fontWeight: 600 }}>{t('accountingRules.commissionRegime')}</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                <TableRow><TableCell>{t('accountingRules.when')}</TableCell><TableCell>{t('accountingRules.whenMargin')}</TableCell><TableCell>{t('accountingRules.whenCommission')}</TableCell></TableRow>
-                <TableRow><TableCell>{t('accountingRules.taxBase')}</TableCell><TableCell>{t('accountingRules.taxBaseMargin')}</TableCell><TableCell>{t('accountingRules.taxBaseCommission')}</TableCell></TableRow>
-                <TableRow><TableCell>{t('accountingRules.tvaRate')}</TableCell><TableCell>20%</TableCell><TableCell>20%</TableCell></TableRow>
-                <TableRow><TableCell>{t('accountingRules.inputTVADeduction')}</TableCell><TableCell>{t('common.no')}</TableCell><TableCell>{t('common.yes')}</TableCell></TableRow>
-                <TableRow><TableCell>{t('accountingRules.tvaOnInvoice')}</TableCell><TableCell>{t('accountingRules.notShown')}</TableCell><TableCell>{t('accountingRules.shownSeparately')}</TableCell></TableRow>
-              </TableBody>
-            </Table>
-          </TableContainer>
-        </CardContent>
-      </Card>
-
-      <Alert severity="warning">{t('accountingRules.warnTVAFullPayment')}</Alert>
-      <Alert severity="warning">{t('accountingRules.warnNotExport')}</Alert>
+      <Section title={t('accountingRules.bfTitle', 'Bogføringsloven')}>
+        <P>
+          Bogføringsloven (lov nr. 700 af 24. maj 2022) og bekendtgørelserne om digitale
+          standardbogføringssystemer stiller krav til, hvordan bøgerne føres og opbevares. Systemet er bygget
+          efter dem:
+        </P>
+        <RuleTable head={['Krav', 'Sådan gør systemet']} rows={[
+          ['Hver transaktion registreres med bilag',
+            'Hver postering ligger i én journal og kan have bilag vedhæftet. Bilag gemmes digitalt med SHA-256-fingeraftryk, så en udskiftet fil kan opdages. Månedslukning advarer om posteringer uden bilag.'],
+          ['Registreringer kan følges (sporbarhed)',
+            'Alle ændringer skrives i en hash-kædet audit-log, som ikke kan ændres. Handlinger fra revisorhuset markeres og logges også hos Ajan Partners.'],
+          ['Fortløbende nummerering',
+            'Posteringer får et kladdenummer (KL-…) og ved månedslukning et fortløbende nummer pr. journal og år (fx BANK-2026-00001) i datoorden og uden huller. Fakturaer og kreditnotaer får deres fortløbende nummer, når de udstedes.'],
+          ['Ingen ændring af afsluttede tal',
+            'En lukket måned kan ikke ændres; posteringerne er låst både i programmet og i databasen. Rettelser sker med en tilbageføring i en åben måned.'],
+          ['Opbevaring i 5 år',
+            'Regnskabsmateriale opbevares i 5 år fra udgangen af det regnskabsår, det vedrører. En kunde, der ophører, arkiveres read-only; bøgerne slettes ikke.'],
+          ['Bankafstemning',
+            'En måned kan ikke lukkes, før hver bankkonto er afstemt pr. månedens sidste dag.'],
+          ['Eksport (SAF-T)',
+            'Hver konto har standardkontoplanens nummer (standard_code), som bruges til SAF-T-eksporten.'],
+        ]} />
+      </Section>
+      <Section title={t('accountingRules.journalsTitle', 'Journaler og tilstande')}>
+        <RuleTable head={['Journal', 'Bruges til']} rows={[
+          ['BANK, BANK2 …', 'Én journal pr. bankkonto: importerede kontoudtog og afstemning.'],
+          ['KAS', 'Kasse: kontante udgifter.'],
+          ['SALG', 'Fakturaer, kreditnotaer og rykkergebyrer.'],
+          ['KØB', 'Regninger og udgifter.'],
+          ['LØN', 'Lønkørsler.'],
+          ['DIV', 'Manuelle posteringer, momsafregning og tilbageføringer.'],
+          ['PRIMO', 'Primoposteringer (åbningsbalance).'],
+          ['ÅA', 'Årsafslutning: resultatet overføres til egenkapitalen.'],
+        ]} />
+        <P>
+          En postering er en <b>kladde</b> (ikke i bøgerne), <b>bogført</b> (i bøgerne, kan rettes) eller
+          <b> valideret</b> (måneden er lukket; kan aldrig ændres).
+        </P>
+      </Section>
     </Box>
   );
 
-  // ─── Tab 1: TVA Rates & Tax Codes ─────────────────────────────────
-  const renderTVARates = () => (
+  const vat = (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-      <Card>
-        <CardContent>
-          {sectionTitle(t('accountingRules.tvaRatesTitle'))}
-          <TableContainer component={Paper} variant="outlined">
-            <Table size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell sx={{ fontWeight: 600 }}>{t('accountingRules.service')}</TableCell>
-                  <TableCell sx={{ fontWeight: 600 }} align="center">2024</TableCell>
-                  <TableCell sx={{ fontWeight: 600 }} align="center">2025</TableCell>
-                  <TableCell sx={{ fontWeight: 600 }} align="center">2026</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                <TableRow><TableCell>{t('accountingRules.hotelAccommodation')}</TableCell><TableCell align="center">10%</TableCell><TableCell align="center">10%</TableCell><TableCell align="center">10%</TableCell></TableRow>
-                <TableRow><TableCell>{t('accountingRules.restaurants')}</TableCell><TableCell align="center">10%</TableCell><TableCell align="center">10%</TableCell><TableCell align="center">10%</TableCell></TableRow>
-                <TableRow><TableCell>{t('accountingRules.urbanTransport')}</TableCell><TableCell align="center">13%</TableCell><TableCell align="center">12%</TableCell><TableCell align="center">10%</TableCell></TableRow>
-                <TableRow><TableCell>{t('accountingRules.nonUrbanTransport')}</TableCell><TableCell align="center">16%</TableCell><TableCell align="center">18%</TableCell><TableCell align="center">20%</TableCell></TableRow>
-                <TableRow><TableCell>{t('accountingRules.tourOperatorMargin')}</TableCell><TableCell align="center">20%</TableCell><TableCell align="center">20%</TableCell><TableCell align="center">20%</TableCell></TableRow>
-                <TableRow><TableCell>{t('accountingRules.commissionIntermediary')}</TableCell><TableCell align="center">20%</TableCell><TableCell align="center">20%</TableCell><TableCell align="center">20%</TableCell></TableRow>
-                <TableRow><TableCell>{t('accountingRules.excursionsGuides')}</TableCell><TableCell align="center">20%</TableCell><TableCell align="center">20%</TableCell><TableCell align="center">20%</TableCell></TableRow>
-              </TableBody>
-            </Table>
-          </TableContainer>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardContent>
-          {sectionTitle(t('accountingRules.taxCodesTitle'))}
-          <TableContainer component={Paper} variant="outlined">
-            <Table size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell sx={{ fontWeight: 600 }}>{t('common.code')}</TableCell>
-                  <TableCell sx={{ fontWeight: 600 }}>{t('common.name')}</TableCell>
-                  <TableCell sx={{ fontWeight: 600 }}>{t('accountingRules.rate')}</TableCell>
-                  <TableCell sx={{ fontWeight: 600 }}>{t('common.type')}</TableCell>
-                  <TableCell sx={{ fontWeight: 600 }}>{t('accountingRules.usage')}</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                <TableRow><TableCell>TVA-MARGIN-20</TableCell><TableCell>{t('accountingRules.codeMargin20')}</TableCell><TableCell>20%</TableCell><TableCell>Sales</TableCell><TableCell>{t('accountingRules.codeMargin20Usage')}</TableCell></TableRow>
-                <TableRow><TableCell>TVA-EX</TableCell><TableCell>{t('accountingRules.codeEx')}</TableCell><TableCell>0%</TableCell><TableCell>Purchase</TableCell><TableCell>{t('accountingRules.codeExUsage')}</TableCell></TableRow>
-                <TableRow><TableCell>TVA-20</TableCell><TableCell>{t('accountingRules.code20')}</TableCell><TableCell>20%</TableCell><TableCell>Both</TableCell><TableCell>{t('accountingRules.code20Usage')}</TableCell></TableRow>
-                <TableRow><TableCell>TVA-14</TableCell><TableCell>{t('accountingRules.code14')}</TableCell><TableCell>14%</TableCell><TableCell>Purchase</TableCell><TableCell>{t('accountingRules.code14Usage')}</TableCell></TableRow>
-                <TableRow><TableCell>TVA-10</TableCell><TableCell>{t('accountingRules.code10')}</TableCell><TableCell>10%</TableCell><TableCell>Purchase</TableCell><TableCell>{t('accountingRules.code10Usage')}</TableCell></TableRow>
-                <TableRow><TableCell>TVA-7</TableCell><TableCell>{t('accountingRules.code7')}</TableCell><TableCell>7%</TableCell><TableCell>Purchase</TableCell><TableCell>{t('accountingRules.code7Usage')}</TableCell></TableRow>
-              </TableBody>
-            </Table>
-          </TableContainer>
-        </CardContent>
-      </Card>
-
-      <Alert severity="info">{t('accountingRules.infoSupplierTVA')}</Alert>
+      <Section title={t('accountingRules.vatTitle', 'Moms (momsloven)')}>
+        <P>
+          Momssatsen er 25 % (momslovens § 33). Momskoderne følger Erhvervsstyrelsens momskodeliste, og hver
+          linje bogføres med sin kode, så momsangivelsen og SAF-T kan dannes direkte fra bøgerne.
+        </P>
+        <RuleTable head={['Momskode', 'Bogføring']} rows={[
+          ['S01 Salg 25 %', `Kredit omsætning, kredit salgsmoms (${VAT_OUTPUT}).`],
+          ['S21/S22/S23 EU-salg B2B', 'Ingen moms; beløbet indgår i rubrik B. Fakturaen skal have købers momsnummer og teksten "Omvendt betalingspligt" ved ydelser.'],
+          ['S41/S42 Uden for EU', 'Ingen moms; indgår i rubrik C.'],
+          ['S02 Indenlandsk omvendt betalingspligt', 'Sælger lægger ikke moms på (fx byggeydelser, momslovens § 46); beløbet indgår i rubrik C.'],
+          ['S82 Momsfritaget', 'Momsfrit salg efter momslovens § 13; indgår ikke på angivelsen.'],
+          ['K010 Køb 25 %', `Debet omkostning, debet købsmoms (${VAT_INPUT}).`],
+          ['K070 Restaurant og repræsentation', 'Kun 25 % af momsen kan trækkes fra (momslovens § 42, stk. 2); resten er en omkostning. Anden repræsentation (fx gaver) giver ikke fradrag.'],
+          ['K110 Delvis fradrag', 'Fradragsprocenten (pro rata) sættes på momskoden for kunder med både momspligtige og momsfrie aktiviteter.'],
+          ['K210 EU-varekøb', `Erhvervelsesmoms: kredit moms af varekøb i udlandet (${VAT_EU_GOODS}), debet købsmoms; beløbet indgår i rubrik A varer.`],
+          ['K260 EU-ydelseskøb', `Omvendt betalingspligt: kredit moms af ydelseskøb i udlandet (${VAT_EU_SERVICES}), debet købsmoms; rubrik A ydelser.`],
+          ['K410/K460 Uden for EU', 'Importmoms af varer og moms af ydelser med omvendt betalingspligt; indgår i felterne for køb i udlandet.'],
+          ['K660 Byggeydelser m.m.', 'Indenlandsk omvendt betalingspligt: køber beregner salgsmoms og trækker købsmomsen fra.'],
+          ['E-EL, E-OLIE, E-GAS, E-KUL, E-CO2, E-VAND', 'Energiafgifter, der kan godtgøres. Beløbet bogføres på afgiftskontoen og fratrækkes i momsangivelsen. Kun afgift af energi til momspligtig proces kan godtgøres.'],
+        ]} />
+      </Section>
+      <Section title={t('accountingRules.vatReturnTitle', 'Momsangivelse og -afregning')}>
+        <P>
+          Momsangivelsen laves for kundens momsperiode (måned, kvartal eller halvår). Felterne er Skats: salgsmoms,
+          moms af varekøb og ydelseskøb i udlandet, købsmoms, olie- og flaskegasafgift, elafgift, naturgas- og
+          bygasafgift, kulafgift, CO2-afgift, vandafgift og rubrik A, B og C. Felterne tages fra momskontiene og
+          kan derfor afstemmes mod saldobalancen.
+        </P>
+        <P>
+          Ved afregning nulstilles momskontiene mod momsafregningskontoen ({VAT_SETTLEMENT}) med beløbet i hele
+          kroner; øredifferencen går til øreafrunding. Når perioden er angivet hos Skat, låses den: der kan ikke
+          bogføres i den bagefter.
+        </P>
+        <Alert severity="info">
+          Frister: måned den 25. i den følgende måned; kvartal og halvår den 1. i den tredje måned efter
+          periodens udløb. Skat kan flytte en frist, der falder på en weekend eller helligdag: tjek Skats
+          momskalender.
+        </Alert>
+      </Section>
     </Box>
   );
 
-  // ─── Tab 2: Deductions & Invoicing ─────────────────────────────────
-  const renderDeductions = () => (
+  const chart = (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-      <Card>
-        <CardContent>
-          {sectionTitle(t('accountingRules.inputTVATitle'))}
-          <Typography variant="subtitle2" sx={{ fontWeight: 600, mt: 1 }}>{t('accountingRules.resoldServices')}</Typography>
-          <Typography variant="body2" sx={{ mb: 1 }}>{t('accountingRules.resoldServicesDesc')}</Typography>
-          <Typography variant="subtitle2" sx={{ fontWeight: 600, mt: 1 }}>{t('accountingRules.operatingExpenses')}</Typography>
-          <Typography variant="body2" sx={{ mb: 0.5 }}>{t('accountingRules.operatingExpensesDesc')}</Typography>
-          <Box component="ul" sx={{ m: 0, pl: 2.5 }}>
-            <li><Typography variant="body2">{t('accountingRules.deductFixedAssets')}</Typography></li>
-            <li><Typography variant="body2">{t('accountingRules.deductGeneral')}</Typography></li>
-            <li><Typography variant="body2">{t('accountingRules.deductProfessional')}</Typography></li>
-            <li><Typography variant="body2">{t('accountingRules.deductIT')}</Typography></li>
-          </Box>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardContent>
-          {sectionTitle(t('accountingRules.invoicingRulesTitle'))}
-          <Typography variant="body2" sx={{ mb: 1 }}>{t('accountingRules.invoicingRulesDesc')}</Typography>
-          <Box component="ul" sx={{ m: 0, pl: 2.5 }}>
-            <li><Typography variant="body2">{t('accountingRules.invoiceReqName')}</Typography></li>
-            <li><Typography variant="body2">{t('accountingRules.invoiceReqTaxId')}</Typography></li>
-            <li><Typography variant="body2">{t('accountingRules.invoiceReqNumber')}</Typography></li>
-            <li><Typography variant="body2">{t('accountingRules.invoiceReqDate')}</Typography></li>
-            <li><Typography variant="body2">{t('accountingRules.invoiceReqDescription')}</Typography></li>
-            <li><Typography variant="body2">{t('accountingRules.invoiceReqTotal')}</Typography></li>
-            <li><Typography variant="body2">{t('accountingRules.invoiceReqTerms')}</Typography></li>
-          </Box>
-        </CardContent>
-      </Card>
-
-      <Alert severity="error">{t('accountingRules.errorInvoiceText')}</Alert>
+      <Section title={t('accountingRules.chartTitle', 'Kontoplan og årsregnskab')}>
+        <P>
+          Kontoplanen er Erhvervsstyrelsens standardkontoplan (gyldig fra 1. januar 2026): resultatopgørelsen
+          1000-3999 og balancen 5000-8099. Alle konti oprettes; skabelonen (selskab, holding eller
+          enkeltmandsvirksomhed) bestemmer, hvilke der er aktive fra start. Overskrifter (hovedkonti og
+          gruppekonti) kan ikke bogføres på.
+        </P>
+        <P>
+          Hver konto er knyttet til en linje i årsregnskabslovens skema (bilag 2): nettoomsætning, vareforbrug,
+          andre eksterne omkostninger, personaleomkostninger, af- og nedskrivninger, finansielle poster og skat,
+          og på balancen anlægsaktiver, varebeholdninger, tilgodehavender, likvider, egenkapital, hensatte
+          forpligtelser og gæld. Resultatopgørelse og balance stilles op efter disse linjer.
+        </P>
+        <RuleTable head={['Konto', 'Bruges til']} rows={[
+          [`${BANK} / ${CASH}`, 'Bank og kasse. Flere bankkonti oprettes med eget nummer og standardkonto 6480; hver får sin egen journal.'],
+          [RECEIVABLE, 'Debitorer (pr. kunde, udlignes mod betalinger).'],
+          [PAYABLE, 'Kreditorer (pr. leverandør).'],
+          [SUSPENSE, 'Uafklarede poster: importerede banklinjer venter her, til de afstemmes.'],
+          [`${FX_GAIN} / ${FX_LOSS}`, 'Kursgevinst og kurstab.'],
+          [REMINDER_FEES, 'Renter og rykkergebyrer fra debitorer.'],
+        ]} />
+      </Section>
+      <Section title={t('accountingRules.currencyTitle', 'Valuta')}>
+        <P>
+          Bøgerne føres i danske kroner. Debet og kredit er altid DKK. Et bilag i fremmed valuta registreres med
+          valuta, kurs (DKK pr. 1 enhed) og beløbet i valutaen, så det kan følges tilbage til bilaget.
+        </P>
+      </Section>
     </Box>
   );
 
-  // ─── Tab 3: IS & Corporate Tax ────────────────────────────────────
-  const renderIS = () => (
+  const closing = (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-      <Card>
-        <CardContent>
-          {sectionTitle(t('accountingRules.isRatesTitle'))}
-          <TableContainer component={Paper} variant="outlined">
-            <Table size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell sx={{ fontWeight: 600 }}>{t('accountingRules.taxableProfit')}</TableCell>
-                  <TableCell sx={{ fontWeight: 600 }}>{t('accountingRules.rate')}</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                <TableRow><TableCell>{t('accountingRules.isUpTo100M')}</TableCell><TableCell>20%</TableCell></TableRow>
-                <TableRow><TableCell>{t('accountingRules.isAbove100M')}</TableCell><TableCell>35%</TableCell></TableRow>
-              </TableBody>
-            </Table>
-          </TableContainer>
-          <Typography variant="body2" sx={{ mt: 1, fontStyle: 'italic' }}>{t('accountingRules.isProportional')}</Typography>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardContent>
-          {sectionTitle(t('accountingRules.tourismExemptionTitle'))}
-          <Typography variant="body2" sx={{ mb: 0.5 }}>{t('accountingRules.tourismExemptionDesc')}</Typography>
-          <Box component="ul" sx={{ m: 0, pl: 2.5 }}>
-            <li><Typography variant="body2">{t('accountingRules.tourismExemption5yr')}</Typography></li>
-            <li><Typography variant="body2">{t('accountingRules.tourismExemptionAfter')}</Typography></li>
-            <li><Typography variant="body2">{t('accountingRules.tourismExemptionReq')}</Typography></li>
-          </Box>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardContent>
-          {sectionTitle(t('accountingRules.acomptesTitle'))}
-          <TableContainer component={Paper} variant="outlined">
-            <Table size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell sx={{ fontWeight: 600 }}>{t('accountingRules.installment')}</TableCell>
-                  <TableCell sx={{ fontWeight: 600 }}>{t('accountingRules.deadline')}</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                <TableRow><TableCell>{t('accountingRules.acompte1')}</TableCell><TableCell>31. {t('accountingRules.march')}</TableCell></TableRow>
-                <TableRow><TableCell>{t('accountingRules.acompte2')}</TableCell><TableCell>30. {t('accountingRules.june')}</TableCell></TableRow>
-                <TableRow><TableCell>{t('accountingRules.acompte3')}</TableCell><TableCell>30. {t('accountingRules.september')}</TableCell></TableRow>
-                <TableRow><TableCell>{t('accountingRules.acompte4')}</TableCell><TableCell>31. {t('accountingRules.december')}</TableCell></TableRow>
-              </TableBody>
-            </Table>
-          </TableContainer>
-        </CardContent>
-      </Card>
-
-      <Alert severity="warning">{t('accountingRules.warnISFullAmount')}</Alert>
+      <Section title={t('accountingRules.closingTitle', 'Månedslukning og årsafslutning')}>
+        <P>
+          Månederne lukkes i rækkefølge. Ved lukning valideres og nummereres alle posteringer, og måneden låses.
+          Lukningen kræver, at der ikke er kladder eller posteringer, der ikke balancerer, og at bankkontiene er
+          afstemt.
+        </P>
+        <P>
+          Ved årsafslutningen nulstilles resultatkontiene mod egenkapitalen (overført resultat, {RETAINED_EARNINGS},
+          for selskaber; årets resultat, {OWNER_RESULT}, for enkeltmandsvirksomheder) i journalen ÅA på årets sidste
+          dag. Balancens saldi overføres som primo til næste år (PRIMO), pr. debitor og kreditor, og året låses.
+          Alle årets måneder skal være lukket først.
+        </P>
+      </Section>
     </Box>
   );
 
-  // ─── Tab 4: CNSS & Taxes ──────────────────────────────────────────
-  const renderCNSS = () => (
+  const invoicing = (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-      <Card>
-        <CardContent>
-          {sectionTitle(t('accountingRules.cnssTitle'))}
-          <TableContainer component={Paper} variant="outlined">
-            <Table size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell sx={{ fontWeight: 600 }}>{t('accountingRules.branch')}</TableCell>
-                  <TableCell sx={{ fontWeight: 600 }} align="center">{t('accountingRules.employee')}</TableCell>
-                  <TableCell sx={{ fontWeight: 600 }} align="center">{t('accountingRules.employer')}</TableCell>
-                  <TableCell sx={{ fontWeight: 600 }} align="center">{t('accountingRules.ceiling')}</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                <TableRow><TableCell>{t('accountingRules.cnssPension')}</TableCell><TableCell align="center">4,48%</TableCell><TableCell align="center">8,98%</TableCell><TableCell align="center">6.000 DH/{t('accountingRules.month')}</TableCell></TableRow>
-                <TableRow><TableCell>{t('accountingRules.cnssShortTerm')}</TableCell><TableCell align="center">0,33%</TableCell><TableCell align="center">0,67%</TableCell><TableCell align="center">6.000 DH/{t('accountingRules.month')}</TableCell></TableRow>
-                <TableRow><TableCell>{t('accountingRules.cnssAMO')}</TableCell><TableCell align="center">2,26%</TableCell><TableCell align="center">2,26%</TableCell><TableCell align="center">{t('accountingRules.noCeiling')}</TableCell></TableRow>
-                <TableRow><TableCell>{t('accountingRules.cnssAMOSolidarite')}</TableCell><TableCell align="center">--</TableCell><TableCell align="center">1,85%</TableCell><TableCell align="center">{t('accountingRules.noCeiling')}</TableCell></TableRow>
-                <TableRow><TableCell>{t('accountingRules.cnssFamilyAllowance')}</TableCell><TableCell align="center">--</TableCell><TableCell align="center">6,40%</TableCell><TableCell align="center">{t('accountingRules.noCeiling')}</TableCell></TableRow>
-                <TableRow><TableCell>{t('accountingRules.cnssTraining')}</TableCell><TableCell align="center">--</TableCell><TableCell align="center">1,60%</TableCell><TableCell align="center">{t('accountingRules.noCeiling')}</TableCell></TableRow>
-                <TableRow><TableCell>{t('accountingRules.cnssIPE')}</TableCell><TableCell align="center">0,19%</TableCell><TableCell align="center">0,38%</TableCell><TableCell align="center">6.000 DH/{t('accountingRules.month')}</TableCell></TableRow>
-                <TableRow sx={{ bgcolor: 'grey.50' }}><TableCell sx={{ fontWeight: 600 }}>{t('accountingRules.cnssTotal')}</TableCell><TableCell align="center" sx={{ fontWeight: 600 }}>~6,74%</TableCell><TableCell align="center" sx={{ fontWeight: 600 }}>~21-25%</TableCell><TableCell align="center">--</TableCell></TableRow>
-              </TableBody>
-            </Table>
-          </TableContainer>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardContent>
-          {sectionTitle(t('accountingRules.taxeProfTitle'))}
-          <Typography variant="body2" sx={{ mb: 1 }}>{t('accountingRules.taxeProfDesc')}</Typography>
-          <Typography variant="body2" sx={{ fontFamily: 'monospace', bgcolor: 'grey.100', p: 1, borderRadius: 1 }}>
-            {t('accountingRules.taxeProfFormula')}
-          </Typography>
-          <Box component="ul" sx={{ m: 0, mt: 1, pl: 2.5 }}>
-            <li><Typography variant="body2">{t('accountingRules.taxeProfRented')}</Typography></li>
-            <li><Typography variant="body2">{t('accountingRules.taxeProfOwned')}</Typography></li>
-            <li><Typography variant="body2">{t('accountingRules.taxeProfMin')}</Typography></li>
-            <li><Typography variant="body2">{t('accountingRules.taxeProfExemption')}</Typography></li>
-          </Box>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardContent>
-          {sectionTitle(t('accountingRules.cotisationMinTitle'))}
-          <TableContainer component={Paper} variant="outlined">
-            <Table size="small">
-              <TableBody>
-                <TableRow><TableCell sx={{ fontWeight: 600 }}>{t('accountingRules.rate')}</TableCell><TableCell>{t('accountingRules.cmRate')}</TableCell></TableRow>
-                <TableRow><TableCell sx={{ fontWeight: 600 }}>{t('accountingRules.cmMinimum')}</TableCell><TableCell>{t('accountingRules.cmMinAmount')}</TableCell></TableRow>
-                <TableRow><TableCell sx={{ fontWeight: 600 }}>{t('accountingRules.cmLoss')}</TableCell><TableCell>{t('common.yes')}</TableCell></TableRow>
-                <TableRow><TableCell sx={{ fontWeight: 600 }}>{t('accountingRules.cmOffset')}</TableCell><TableCell>{t('accountingRules.cmOffsetDesc')}</TableCell></TableRow>
-                <TableRow><TableCell sx={{ fontWeight: 600 }}>{t('accountingRules.cmNewBusiness')}</TableCell><TableCell>{t('accountingRules.cmNewBusinessDesc')}</TableCell></TableRow>
-                <TableRow><TableCell sx={{ fontWeight: 600 }}>{t('accountingRules.cmBasis')}</TableCell><TableCell>{t('accountingRules.cmBasisDesc')}</TableCell></TableRow>
-              </TableBody>
-            </Table>
-          </TableContainer>
-        </CardContent>
-      </Card>
+      <Section title={t('accountingRules.invoiceTitle', 'Fakturakrav (momsbekendtgørelsens § 58)')}>
+        <RuleTable head={['Krav', 'Sådan gør systemet']} rows={[
+          ['Udstedelsesdato og fortløbende nummer', 'Nummeret gives, når fakturaen udstedes, så slettede udkast ikke giver huller.'],
+          ['Sælgers navn, adresse og CVR-/SE-nummer', 'Hentes fra Indstillinger; fakturaen kan ikke udstedes uden.'],
+          ['Købers navn og adresse', 'Påkrævet. Ved EU-salg uden moms også købers momsnummer.'],
+          ['Leveringsdato', 'Leveringsdatoen vises; uden en særskilt dato er det fakturadatoen.'],
+          ['Mængde og art', 'Hver linje har beskrivelse, antal og enhed.'],
+          ['Pris uden moms, momssats og momsbeløb', 'Momsen specificeres pr. sats. Ved fremmed valuta vises momsbeløbet også i DKK.'],
+          ['Omvendt betalingspligt', 'Teksten "Omvendt betalingspligt" kommer på fakturaen, når køber skal betale momsen.'],
+          ['Offentlige kunder', 'Kræver EAN-/GLN-nummer og sendes som e-faktura (OIOUBL/Peppol via NemHandel).'],
+        ]} />
+        <P>En udstedt faktura kan ikke ændres eller slettes. Rettelser sker med en kreditnota.</P>
+      </Section>
+      <Section title={t('accountingRules.reminderTitle', 'Betalingsbetingelser, rykkere og renter (renteloven)')}>
+        <RuleTable head={['Regel', 'Indhold']} rows={[
+          ['Betalingsbetingelser', 'Netto 8, 14 eller 30 dage, løbende måned + 15 eller 30 dage, eller kontant.'],
+          ['Rykkergebyr (§ 9 b)', 'Højst 100 kr. pr. rykker og højst 3 rykkere med gebyr, med mindst 10 dage imellem. Gebyret er ikke momspligtigt.'],
+          ['Morarenter (§ 5)', 'Referencesatsen + 8 procentpoint pr. år. Uden aftalt forfald løber renten fra 30 dage efter, at fakturaen er sendt (§ 3).'],
+          ['FI-kort (+71)', 'Fakturaen kan vise et FI-indbetalingskort type 71 med betalingsidentifikation og kreditornummer.'],
+        ]} />
+      </Section>
     </Box>
   );
 
-  // ─── Tab 5: Deadlines & Penalties ─────────────────────────────────
-  const renderDeadlines = () => (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-      <Card>
-        <CardContent>
-          {sectionTitle(t('accountingRules.monthlyDeadlinesTitle'))}
-          <TableContainer component={Paper} variant="outlined">
-            <Table size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell sx={{ fontWeight: 600 }}>{t('accountingRules.deadline')}</TableCell>
-                  <TableCell sx={{ fontWeight: 600 }}>{t('accountingRules.obligation')}</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                <TableRow><TableCell>{t('accountingRules.endOfMonth')}</TableCell><TableCell>{t('accountingRules.monthlyTVA')}</TableCell></TableRow>
-                <TableRow><TableCell>{t('accountingRules.endOfMonth')}</TableCell><TableCell>{t('accountingRules.monthlyIR')}</TableCell></TableRow>
-                <TableRow><TableCell>{t('accountingRules.endOfMonth')}</TableCell><TableCell>{t('accountingRules.monthlyCNSS')}</TableCell></TableRow>
-              </TableBody>
-            </Table>
-          </TableContainer>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardContent>
-          {sectionTitle(t('accountingRules.annualDeadlinesTitle'))}
-          <TableContainer component={Paper} variant="outlined">
-            <Table size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell sx={{ fontWeight: 600 }}>{t('common.date')}</TableCell>
-                  <TableCell sx={{ fontWeight: 600 }}>{t('accountingRules.obligation')}</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                <TableRow><TableCell>31. {t('accountingRules.january')}</TableCell><TableCell>{t('accountingRules.annualJan31')}</TableCell></TableRow>
-                <TableRow><TableCell>28. {t('accountingRules.february')}</TableCell><TableCell>{t('accountingRules.annualFeb28')}</TableCell></TableRow>
-                <TableRow><TableCell>1. {t('accountingRules.march')}</TableCell><TableCell>{t('accountingRules.annualMar1')}</TableCell></TableRow>
-                <TableRow><TableCell>31. {t('accountingRules.march')}</TableCell><TableCell>{t('accountingRules.annualMar31')}</TableCell></TableRow>
-                <TableRow><TableCell>30. {t('accountingRules.april')}</TableCell><TableCell>{t('accountingRules.annualApr30')}</TableCell></TableRow>
-                <TableRow><TableCell>30. {t('accountingRules.june')}</TableCell><TableCell>{t('accountingRules.annualJun30')}</TableCell></TableRow>
-                <TableRow><TableCell>31. {t('accountingRules.july')}</TableCell><TableCell>{t('accountingRules.annualJul31')}</TableCell></TableRow>
-                <TableRow><TableCell>30. {t('accountingRules.september')}</TableCell><TableCell>{t('accountingRules.annualSep30')}</TableCell></TableRow>
-                <TableRow><TableCell>31. {t('accountingRules.october')}</TableCell><TableCell>{t('accountingRules.annualOct31')}</TableCell></TableRow>
-                <TableRow><TableCell>31. {t('accountingRules.december')}</TableCell><TableCell>{t('accountingRules.annualDec31')}</TableCell></TableRow>
-              </TableBody>
-            </Table>
-          </TableContainer>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardContent>
-          {sectionTitle(t('accountingRules.penaltiesTitle'))}
-          <Typography variant="subtitle2" sx={{ fontWeight: 600, mt: 1 }}>{t('accountingRules.lateFilingTitle')}</Typography>
-          <TableContainer component={Paper} variant="outlined" sx={{ mb: 2 }}>
-            <Table size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell sx={{ fontWeight: 600 }}>{t('accountingRules.situation')}</TableCell>
-                  <TableCell sx={{ fontWeight: 600 }}>{t('accountingRules.penalty')}</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                <TableRow><TableCell>{t('accountingRules.filing30Days')}</TableCell><TableCell>{t('accountingRules.filing30DaysPenalty')}</TableCell></TableRow>
-                <TableRow><TableCell>{t('accountingRules.filingOver30Days')}</TableCell><TableCell>{t('accountingRules.filingOver30DaysPenalty')}</TableCell></TableRow>
-                <TableRow><TableCell>{t('accountingRules.taxationDOffice')}</TableCell><TableCell>{t('accountingRules.taxationDOfficePenalty')}</TableCell></TableRow>
-              </TableBody>
-            </Table>
-          </TableContainer>
-
-          <Typography variant="subtitle2" sx={{ fontWeight: 600, mt: 1 }}>{t('accountingRules.latePaymentTitle')}</Typography>
-          <TableContainer component={Paper} variant="outlined">
-            <Table size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell sx={{ fontWeight: 600 }}>{t('accountingRules.situation')}</TableCell>
-                  <TableCell sx={{ fontWeight: 600 }}>{t('accountingRules.penalty')}</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                <TableRow><TableCell>{t('accountingRules.payment30Days')}</TableCell><TableCell>{t('accountingRules.payment30DaysPenalty')}</TableCell></TableRow>
-                <TableRow><TableCell>{t('accountingRules.paymentOver30Days')}</TableCell><TableCell>{t('accountingRules.paymentOver30DaysPenalty')}</TableCell></TableRow>
-                <TableRow><TableCell>{t('accountingRules.firstMonth')}</TableCell><TableCell>{t('accountingRules.firstMonthPenalty')}</TableCell></TableRow>
-                <TableRow><TableCell>{t('accountingRules.subsequentMonths')}</TableCell><TableCell>{t('accountingRules.subsequentMonthsPenalty')}</TableCell></TableRow>
-                <TableRow><TableCell>{t('accountingRules.failedTVAWithholding')}</TableCell><TableCell>{t('accountingRules.failedTVAWithholdingPenalty')}</TableCell></TableRow>
-              </TableBody>
-            </Table>
-          </TableContainer>
-        </CardContent>
-      </Card>
-    </Box>
-  );
+  const tabs = [
+    { label: t('accountingRules.tabBookkeeping', 'Bogføringsloven'), content: bookkeeping },
+    { label: t('accountingRules.tabVat', 'Moms'), content: vat },
+    { label: t('accountingRules.tabChart', 'Kontoplan og ÅRL'), content: chart },
+    { label: t('accountingRules.tabClosing', 'Afslutning'), content: closing },
+    { label: t('accountingRules.tabInvoicing', 'Fakturaer og rykkere'), content: invoicing },
+  ];
 
   return (
     <Box>
-      <Typography variant="h5" sx={{ mb: 2 }}>{t('accountingRules.title')}</Typography>
-
-      <Tabs value={tab} onChange={(_, v) => setTab(v)} variant="scrollable" scrollButtons="auto" sx={{ mb: 2 }}>
-        <Tab label={t('accountingRules.tabOverview')} />
-        <Tab label={t('accountingRules.tabTVARates')} />
-        <Tab label={t('accountingRules.tabDeductions')} />
-        <Tab label={t('accountingRules.tabIS')} />
-        <Tab label={t('accountingRules.tabCNSS')} />
-        <Tab label={t('accountingRules.tabDeadlines')} />
+      <Typography variant="h5" sx={{ fontWeight: 600, mb: 0.5 }}>
+        {t('accountingRules.title', 'Bogføringsregler')}
+      </Typography>
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+        {t('accountingRules.subtitle', 'De danske regler, systemet bogfører efter. Teksten er en vejledning og erstatter ikke rådgivning fra revisor.')}
+      </Typography>
+      <Tabs value={tab} onChange={(_, v) => setTab(v)} variant="scrollable" sx={{ mb: 2 }}>
+        {tabs.map((x) => <Tab key={x.label} label={x.label} />)}
       </Tabs>
-
-      {tab === 0 && renderOverview()}
-      {tab === 1 && renderTVARates()}
-      {tab === 2 && renderDeductions()}
-      {tab === 3 && renderIS()}
-      {tab === 4 && renderCNSS()}
-      {tab === 5 && renderDeadlines()}
+      {tabs[tab].content}
     </Box>
   );
 };

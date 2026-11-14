@@ -12,6 +12,7 @@ import {
 } from '@mui/icons-material';
 import { useTranslation } from 'react-i18next';
 import api from '../services/api';
+import { formatNumber } from '../utils/format';
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -60,7 +61,7 @@ interface OpenDocument {
 /* ------------------------------------------------------------------ */
 
 const Payments: React.FC = () => {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
 
   const METHOD_LABEL: Record<string, string> = {
     bank_transfer: t('payments.bankTransfer'),
@@ -271,7 +272,7 @@ const Payments: React.FC = () => {
 
   const formatAmount = (value: string) => {
     const num = parseFloat(value);
-    return isNaN(num) ? '0,00' : num.toLocaleString(i18n.language, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    return isNaN(num) ? '0,00' : formatNumber(num);
   };
 
   /* ---------------------------------------------------------------- */

@@ -56,8 +56,28 @@ def _client_or_404(request, slug):
     return _clients_for(staff).filter(slug=slug).first(), staff
 
 
+def _password_error(password, username="", user=None):
+    """Djangos validatorer (længde, almindelige koder, kun tal, ligner brugernavnet)."""
+    from django.contrib.auth.password_validation import validate_password
+    from django.core.exceptions import ValidationError
+    try:
+        validate_password(password, user or User(username=username, email=username))
+    except ValidationError as e:
+        return " ".join(e.messages)
+    return None
+
+
 def _user_name(u):
     return (u.get_full_name() or u.username) if u else None
+
+
+def _next_deadline(client):
+    from django.utils import timezone
+    from .deadlines import deadline_dict, next_deadline, profile_of
+    if client.status == "archived":
+        return None
+    d = next_deadline(profile_of(client), timezone.localdate())
+    return deadline_dict(d) if d else None
 
 
 def client_dict(client, staff=None):
@@ -76,7 +96,35 @@ def client_dict(client, staff=None):
         "retain_until": client.retain_until.isoformat() if client.retain_until else None,
         "created_at": client.created_at.isoformat(),
         "assigned_staff": list(client.assignments.values_list("staff_id", flat=True)),
+        "chart_template": client.chart_template,
+        "next_deadline": _next_deadline(client),
+        "open_tasks": client.firm_tasks.exclude(status="closed").count(),
+        "answered_tasks": client.firm_tasks.filter(status="answered").count(),
     }
+
+
+CHART_TEMPLATES = ("standard", "holding", "enkeltmand")
+
+
+def _validate_client_fields(data):
+    if "name" in data and not (data.get("name") or "").strip():
+        return "Navn skal udfyldes"
+    cvr = (data.get("cvr") or "").strip()
+    if cvr and (len(cvr) != 8 or not cvr.isdigit()):
+        return "CVR-nummeret skal være 8 cifre"
+    if "legal_form" in data and data["legal_form"] not in dict(ClientCompany.LEGAL_FORMS):
+        return "Ukendt virksomhedsform"
+    if "vat_period" in data and data["vat_period"] not in dict(ClientCompany.VAT_PERIODS):
+        return "Ukendt momsperiode"
+    if "accounting_class" in data and data["accounting_class"] not in ("A", "B", "C", "D"):
+        return "Regnskabsklassen skal være A, B, C eller D"
+    if "fiscal_year_start_month" in data:
+        try:
+            if not 1 <= int(data["fiscal_year_start_month"]) <= 12:
+                raise ValueError
+        except (TypeError, ValueError):
+            return "Regnskabsårets startmåned skal være 1-12"
+    return None
 
 
 # ─── Kunder ───────────────────────────────────────────────────────────────────
@@ -111,6 +159,11 @@ def clients(request):
     package_code = data.get("package", "standard")
     if not Package.objects.filter(code=package_code).exists():
         return _err("Ukendt pakke")
+    error = _validate_client_fields(data)
+    if error:
+        return _err(error)
+    if data.get("chart_template", "standard") not in CHART_TEMPLATES:
+        return _err("Ukendt kontoplanskabelon")
     fields = {f: data[f] for f in CLIENT_FIELDS if f in data and f != "name"}
     fields["chart_template"] = data.get("chart_template", "standard")
     responsible = User.objects.filter(id=data.get("responsible_id")).first() if data.get("responsible_id") else None
@@ -147,6 +200,11 @@ def client_detail(request, slug):
     if staff.role in ("assistent",):
         return _err("Din rolle kan ikke ændre kunder.", 403)
     data = request.data
+    error = _validate_client_fields(data)
+    if error:
+        return _err(error)
+    if "cvr" in data and data["cvr"] and ClientCompany.objects.filter(cvr=data["cvr"]).exclude(pk=client.pk).exists():
+        return _err("Der findes allerede en kunde med dette CVR-nummer")
     changes = {}
     for f in CLIENT_FIELDS:
         if f in data and getattr(client, f) != data[f]:
@@ -226,6 +284,23 @@ def client_invite(request, slug):
 
 @api_view(["GET"])
 @permission_classes([IsFirmStaff])
+def client_export_all(request, slug):
+    """Alt regnskabsmateriale for kunden som zip. Kræver kundens samtykke – undtagen for en
+    partner, når kunden er arkiveret (udlevering ved ophør, til kurator eller myndigheder)."""
+    from tenancy.views import export_response
+    client, staff = _client_or_404(request, slug)
+    if client is None:
+        return _err("Kunden findes ikke", 404)
+    if staff.role not in ("partner", "revisor"):
+        return _err("Kun partnere og revisorer kan eksportere alt.", 403)
+    if active_grant(client, staff) is None and not (staff.is_partner and client.status == "archived"):
+        return _err("Kunden har ikke givet adgang.", 403)
+    _log(request, "export_all", client)
+    return export_response(client, request.user)
+
+
+@api_view(["GET"])
+@permission_classes([IsFirmStaff])
 def client_status(request, slug):
     """Nøgletal fra kundens bøger – kun med kundens samtykke."""
     client, staff = _client_or_404(request, slug)
@@ -233,6 +308,11 @@ def client_status(request, slug):
         return _err("Kunden findes ikke", 404)
     if active_grant(client, staff) is None:
         return _err("Kunden har ikke givet adgang.", 403)
+    from datetime import timedelta
+    from django.utils import timezone
+    if not FirmAuditLog.objects.filter(user=request.user, client=client, action="read",
+                                       timestamp__gte=timezone.now() - timedelta(hours=1)).exists():
+        _log(request, "read", client, first_path=request.path)
     from journals.models import JournalEntry, Period
     from core.models import BankReconciliation, Document
     from accounts.chart import SUSPENSE
@@ -249,8 +329,7 @@ def client_status(request, slug):
             "documents_unlinked": Document.objects.filter(journal_entry__isnull=True, bill__isnull=True,
                                                           invoice__isnull=True, expense__isnull=True).count(),
             "suspense_balance": str((suspense["d"] or 0) - (suspense["c"] or 0)),
-            "open_reconciliations": BankReconciliation.objects.exclude(status="completed").count()
-            if hasattr(BankReconciliation, "status") else None,
+            "open_reconciliations": BankReconciliation.objects.exclude(status="completed").count(),
             "last_entry_date": last_entry.isoformat() if last_entry else None,
             "last_closed_period": str(last_period) if last_period else None,
         }
@@ -263,7 +342,9 @@ def client_status(request, slug):
 @permission_classes([IsFirmStaff])
 def packages(request):
     if request.method == "GET":
-        return _ok({"packages": [package_dict(p) for p in Package.objects.annotate(n=Count("clients"))],
+        packs = Package.objects.annotate(
+            n=Count("clients", filter=~Q(clients__schema_name="public") & ~Q(clients__status="archived")))
+        return _ok({"packages": [{**package_dict(p), "client_count": p.n} for p in packs],
                     "features": FEATURES})
     if not staff_of(request.user).is_partner:
         return _err("Kun partnere kan oprette pakker.", 403)
@@ -314,8 +395,11 @@ def staff_list(request):
         return _err("Kun partnere kan oprette medarbejdere.", 403)
     data = request.data
     email = (data.get("email") or "").strip().lower()
-    if "@" not in email or not data.get("password") or len(data["password"]) < 10:
-        return _err("E-mail og en adgangskode på mindst 10 tegn skal udfyldes")
+    if "@" not in email or not data.get("password"):
+        return _err("E-mail og adgangskode skal udfyldes")
+    pw_error = _password_error(data["password"], email)
+    if pw_error:
+        return _err(pw_error)
     if data.get("role") not in dict(FirmStaff.ROLES):
         return _err("Ugyldig rolle")
     with transaction.atomic():
@@ -326,6 +410,8 @@ def staff_list(request):
                                             last_name=data.get("last_name", ""))
         s, _ = FirmStaff.objects.update_or_create(user=user, defaults={
             "firm": firm, "role": data["role"], "title": data.get("title", ""), "is_active": True})
+        for c in ClientCompany.objects.filter(slug__in=data.get("clients") or []):
+            StaffAssignment.objects.get_or_create(staff=s, client=c)
     _log(request, "staff_created", email=email, role=s.role)
     return _ok({"staff": staff_dict(s)}, 201)
 
@@ -339,6 +425,12 @@ def staff_detail(request, pk):
     data = request.data
     if s.user_id == request.user.id and (data.get("role", "partner") != "partner" or data.get("is_active") is False):
         return _err("Du kan ikke fjerne din egen partnerrolle")
+    if data.get("password"):
+        pw_error = _password_error(data["password"], s.user.username, s.user)
+        if pw_error:
+            return _err(pw_error)
+    if "role" in data and data["role"] not in dict(FirmStaff.ROLES):
+        return _err("Ugyldig rolle")
     for f in ("role", "title", "is_active"):
         if f in data:
             setattr(s, f, data[f])
@@ -347,8 +439,9 @@ def staff_detail(request, pk):
         if f in data:
             setattr(s.user, f, data[f])
     if data.get("password"):
-        if len(data["password"]) < 10:
-            return _err("Adgangskoden skal være mindst 10 tegn")
+        pw_error = _password_error(data["password"], s.user.username, s.user)
+        if pw_error:
+            return _err(pw_error)
         s.user.set_password(data["password"])
     s.user.save()
     if "clients" in data:

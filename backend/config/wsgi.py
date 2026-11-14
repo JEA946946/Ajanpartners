@@ -1,4 +1,4 @@
-"""WSGI config for dmc-bookkeeping."""
+"""WSGI config for ajanpartners-bogforing."""
 
 import os
 

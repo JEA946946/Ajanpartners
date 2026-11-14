@@ -22,6 +22,7 @@ from core.uploads import validate_upload
 from core.csv_utils import SafeWriter
 
 from accounts import chart
+from core.vat import EntryBuilder, add_purchase, supplier_vat
 from accounts.models import Account
 from journals.models import JournalEntry, JournalEntryLine
 from journals.periods import closed_period_error
@@ -32,6 +33,17 @@ from .models import (
 
 
 # ─── helpers ──────────────────────────────────────────────────────────────────
+
+def _rate(data):
+    """Kurs (DKK pr. 1 enhed) for en regning i fremmed valuta; 1 for DKK."""
+    if (data.get("currency") or "DKK").upper() == chart.BASE_CURRENCY:
+        return Decimal("1")
+    try:
+        rate = Decimal(str(data.get("exchange_rate") or 0))
+    except (InvalidOperation, TypeError):
+        rate = Decimal("0")
+    return rate if rate > 0 else Decimal("1")
+
 
 def _supplier_dict(supplier):
     return {
@@ -45,8 +57,9 @@ def _supplier_dict(supplier):
         "currency": supplier.currency,
         "payment_terms": supplier.payment_terms,
         "notes": supplier.notes,
-        "cmr_id": supplier.cmr_id,
+        "country": supplier.country,
         "default_account_id": str(supplier.default_account_id) if supplier.default_account_id else None,
+        "default_tax_code_id": str(supplier.default_tax_code_id) if supplier.default_tax_code_id else None,
         "is_active": supplier.is_active,
         "created_at": supplier.created_at.isoformat() if supplier.created_at else None,
         "updated_at": supplier.updated_at.isoformat() if supplier.updated_at else None,
@@ -62,6 +75,9 @@ def _bill_line_dict(line):
         "unit_price": str(line.unit_price),
         "tax_code_id": str(line.tax_code_id) if line.tax_code_id else None,
         "tax_code_name": line.tax_code.name if line.tax_code else None,
+        "tax_code_code": line.tax_code.code if line.tax_code else None,
+        "reverse_charge": line.tax_code.reverse_charge if line.tax_code else "",
+        "deduction_rate": str(line.tax_code.deduction_rate) if line.tax_code else None,
         "tax_rate": str(line.tax_code.rate) if line.tax_code else None,
         "account_id": str(line.account_id) if line.account_id else None,
         "account_code": line.account.code if line.account else None,
@@ -86,8 +102,7 @@ def _bill_dict(bill, include_lines=True):
         "paid_amount": str(bill.paid_amount),
         "balance_due": str(bill.balance_due),
         "currency": bill.currency,
-        "vat_quarter": bill.vat_quarter,
-        "vat_year": bill.vat_year,
+        "exchange_rate": str(bill.exchange_rate),
         "reference": bill.reference,
         "notes": bill.notes,
         "journal_entry_id": str(bill.journal_entry_id) if bill.journal_entry_id else None,
@@ -122,6 +137,9 @@ def _expense_line_dict(line):
         "account_name": line.account.name if line.account else None,
         "tax_code_id": str(line.tax_code_id) if line.tax_code_id else None,
         "tax_code_name": line.tax_code.name if line.tax_code else None,
+        "tax_code_code": line.tax_code.code if line.tax_code else None,
+        "reverse_charge": line.tax_code.reverse_charge if line.tax_code else "",
+        "deduction_rate": str(line.tax_code.deduction_rate) if line.tax_code else None,
         "tax_rate": str(line.tax_code.rate) if line.tax_code else None,
         "amount": str(line.amount),
     }
@@ -185,57 +203,6 @@ def _next_je_entry_number():
 # ─── Suppliers CRUD ──────────────────────────────────────────────────────────
 
 
-@api_view(["POST"])
-@permission_classes([RoleWriteAccess])
-def suppliers_import_cmr_bulk(request):
-    """Bulk-import CMR suppliers. Expects { suppliers: [...] }."""
-    items = request.data.get("suppliers", [])
-    if not items:
-        return Response(
-            {"success": False, "message": "No suppliers provided"},
-            status=status.HTTP_400_BAD_REQUEST,
-        )
-
-    existing_cmr_ids = set(
-        Supplier.objects.exclude(cmr_id="").values_list("cmr_id", flat=True)
-    )
-
-    created = 0
-    skipped = 0
-    errors = []
-    for item in items:
-        cmr_id = item.get("id") or ""
-        name = (item.get("name") or "").strip()
-        if not name:
-            skipped += 1
-            continue
-        if cmr_id and cmr_id in existing_cmr_ids:
-            skipped += 1
-            continue
-
-        try:
-            Supplier.objects.create(
-                code=_next_supplier_code(),
-                name=name,
-                email=item.get("email") or "",
-                phone=item.get("phone") or "",
-                address=item.get("address") or "",
-                currency=item.get("currency") or "MAD",
-                cmr_id=cmr_id,
-            )
-            created += 1
-            if cmr_id:
-                existing_cmr_ids.add(cmr_id)
-        except Exception as e:
-            errors.append(f"{name}: {e}")
-            skipped += 1
-
-    return Response({
-        "success": True,
-        "created": created,
-        "skipped": skipped,
-        "errors": errors[:10],
-    })
 
 
 @api_view(["GET", "POST"])
@@ -283,10 +250,12 @@ def suppliers_list_create(request):
         phone=data.get("phone", ""),
         address=data.get("address", ""),
         tax_id=data.get("tax_id", ""),
-        currency=data.get("currency", "MAD"),
+        currency=data.get("currency", "DKK"),
         payment_terms=int(data["payment_terms"]) if data.get("payment_terms") else 30,
         notes=data.get("notes", ""),
         default_account_id=default_account_id,
+        country=(data.get("country") or "DK").upper()[:2],
+        default_tax_code_id=data.get("default_tax_code_id") or None,
         is_active=data.get("is_active", True),
     )
     return Response({
@@ -330,6 +299,10 @@ def suppliers_detail(request, pk):
             supplier.payment_terms = int(data["payment_terms"]) if data["payment_terms"] else 30
         if "default_account_id" in data:
             supplier.default_account_id = data["default_account_id"] or None
+        if "default_tax_code_id" in data:
+            supplier.default_tax_code_id = data["default_tax_code_id"] or None
+        if "country" in data:
+            supplier.country = (data["country"] or "DK").upper()[:2]
         supplier.save()
         return Response({
             "success": True,
@@ -414,10 +387,6 @@ def bills_list_create(request):
             qs = qs.filter(supplier__isnull=True)
         if request.query_params.get("has_supplier") == "true":
             qs = qs.filter(supplier__isnull=False)
-        if request.query_params.get("vat_quarter"):
-            qs = qs.filter(vat_quarter=request.query_params["vat_quarter"])
-        if request.query_params.get("vat_year"):
-            qs = qs.filter(vat_year=request.query_params["vat_year"])
 
         # Sorting
         sort_field = request.query_params.get("sort", "date")
@@ -432,14 +401,10 @@ def bills_list_create(request):
             "total": "total",
             "paid_amount": "paid_amount",
             "status": "status",
-            "vat_quarter": "vat_year",
         }
         order_field = allowed_sort.get(sort_field, "date")
         prefix = "-" if sort_dir == "desc" else ""
-        if sort_field == "vat_quarter":
-            qs = qs.order_by(f"{prefix}{order_field}", f"{prefix}vat_quarter", "-created_at")
-        else:
-            qs = qs.order_by(f"{prefix}{order_field}", "-created_at")
+        qs = qs.order_by(f"{prefix}{order_field}", "-created_at")
         total_count = qs.count()
 
         # Pagination
@@ -510,16 +475,6 @@ def bills_list_create(request):
 
     bill_number = data.get("bill_number") or _next_bill_number()
 
-    # Auto-calculate VAT quarter from date
-    import datetime as _dt
-    try:
-        bill_date = _dt.date.fromisoformat(str(data["date"]).split("T")[0])
-    except (ValueError, TypeError):
-        bill_date = timezone.localdate()
-    auto_quarter = (bill_date.month - 1) // 3 + 1
-    vat_quarter = int(data.get("vat_quarter", auto_quarter))
-    vat_year = int(data.get("vat_year", bill_date.year))
-
     with transaction.atomic():
         bill = Bill.objects.create(
             bill_number=bill_number,
@@ -527,9 +482,8 @@ def bills_list_create(request):
             date=data["date"],
             due_date=data["due_date"],
             status="draft",
-            currency=data.get("currency", "MAD"),
-            vat_quarter=vat_quarter,
-            vat_year=vat_year,
+            currency=(data.get("currency") or "DKK").upper(),
+            exchange_rate=_rate(data),
             reference=data.get("reference", ""),
             notes=data.get("notes", ""),
             created_by=(
@@ -556,8 +510,7 @@ def bills_list_create(request):
             subtotal += line_amount
 
             tc = tax_codes.get(line_data.get("tax_code_id")) if line_data.get("tax_code_id") else None
-            if tc:
-                tax_amount += line_amount * tc.rate / Decimal("100")
+            tax_amount += supplier_vat(line_amount, tc)
 
             BillLine.objects.create(
                 bill=bill,
@@ -645,10 +598,8 @@ def bills_detail(request, pk):
         if field in data:
             setattr(bill, field, data[field])
 
-    if "vat_quarter" in data:
-        bill.vat_quarter = int(data["vat_quarter"])
-    if "vat_year" in data:
-        bill.vat_year = int(data["vat_year"])
+    if "exchange_rate" in data or "currency" in data:
+        bill.exchange_rate = _rate({"currency": bill.currency, **data})
 
     if "bill_number" in data and data["bill_number"] != bill.bill_number:
         if Bill.objects.filter(bill_number=data["bill_number"]).exclude(id=pk).exists():
@@ -695,8 +646,7 @@ def bills_detail(request, pk):
                 subtotal += line_amount
 
                 tc = tax_codes.get(line_data.get("tax_code_id")) if line_data.get("tax_code_id") else None
-                if tc:
-                    tax_amount += line_amount * tc.rate / Decimal("100")
+                tax_amount += supplier_vat(line_amount, tc)
 
                 BillLine.objects.create(
                     bill=bill,
@@ -736,60 +686,23 @@ def bills_detail(request, pk):
 
 
 def _post_bill_journal_lines(entry, bill, ap_account):
-    """Create the journal entry lines for a bill on the given (empty) entry.
-
-    DR expense accounts (grouped) + DR tax account, CR Accounts Payable.
-    """
-    lines = bill.lines.select_related("account", "tax_code").all()
-
-    account_totals = {}
-    tax_account = None
-    line_sum = Decimal("0")
-
-    for line in lines:
-        acct_id = str(line.account_id)
-        if acct_id not in account_totals:
-            account_totals[acct_id] = {
-                "account": line.account,
-                "amount": Decimal("0"),
-            }
-        account_totals[acct_id]["amount"] += line.amount
-        line_sum += line.amount
-
-        if line.tax_code and not tax_account:
-            tax_account = line.tax_code.account
-
-    # Tax as the EXACT remainder against the bill total, not base*rate recomputed:
-    # recomputation can differ by a cent from the stored amounts (rounding), which
-    # would leave the entry unbalanced. DR lines + this always equal CR bill.total.
-    total_tax = (bill.total or Decimal("0")) - line_sum
-
-    for acct_id, info in account_totals.items():
-        JournalEntryLine.objects.create(
-            journal_entry=entry,
-            account=info["account"],
-            debit=info["amount"],
-            credit=Decimal("0"),
-            description=f"Bill {bill.bill_number}",
-        )
-
-    if total_tax > 0 and tax_account:
-        JournalEntryLine.objects.create(
-            journal_entry=entry,
-            account=tax_account,
-            debit=total_tax,
-            credit=Decimal("0"),
-            description=f"Tax on Bill {bill.bill_number}",
-        )
-
-    JournalEntryLine.objects.create(
-        journal_entry=entry,
-        account=ap_account,
-        debit=Decimal("0"),
-        credit=bill.total,
-        description=f"Bill {bill.bill_number} — {bill.supplier.name}",
-        **supplier_partner(bill.supplier),
-    )
+    """Regningens linjer på den (tomme) postering, efter momskoden pr. linje
+    (core/vat.py: add_purchase): DR omkostning (+ ikke-fradragsberettiget moms),
+    DR købsmoms, ved omvendt betalingspligt CR moms af køb i udlandet, og CR
+    kreditorer for det, leverandøren skal have. Beløb omregnes til DKK med kursen."""
+    fx = {"currency": bill.currency, "exchange_rate": bill.exchange_rate} \
+        if bill.currency != chart.BASE_CURRENCY else {}
+    rate = bill.exchange_rate if fx else Decimal("1")
+    builder = EntryBuilder(fx=fx)
+    label = f"Regning {bill.bill_number} — {bill.supplier.name}"
+    for line in bill.lines.select_related("account", "tax_code").all():
+        net = (Decimal(line.amount) * rate).quantize(_CENT, ROUND_HALF_UP)
+        add_purchase(builder, line.account, net, line.tax_code, label)
+    payable = builder.balance
+    builder.add(ap_account, -payable, description=label, partner=supplier_partner(bill.supplier))
+    builder.write(entry)
+    # Regningens total (i dens valuta) følger det bogførte.
+    return payable
 
 
 def _approve_bill(bill, created_by):
@@ -810,7 +723,7 @@ def _approve_bill(bill, created_by):
     try:
         ap_account = Account.objects.get(code=chart.PAYABLE)
     except Account.DoesNotExist:
-        return False, f"Fournisseurs account ({chart.PAYABLE}) not found"
+        return False, f"Kreditorkontoen ({chart.PAYABLE}) findes ikke"
 
     lines = bill.lines.select_related("account", "tax_code").all()
     if not lines:
@@ -883,8 +796,9 @@ def _bank_line_remaining(jel):
 def _apply_bill_payment(bill, jel, amount, matched_by):
     """Link a bank line to a bill AND post the clearing entry.
 
-    The import parked the bank line on 34971 suspense; approval booked DR expense /
-    CR 4411. The suspense leg becomes DR 4411, so the payment is DR 4411 / CR bank.
+    Importen parkerede banklinjen på mellemregningskontoen; godkendelsen bogførte DR
+    omkostning / CR kreditorer. Mellemregningsbenet bliver DR kreditorer, så
+    betalingen er DR kreditorer / CR bank.
     Returns (link, error).
 
     Caller must hold transaction.atomic() with the bill row locked
@@ -907,11 +821,10 @@ def _apply_bill_payment(bill, jel, amount, matched_by):
     try:
         ap_account = Account.objects.get(code=chart.PAYABLE)
     except Account.DoesNotExist:
-        return None, f"Account {chart.PAYABLE} (Fournisseurs) not found"
+        return None, f"Kreditorkontoen ({chart.PAYABLE}) findes ikke"
 
-    # Single-entry: rewrite `amount` of the bank entry's suspense leg into 4411,
-    # so the payment is DR AP / CR bank. With the bill's approval (DR COS / CR AP) the net is
-    # DR COS / CR bank — no client funds, no separate clearing entry.
+    # Omposter `amount` af bankposteringens mellemregningsben til kreditorer, så
+    # betalingen er DR kreditorer / CR bank.
     be = jel.journal_entry
     outgoing = bool(jel.credit and jel.credit > 0)   # a bill payment is money OUT
     susp = be.lines.filter(account__code=chart.SUSPENSE).first()
@@ -945,7 +858,7 @@ def _apply_bill_payment(bill, jel, amount, matched_by):
 
 
 def _bill_ap_lines(bill):
-    """The bill's 4411 line and the 4411 legs of its payments (lettered together)."""
+    """Regningens kreditorlinje og betalingernes kreditorben (udlignes sammen)."""
     lines = []
     if bill.journal_entry_id:
         lines += list(bill.journal_entry.lines.filter(account__code=chart.PAYABLE).select_related("journal_entry"))
@@ -1415,7 +1328,7 @@ def expenses_detail(request, pk):
 @api_view(["POST"])
 @permission_classes([RoleWriteAccess])
 def expense_approve(request, pk):
-    """Approve a cash expense: journal CA, DR expense account (+ TVA) / CR caisse."""
+    """Godkend en kontant udgift: kassejournalen, DR omkostning (+ købsmoms) / CR kasse."""
     try:
         expense = Expense.objects.select_related("supplier", "account", "tax_code").get(id=pk)
     except Expense.DoesNotExist:
@@ -1434,7 +1347,7 @@ def expense_approve(request, pk):
     if err:
         return Response({"success": False, "message": err}, status=status.HTTP_400_BAD_REQUEST)
 
-    # Expenses are paid from the cash box and go in the cash journal (CA). Money
+    # Udgifter betales af kassen og går i kassejournalen (KAS). Money
     # that left a bank is booked from the bank statement (categorise the line, or
     # enter a bill and match the payment); booking it here too counted it twice.
     cr_account = None
@@ -1477,65 +1390,18 @@ def expense_approve(request, pk):
             created_by=created_by,
         )
 
-        # DR: one line per expense account (split lines, or the single
-        # legacy account), grouped. Tax grouped by its own account.
+        # Linjer efter momskoden (core/vat.py), CR kasse/bank for det betalte.
+        builder = EntryBuilder()
         exp_lines = list(expense.lines.select_related("account", "tax_code").all())
-        account_totals = {}
-        tax_by_account = {}
-
-        def _add_tax(tax_code, base):
-            if not tax_code or not tax_code.account_id:
-                return
-            t = base * tax_code.rate / Decimal("100")
-            if t:
-                k = str(tax_code.account_id)
-                tax_by_account.setdefault(k, {"account": tax_code.account, "amount": Decimal("0")})
-                tax_by_account[k]["amount"] += t
-
         if exp_lines:
             for ln in exp_lines:
-                k = str(ln.account_id)
-                account_totals.setdefault(k, {"account": ln.account, "amount": Decimal("0")})
-                account_totals[k]["amount"] += ln.amount
-                _add_tax(ln.tax_code, ln.amount)
+                net = Decimal(ln.amount).quantize(_CENT, ROUND_HALF_UP)
+                add_purchase(builder, ln.account, net, ln.tax_code, expense.description)
         else:
-            account_totals[str(expense.account_id)] = {"account": expense.account, "amount": expense.amount}
-            _add_tax(expense.tax_code, expense.amount)
-
-        # Round every line to the cent first and credit their sum, so DR = CR
-        # (the credit used to be the unrounded base + tax).
-        for info in list(account_totals.values()) + list(tax_by_account.values()):
-            info["amount"] = Decimal(info["amount"]).quantize(Decimal("0.01"), ROUND_HALF_UP)
-        base_amount = sum(i["amount"] for i in account_totals.values())
-        tax_amount = sum(i["amount"] for i in tax_by_account.values())
-
-        for info in account_totals.values():
-            JournalEntryLine.objects.create(
-                journal_entry=entry,
-                account=info["account"],
-                debit=info["amount"],
-                credit=Decimal("0"),
-                description=expense.description,
-            )
-
-        for info in tax_by_account.values():
-            JournalEntryLine.objects.create(
-                journal_entry=entry,
-                account=info["account"],
-                debit=info["amount"],
-                credit=Decimal("0"),
-                description=f"Tax on expense: {expense.description}",
-            )
-
-        # CR: bank/cash account for total (base + tax)
-        total_cr = base_amount + tax_amount
-        JournalEntryLine.objects.create(
-            journal_entry=entry,
-            account=cr_account,
-            debit=Decimal("0"),
-            credit=total_cr,
-            description=expense.description,
-        )
+            add_purchase(builder, expense.account, Decimal(expense.amount).quantize(_CENT, ROUND_HALF_UP),
+                         expense.tax_code, expense.description)
+        builder.add(cr_account, -builder.balance, description=expense.description)
+        builder.write(entry)
 
         # Update expense
         expense.status = "approved"
@@ -1625,7 +1491,7 @@ def suppliers_import_preview(request):
         phone = (row.get("phone") or "").strip()
         address = (row.get("address") or "").strip()
         tax_id = (row.get("tax_id") or "").strip()
-        currency = (row.get("currency") or "MAD").strip().upper()
+        currency = (row.get("currency") or "DKK").strip().upper()
         payment_terms = (row.get("payment_terms") or "").strip()
         notes = (row.get("notes") or "").strip()
 
@@ -1668,7 +1534,7 @@ def suppliers_import_preview(request):
                 "phone": phone,
                 "address": address,
                 "tax_id": tax_id,
-                "currency": currency or "MAD",
+                "currency": currency or "DKK",
                 "payment_terms": payment_terms or "30",
                 "notes": notes,
             },
@@ -1736,7 +1602,7 @@ def suppliers_import_confirm(request):
                     phone=data.get("phone", ""),
                     address=data.get("address", ""),
                     tax_id=data.get("tax_id", ""),
-                    currency=data.get("currency", "MAD"),
+                    currency=data.get("currency", "DKK"),
                     payment_terms=int(data.get("payment_terms", 30)),
                     notes=data.get("notes", ""),
                 )
@@ -1776,10 +1642,6 @@ def bills_export(request):
         qs = qs.filter(due_date__lt=timezone.localdate()).exclude(status="paid")
     if request.query_params.get("no_supplier") == "true":
         qs = qs.filter(supplier__isnull=True)
-    if request.query_params.get("vat_quarter"):
-        qs = qs.filter(vat_quarter=request.query_params["vat_quarter"])
-    if request.query_params.get("vat_year"):
-        qs = qs.filter(vat_year=request.query_params["vat_year"])
 
     response = HttpResponse(content_type="text/csv; charset=utf-8")
     response["Content-Disposition"] = 'attachment; filename="bills.csv"'
@@ -1788,7 +1650,7 @@ def bills_export(request):
     writer = SafeWriter(response)
     writer.writerow([
         "bill_number", "supplier_code", "supplier_name", "date", "due_date",
-        "status", "reference", "currency", "vat_quarter", "vat_year",
+        "status", "reference", "currency", "exchange_rate", "created_by",
         "line_description", "line_quantity",
         "line_unit_price", "line_account_code", "line_tax_code", "line_amount",
         "subtotal", "tax_amount", "total",
@@ -1798,8 +1660,8 @@ def bills_export(request):
         lines = bill.lines.select_related("account", "tax_code").all()
         sup_code = bill.supplier.code if bill.supplier else ""
         sup_name = bill.supplier.name if bill.supplier else ""
-        vq = f"Q{bill.vat_quarter}"
-        vy = str(bill.vat_year)
+        vq = str(bill.exchange_rate)
+        vy = bill.created_by
         if lines:
             for line in lines:
                 writer.writerow([
@@ -1827,9 +1689,8 @@ def bills_export(request):
 # ─── Bill Import ─────────────────────────────────────────────────────────────
 #
 # Expected columns:
-#   supplier, document_type, document_no, booking_ref, traveler,
-#   travel_date, invoice_date, due_date, currency, amount,
-#   account, tax_code, status, notes
+#   supplier, document_type, document_no, description, invoice_date,
+#   due_date, currency, amount, account, tax_code, status, notes
 #
 
 @api_view(["POST"])
@@ -1865,12 +1726,10 @@ def bills_import_preview(request):
         bill_number_raw = (row.get("regning nr") or row.get("bill_number") or row.get("regningsnr") or "").strip()
         document_type = (row.get("document_type") or row.get("dokumenttype") or row.get("type") or "").strip()
         document_no = (row.get("document_no") or row.get("dokumentnr") or row.get("document_number") or bill_number_raw or "").strip()
-        booking_ref = (row.get("booking_ref") or row.get("bookingref") or row.get("booking") or "").strip()
-        traveler = (row.get("traveler") or row.get("rejsende") or row.get("traveller") or "").strip()
-        travel_date = (row.get("travel_date") or row.get("rejsedato") or "").strip()
+        line_text = (row.get("description") or row.get("beskrivelse") or row.get("tekst") or "").strip()
         invoice_date = (row.get("invoice_date") or row.get("fakturadato") or row.get("date") or row.get("dato") or "").strip()
         due_date = (row.get("due_date") or row.get("forfaldsdato") or "").strip()
-        currency = (row.get("currency") or row.get("valuta") or "MAD").strip().upper()
+        currency = (row.get("currency") or row.get("valuta") or "DKK").strip().upper()
         amount = (row.get("amount") or row.get("beløb") or "0").strip()
         account_code = (row.get("account") or row.get("konto") or row.get("account_code") or "").strip()
         tax_code = (row.get("tax_code") or row.get("momskode") or "").strip()
@@ -1913,17 +1772,7 @@ def bills_import_preview(request):
         except ValueError:
             errors.append(f"Invalid amount: {amount}")
 
-        # Build description from booking_ref + traveler + travel_date
-        desc_parts = []
-        if document_type:
-            desc_parts.append(document_type)
-        if booking_ref:
-            desc_parts.append(booking_ref)
-        if traveler:
-            desc_parts.append(traveler)
-        if travel_date:
-            desc_parts.append(f"Travel: {travel_date}")
-        description = " | ".join(desc_parts) if desc_parts else supplier_name
+        description = line_text or " | ".join(p for p in (document_type, document_no) if p) or supplier_name
 
         row_status = "new"
         if errors:
@@ -1940,9 +1789,6 @@ def bills_import_preview(request):
                 "supplier_id": supplier_id or "",
                 "document_type": document_type,
                 "document_no": document_no,
-                "booking_ref": booking_ref,
-                "traveler": traveler,
-                "travel_date": travel_date,
                 "invoice_date": invoice_date,
                 "due_date": due_date or invoice_date,
                 "currency": currency,
@@ -2025,7 +1871,7 @@ def bills_import_confirm(request):
             invoice_date = _clean_date(data.get("invoice_date"))
             due_date = _clean_date(data.get("due_date")) or invoice_date
             document_no = (data.get("document_no") or "").strip()
-            currency = (data.get("currency") or "MAD").strip() or "MAD"
+            currency = (data.get("currency") or "DKK").strip() or "DKK"
             notes = (data.get("notes") or "").strip()
             description = (data.get("description") or "").strip()
 
@@ -2040,7 +1886,7 @@ def bills_import_confirm(request):
             if data.get("tax_code_id"):
                 try:
                     tc = TaxCode.objects.get(id=data["tax_code_id"])
-                    tax_amt = amt * tc.rate / Decimal("100")
+                    tax_amt = supplier_vat(amt, tc)
                 except TaxCode.DoesNotExist:
                     pass
 
@@ -2212,8 +2058,6 @@ def bill_linked_transaction_ids(request):
     ids |= set(
         BankTransactionCategorization.objects.values_list("journal_entry_line_id", flat=True)
     )
-    from journals.models import InvoiceReceipt
-    ids |= set(InvoiceReceipt.objects.values_list("journal_entry_line_id", flat=True))
     return Response({
         "success": True,
         "data": {"linked_ids": [str(i) for i in ids]},
@@ -2503,7 +2347,7 @@ def bill_create_from_transaction(request):
 
     if not Account.objects.filter(code=chart.PAYABLE).exists():
         return Response(
-            {"success": False, "message": f"Fournisseurs account ({chart.PAYABLE}) not found"},
+            {"success": False, "message": f"Kreditorkontoen ({chart.PAYABLE}) findes ikke"},
             status=status.HTTP_400_BAD_REQUEST,
         )
 
@@ -2523,7 +2367,6 @@ def bill_create_from_transaction(request):
     err = closed_period_error(bill_date)
     if err:
         return Response({"success": False, "message": err}, status=status.HTTP_400_BAD_REQUEST)
-    auto_quarter = (bill_date.month - 1) // 3 + 1
     created_by = (
         f"{request.user.first_name} {request.user.last_name}".strip() or request.user.username
     )
@@ -2535,9 +2378,7 @@ def bill_create_from_transaction(request):
             date=bill_date,
             due_date=data.get("due_date") or bill_date,
             status="draft",
-            currency=jel.currency or "MAD",
-            vat_quarter=int(data.get("vat_quarter", auto_quarter)),
-            vat_year=int(data.get("vat_year", bill_date.year)),
+            currency=jel.currency or "DKK",
             reference=data.get("reference") or je.reference or "",
             notes=data.get("notes", ""),
             created_by=created_by,
@@ -2604,7 +2445,7 @@ def bill_create_from_transaction(request):
             return Response({"success": False, "message": err}, status=status.HTTP_400_BAD_REQUEST)
         bill.refresh_from_db()
 
-        # Link the transaction as payment (DR 4411 / CR bank) — same path as manual matching.
+        # Link the transaction as payment (DR kreditorer / CR bank) — same path as manual matching.
         link_amount = txn_amount or bill.total
         link, aerr = _apply_bill_payment(bill, jel, link_amount, created_by)
         if aerr:
@@ -2623,7 +2464,7 @@ def bill_create_from_transaction(request):
 @permission_classes([RoleWriteAccess])
 def bank_transaction_categorize(request, jel_id):
     """Reconcile a bank transaction by booking it to one or more accounts: the
-    bank entry's suspense leg (34971) is replaced by the chosen accounts.
+    bank entry's suspense leg (chart.SUSPENSE) is replaced by the chosen accounts.
     Direction-aware:
 
     - OUTGOING (money left the bank): DR chosen accounts (+ VAT) / CR bank.
@@ -2656,8 +2497,7 @@ def bank_transaction_categorize(request, jel_id):
         )
 
     if (BillPaymentLink.objects.filter(journal_entry_line=jel).exists()
-            or BankTransactionCategorization.objects.filter(journal_entry_line=jel).exists()
-            or jel.invoice_receipts.exists()):
+            or BankTransactionCategorization.objects.filter(journal_entry_line=jel).exists()):
         return Response(
             {"success": False, "message": "This transaction is already matched"},
             status=status.HTTP_400_BAD_REQUEST,
@@ -2672,27 +2512,62 @@ def bank_transaction_categorize(request, jel_id):
             status=status.HTTP_400_BAD_REQUEST,
         )
 
+    # En indbetaling kan betale en faktura: linjen med invoice_id bogføres på
+    # debitorer med kundens debitor og nedskriver fakturaens restbeløb.
+    from sales.models import Invoice
+    invoices = {}
+    receivable = Account.objects.filter(code=chart.RECEIVABLE).first()
+    for l in lines_data:
+        if l.get("invoice_id"):
+            inv = Invoice.objects.select_related("customer").filter(id=l["invoice_id"]).first()
+            if inv is None or not inv.journal_entry_id:
+                return Response({"success": False, "message": "Fakturaen findes ikke eller er ikke udstedt"},
+                                status=status.HTTP_400_BAD_REQUEST)
+            if outgoing:
+                return Response({"success": False, "message": "En udbetaling kan ikke betale en salgsfaktura"},
+                                status=status.HTTP_400_BAD_REQUEST)
+            l["account_id"] = str(receivable.id)
+            l["tax_code_id"] = None
+            invoices[id(l)] = inv
+
     allocs, subtotal, aerr = _build_expense_allocation(lines_data)
     if aerr:
         return Response({"success": False, "message": aerr}, status=status.HTTP_400_BAD_REQUEST)
+    for a, l in zip(allocs, lines_data):
+        a["invoice"] = invoices.get(id(l))
+        if a["invoice"] is not None and a["amount"] > a["invoice"].balance_due:
+            return Response({"success": False, "message":
+                             f"Beløbet overstiger restbeløbet på faktura {a['invoice'].invoice_number}"},
+                            status=status.HTTP_400_BAD_REQUEST)
 
-    # Bank payments are VAT-inclusive: the entered line amount IS the gross
-    # amount that left the bank. When a tax code is set, split it back into
-    # base (DR expense) + VAT (DR tax account); the gross still equals the
-    # amount that left the bank.
-    base_by_acct = {}
-    tax_by_acct = {}
+    # Bankbeløb er inkl. moms: linjens beløb er det, der gik ind/ud af banken.
+    # Med en momskode deles det i netto + moms efter koden (core/vat.py); øreafrunding
+    # lægges på omkostnings-/indtægtslinjen, så summen altid er bankbeløbet.
+    from core.vat import add_sale
+    builder = EntryBuilder()
+    line_desc = data.get("description") or jel.journal_entry.description or "Banktransaktion"
     for a in allocs:
         gross = a["amount"]
-        base = gross
         tc = a["tax_code"]
-        if tc and tc.account and tc.rate:
-            base, vat = _split_vat_inclusive(gross, tc.rate)
-            tax_by_acct.setdefault(tc.account.id, {"account": tc.account, "amount": Decimal("0")})
-            tax_by_acct[tc.account.id]["amount"] += vat
-        acct = a["account"]
-        base_by_acct.setdefault(acct.id, {"account": acct, "amount": Decimal("0")})
-        base_by_acct[acct.id]["amount"] += base
+        charged = supplier_vat(Decimal("100"), tc) if outgoing else (
+            tc.rate if tc and not tc.energy_tax else Decimal("0"))
+        base = _split_vat_inclusive(gross, charged)[0] if charged else gross
+        if a.get("invoice") is not None:
+            inv = a["invoice"]
+            builder.add(a["account"], -gross, description=f"Betaling faktura {inv.invoice_number}",
+                        partner={"partner_type": "customer", "partner_id": str(inv.customer_id),
+                                 "partner_name": inv.customer.name})
+            continue
+        before = builder.balance
+        code = tc.code if tc else ""
+        if outgoing:
+            add_purchase(builder, a["account"], base, tc, a.get("description") or line_desc)
+            fix = gross - (builder.balance - before)
+        else:
+            add_sale(builder, a["account"], base, tc, a.get("description") or line_desc)
+            fix = -gross - (builder.balance - before)
+        if fix:
+            builder.add(a["account"], fix, code, a.get("description") or line_desc)
     posted_total = subtotal  # gross total = sum of entered (inclusive) amounts
 
     # The reclassification must fully clear the amount that left the bank.
@@ -2727,25 +2602,20 @@ def bank_transaction_categorize(request, jel_id):
         for l in list(be.lines.exclude(id=jel.id)):
             l.delete()
 
-        # Chosen accounts (base, net of VAT). Outgoing money is a DEBIT on the chosen
-        # account (expense); incoming money is a CREDIT (revenue, refund, deposit).
-        for info in base_by_acct.values():
-            JournalEntryLine.objects.create(
-                journal_entry=be, account=info["account"],
-                debit=info["amount"] if outgoing else Decimal("0"),
-                credit=Decimal("0") if outgoing else info["amount"],
-                currency=jel.currency, description=desc,
-            )
-
-        # VAT, grouped by tax account (input VAT on outgoing, output VAT on incoming).
-        for info in tax_by_acct.values():
-            if info["amount"] > 0:
-                JournalEntryLine.objects.create(
-                    journal_entry=be, account=info["account"],
-                    debit=info["amount"] if outgoing else Decimal("0"),
-                    credit=Decimal("0") if outgoing else info["amount"],
-                    currency=jel.currency, description=f"VAT — {desc}",
-                )
+        # Konti og moms efter momskoderne (udgående: debet; indgående: kredit).
+        builder.write(be)
+        for a in allocs:
+            inv = a.get("invoice")
+            if inv is None:
+                continue
+            inv.paid_amount = (inv.paid_amount or Decimal("0")) + a["amount"]
+            if inv.paid_amount >= inv.total:
+                inv.status = "paid"
+                auto_lettrer(list(JournalEntryLine.objects.filter(
+                    Q(journal_entry=inv.journal_entry) | Q(description=f"Betaling faktura {inv.invoice_number}"),
+                    account__code=chart.RECEIVABLE, partner_id=str(inv.customer_id), lettrage="",
+                ).select_related("journal_entry")))
+            inv.save(update_fields=["paid_amount", "status"])
 
         BankTransactionCategorization.objects.create(
             journal_entry_line=jel,
@@ -2781,17 +2651,6 @@ def bank_transaction_reconciliation(request, jel_id):
 
     cat = BankTransactionCategorization.objects.filter(journal_entry_line=jel).select_related("journal_entry").first()
     links = list(BillPaymentLink.objects.filter(journal_entry_line=jel).select_related("bill", "bill__supplier"))
-    receipts = list(jel.invoice_receipts.all())
-
-    if request.method == "GET" and receipts:
-        from journals.receipts import _receipt_dict
-        return Response({"success": True, "data": {
-            "type": "invoice",
-            "amount": str(sum((r.amount_mad if r.amount_mad is not None else r.covered_amount
-                               for r in receipts), Decimal("0"))),
-            "invoices": [{**_receipt_dict(r), "matched_by": r.matched_by} for r in receipts],
-        }})
-
     if request.method == "GET":
         if cat:
             je = cat.journal_entry
@@ -2830,16 +2689,6 @@ def bank_transaction_reconciliation(request, jel_id):
         closed_period_error(cat.journal_entry.date) if cat else None)
     if err:
         return Response({"success": False, "message": err}, status=status.HTTP_400_BAD_REQUEST)
-    if receipts:
-        from journals.receipts import undo_receipts
-        with transaction.atomic():
-            uerr = undo_receipts(jel)
-            if uerr:
-                transaction.set_rollback(True)
-                return Response({"success": False, "message": uerr}, status=status.HTTP_400_BAD_REQUEST)
-        log_action(request.user, "unmatch", "JournalEntryLine", jel_id, {"type": "invoice"})
-        return Response({"success": True, "message": "Invoice match removed"})
-
     suspense = Account.objects.filter(code=chart.SUSPENSE).first()
     if cat:
         with transaction.atomic():

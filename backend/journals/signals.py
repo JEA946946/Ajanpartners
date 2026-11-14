@@ -1,4 +1,4 @@
-"""A validated entry and its lines are never changed or deleted (Loi 9-88).
+"""A validated entry and its lines are never changed or deleted (Bogføringsloven).
 The database trigger in migration 0013 enforces the same for raw SQL."""
 
 from contextlib import contextmanager

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useLocation } from 'react-router-dom';
 import { Box, CircularProgress } from '@mui/material';
 import { useAuth } from '../hooks/useAuth';
 import { useClient } from '../hooks/useClient';
@@ -9,7 +9,8 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode; noClient?: boolean; 
   children, noClient, firmOnly,
 }) => {
   const { isAuthenticated, loading } = useAuth();
-  const { loading: clientLoading, current, firmStaff, pendingGrants } = useClient();
+  const { loading: clientLoading, current, firmStaff, pendingGrants, mfa } = useClient();
+  const location = useLocation();
 
   if (loading || (isAuthenticated && clientLoading)) {
     return (
@@ -19,6 +20,8 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode; noClient?: boolean; 
     );
   }
   if (!isAuthenticated) return <Navigate to="/login" replace />;
+  // Medarbejdere i revisorhuset skal slå to-faktor til, før de kommer videre.
+  if (mfa.required && !mfa.enabled && location.pathname !== '/profile') return <Navigate to="/profile" replace />;
   if (firmOnly && !firmStaff) return <Navigate to="/" replace />;
   if (!noClient && !firmOnly) {
     if (!firmStaff && pendingGrants.length > 0) return <Navigate to="/onboarding" replace />;

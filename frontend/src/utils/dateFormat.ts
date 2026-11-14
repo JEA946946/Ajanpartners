@@ -1,8 +1,6 @@
 /**
- * Format an ISO date string (yyyy-mm-dd or full ISO) according to the
- * date_format stored in localStorage (set by SettingsProvider).
- *
- * Supported formats: DD-MM-YYYY, DD/MM/YYYY, DD.MM.YYYY, MM/DD/YYYY, YYYY-MM-DD
+ * Vis en ISO-dato (åååå-mm-dd) i det valgte format (standard dd-mm-åååå).
+ * Formatet gemmes i localStorage af SettingsProvider.
  */
 export function formatDate(dateStr: string | null | undefined): string {
   if (!dateStr) return '—';

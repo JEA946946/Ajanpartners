@@ -6,7 +6,7 @@ Kør: DB_NAME=… TEST_DB_NAME=test_ap_main manage.py test tenancy.tests_isolati
 import json
 
 from django.contrib.auth import get_user_model
-from django.test import Client, TransactionTestCase
+from django.test import Client, TransactionTestCase, override_settings
 from django_tenants.utils import schema_context
 
 from tenancy.models import AccessGrant, FirmAuditLog, FirmStaff, Firm
@@ -16,6 +16,7 @@ User = get_user_model()
 PW = "Test-1234567"
 
 
+@override_settings(FIRM_MFA_REQUIRED=False)  # MFA testes i tests_security
 class IsolationTests(TransactionTestCase):
     reset_sequences = False
 

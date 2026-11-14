@@ -1,15 +1,19 @@
-"""Journals, journal entries and lines (double-entry bookkeeping, Loi 9-88).
+"""Journaler, posteringer og linjer (dobbelt bogholderi, Bogføringsloven).
 
-An entry lives in one journal (journaux auxiliaires: BQ1..BQ4, CA, AC, VE, PA,
-OD, AN). It has three states:
+En postering ligger i én journal (BANK pr. bankkonto, KAS, KØB, SALG, LØN, DIV,
+PRIMO, ÅA). Den har tre tilstande:
 
-- draft      is_posted=False: a manual entry being written; not in the books.
-- brouillard is_posted=True, validated_at empty: in the books, still editable.
-- validée    validated_at set: numbered per journal and year when its month is
-             closed (journals/closing.py) and never changed again. Corrections
-             are made with a reversal entry (contre-passation) in an open month.
+- kladde     is_posted=False: en manuel postering under udarbejdelse; ikke i bøgerne.
+- bogført    is_posted=True, validated_at tom: i bøgerne, kan stadig rettes.
+- valideret  validated_at sat: nummereret fortløbende pr. journal og år, når
+             måneden lukkes (journals/closing.py), og ændres aldrig igen.
+             Rettelser sker med en tilbageføring i en åben måned.
 
-The lock is enforced here (signals) and by a database trigger (migration 0013).
+Låsen håndhæves her (signaler) og af en databasetrigger (migration 0013/0015/0017).
+
+Beløb: debit/credit er altid i DKK (funktionel valuta). Er bilaget i fremmed
+valuta, står valutaen i `currency`, kursen i `exchange_rate` (DKK pr. 1 enhed)
+og beløbet i valutaen i `amount_currency` (fortegn som debet − kredit).
 """
 
 import uuid
@@ -21,16 +25,17 @@ from accounts.models import Account
 
 
 class Journal(models.Model):
-    """Journal auxiliaire. Bank and cash journals carry their treasury account."""
+    """Journal. Bank- og kassejournaler har deres likvidkonto."""
 
     TYPE_CHOICES = [
-        ("bank", "Banque"),
-        ("cash", "Caisse"),
-        ("purchases", "Achats"),
-        ("sales", "Ventes"),
-        ("payroll", "Paie"),
-        ("misc", "Opérations diverses"),
-        ("opening", "À-nouveaux"),
+        ("bank", "Bank"),
+        ("cash", "Kasse"),
+        ("purchases", "Køb"),
+        ("sales", "Salg"),
+        ("payroll", "Løn"),
+        ("misc", "Diverse"),
+        ("opening", "Primo"),
+        ("closing", "Årsafslutning"),
     ]
 
     code = models.CharField(max_length=10, unique=True)
@@ -39,7 +44,7 @@ class Journal(models.Model):
     account = models.OneToOneField(
         Account, on_delete=models.PROTECT, null=True, blank=True, related_name="journal",
     )
-    currency = models.CharField(max_length=3, default="MAD")
+    currency = models.CharField(max_length=3, default="DKK")
     is_active = models.BooleanField(default=True)
 
     class Meta:
@@ -87,26 +92,25 @@ class JournalEntry(models.Model):
     """Header for a double-entry journal entry."""
 
     SOURCE_CHOICES = [
-        ("manual", "Manual"),
-        ("cmr_invoice", "CMR Invoice"),
-        ("cmr_payment", "CMR Payment"),
-        ("invoice", "Invoice"),
-        ("credit_note", "Credit Note"),
-        ("expense", "Expense"),
+        ("manual", "Manuel"),
+        ("invoice", "Faktura"),
+        ("credit_note", "Kreditnota"),
+        ("reminder", "Rykker"),
+        ("expense", "Regning/udgift"),
         ("bank", "Bank"),
-        ("margin_recognition", "Margin Recognition"),
-        ("tva_margin", "TVA on Margin"),
-        ("payroll", "Payroll"),
-        ("reclass", "Reclassification"),
-        ("bank_match", "Bank Match"),
-        ("reversal", "Contre-passation"),
-        ("opening", "À-nouveaux"),
-        ("closing", "Clôture"),
+        ("payroll", "Løn"),
+        ("reclass", "Omposteringer"),
+        ("bank_match", "Bankafstemning"),
+        ("vat_settlement", "Momsafregning"),
+        ("fx", "Kursdifference"),
+        ("reversal", "Tilbageføring"),
+        ("opening", "Primo"),
+        ("closing", "Årsafslutning"),
     ]
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     journal = models.ForeignKey(Journal, on_delete=models.PROTECT, related_name="entries")
-    # Draft number (BR-000001) until validated, then JOURNAL-YEAR-00001.
+    # Kladdenummer (KL-000001) indtil valideret, derefter JOURNAL-ÅR-00001.
     entry_number = models.CharField(max_length=30, unique=True)
     piece_number = models.CharField(max_length=100, blank=True, default="")
     date = models.DateField()
@@ -135,7 +139,7 @@ class JournalEntry(models.Model):
     def status(self):
         if self.validated_at:
             return "validated"
-        return "brouillard" if self.is_posted else "draft"
+        return "posted" if self.is_posted else "draft"
 
     def save(self, *args, **kwargs):
         if self.journal_id is None:
@@ -157,13 +161,13 @@ class JournalEntry(models.Model):
 
 
 class JournalEntryLineQuerySet(models.QuerySet):
-    def in_mad(self):
-        """Lines that count in dirham totals (see accounts.chart.BASE_CURRENCY)."""
-        return self.filter(currency="MAD")
+    def in_base(self):
+        """Linjer, der tæller i DKK-totaler: alle (debit/credit er altid DKK)."""
+        return self.all()
 
     def foreign(self):
-        """Lines in another currency (euros not exchanged yet)."""
-        return self.exclude(currency="MAD")
+        """Linjer, hvis bilag er i fremmed valuta."""
+        return self.exclude(currency="DKK")
 
 
 class JournalEntryLine(models.Model):
@@ -185,19 +189,26 @@ class JournalEntryLine(models.Model):
     )
     debit = models.DecimalField(max_digits=15, decimal_places=2, default=0)
     credit = models.DecimalField(max_digits=15, decimal_places=2, default=0)
-    currency = models.CharField(max_length=3, default="MAD")
-    exchange_rate = models.DecimalField(max_digits=10, decimal_places=4, default=1)
+    currency = models.CharField(max_length=3, default="DKK")
+    # DKK pr. 1 enhed af `currency` (1 for DKK).
+    exchange_rate = models.DecimalField(max_digits=12, decimal_places=6, default=1)
+    # Beløbet i bilagets valuta, med fortegn (debet positiv, kredit negativ).
+    # Tomt for DKK-linjer.
+    amount_currency = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
+    # Kopi af debit/credit (DKK). Bevares for SAF-T og bagudkompatibilitet.
     base_debit = models.DecimalField(max_digits=15, decimal_places=2, default=0)
     base_credit = models.DecimalField(max_digits=15, decimal_places=2, default=0)
+    # Momskode (core.TaxCode.code), som linjen er bogført med. Bruges til
+    # momsangivelsens rubrikker og til SAF-T.
+    vat_code = models.CharField(max_length=20, blank=True, default="", db_index=True)
     description = models.CharField(max_length=500, blank=True, default="")
-    # Tiers (compte auxiliaire) on 3421 Clients / 4411 Fournisseurs: the local
-    # Customer or Supplier id. The name is kept for statements and the CRM.
+    # Debitor/kreditor på debitor- og kreditorkontoen: Customer- eller Supplier-id.
     partner_type = models.CharField(max_length=10, blank=True, default="",
-                                    choices=[("", ""), ("customer", "Client"), ("supplier", "Fournisseur")])
+                                    choices=[("", ""), ("customer", "Debitor"), ("supplier", "Kreditor")])
     partner_id = models.CharField(max_length=64, blank=True, default="", db_index=True)
     partner_name = models.CharField(max_length=255, blank=True, default="")
-    # Lettrage: lines of one account and tiers that settle each other share a
-    # code. The only fields that may still change on a validated line.
+    # Udligning: linjer på samme konto og debitor/kreditor, der udligner
+    # hinanden, deler en kode. De eneste felter, der må ændres på en valideret linje.
     lettrage = models.CharField(max_length=10, blank=True, default="", db_index=True)
     lettrage_date = models.DateField(null=True, blank=True)
 
@@ -211,9 +222,14 @@ class JournalEntryLine(models.Model):
         return f"{self.account.code}: DR {self.debit} / CR {self.credit}"
 
     def save(self, *args, **kwargs):
-        # Auto-compute base amounts
-        self.base_debit = self.debit * self.exchange_rate
-        self.base_credit = self.credit * self.exchange_rate
+        # debit/credit er DKK; base_* er en kopi (beholdt for triggerens rækkesammenligning).
+        if not self.currency:
+            self.currency = "DKK"
+        if self.currency == "DKK":
+            self.exchange_rate = 1
+            self.amount_currency = None
+        self.base_debit = self.debit
+        self.base_credit = self.credit
         if not self.line_no:
             last = (JournalEntryLine.objects.filter(journal_entry_id=self.journal_entry_id)
                     .aggregate(m=models.Max("line_no"))["m"])
@@ -268,53 +284,3 @@ class BankDescriptionMapping(models.Model):
 
     def __str__(self):
         return f"{self.description_key} → {self.account.code}"
-
-
-class InvoiceReceipt(models.Model):
-    """Money in the bank matched to a CRM invoice.
-
-    The MAD that arrived is what the invoice is worth in the books: a foreign
-    currency invoice is only booked when its money is matched here (DR bank /
-    CR 71243 at the MAD received), and a MAD invoice's receivable (3421) is
-    cleared by it. One bank line may pay several invoices, one invoice may be paid
-    by several lines (deposit + balance); `covered_amount` is the part of the
-    invoice, in the invoice's currency, that this receipt settles.
-    """
-
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    journal_entry_line = models.ForeignKey(
-        JournalEntryLine, on_delete=models.CASCADE, related_name="invoice_receipts",
-    )
-    cmr_invoice_id = models.CharField(max_length=36, db_index=True)
-    invoice_number = models.CharField(max_length=50, blank=True, default="")
-    customer_name = models.CharField(max_length=255, blank=True, default="")
-    trip_reference = models.CharField(max_length=50, blank=True, default="")
-    currency = models.CharField(max_length=3, default="MAD")
-    invoice_total = models.DecimalField(max_digits=15, decimal_places=2, default=0)
-    covered_amount = models.DecimalField(max_digits=15, decimal_places=2)
-    # Empty while the money sits in euros on the EUR account (51413): it is
-    # booked at the MAD it fetches when it is exchanged. An exchange is its own
-    # receipt on the MAD line, pointing back here with `exchanged_from`.
-    amount_mad = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
-    exchanged_from = models.ForeignKey(
-        "self", on_delete=models.PROTECT, null=True, blank=True, related_name="exchanges",
-    )
-    matched_by = models.CharField(max_length=200, blank=True, default="")
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        db_table = "invoice_receipts"
-        ordering = ["created_at"]
-
-    @property
-    def awaiting_exchange(self):
-        return self.amount_mad is None
-
-    @property
-    def rate(self):
-        if self.amount_mad is None or not self.covered_amount:
-            return None
-        return self.amount_mad / self.covered_amount
-
-    def __str__(self):
-        return f"{self.invoice_number}: {self.covered_amount} {self.currency} = {self.amount_mad} MAD"
