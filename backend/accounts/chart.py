@@ -90,3 +90,20 @@ def treasury_accounts():
     from accounts.models import Account
 
     return Account.objects.filter(treasury_q(), is_active=True, children__isnull=True)
+
+
+# ─── Dansk løn (navnene er faste og bruges af payroll/). Kontonumrene fastlægges
+# af den danske kontoplan (accounts/standardkontoplan.py); ret kun numrene her. ───
+DK_SALARIES = "2210"               # Lønninger
+DK_HOLIDAY_PAY_EXPENSE = "2215"    # Feriepenge og ferietillæg
+DK_PENSION_EXPENSE = "2220"        # Pension (arbejdsgiverandel)
+DK_ATP_EXPENSE = "2230"            # ATP og andre sociale bidrag (arbejdsgiver)
+DK_BENEFITS_EXPENSE = "2240"       # Personalegoder (fri bil, telefon m.m.)
+DK_SALARY_REFUNDS = "2250"         # Lønrefusioner (sygedagpenge, barsel)
+DK_SALARIES_PAYABLE = "7710"       # Skyldig løn (netto)
+DK_A_TAX_PAYABLE = "7720"          # Skyldig A-skat
+DK_AM_PAYABLE = "7725"             # Skyldigt AM-bidrag
+DK_ATP_PAYABLE = "7730"            # Skyldig ATP
+DK_PENSION_PAYABLE = "7735"        # Skyldig pension
+DK_HOLIDAY_PAY_PAYABLE = "7740"    # Skyldige feriepenge (Feriekonto/feriepengeforpligtelse)
+DK_OTHER_PAYROLL_PAYABLE = "7750"  # Andre lønrelaterede skyldige beløb

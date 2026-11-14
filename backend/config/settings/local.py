@@ -18,3 +18,6 @@ DATABASES["default"]["NAME"] = os.environ.get("DB_NAME", "ajanpartners")  # noqa
 CORS_ALLOW_ALL_ORIGINS = True
 from corsheaders.defaults import default_headers  # noqa: E402
 CORS_ALLOW_HEADERS = (*default_headers, "x-client")
+
+# Parallelle udviklere/agenter: hver sin testdatabase (TEST_DB_NAME) og dev-database (DB_NAME).
+DATABASES["default"]["TEST"] = {"NAME": os.environ.get("TEST_DB_NAME", "test_ajanpartners")}  # noqa: F405
