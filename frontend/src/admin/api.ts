@@ -27,6 +27,7 @@ export interface FirmClient {
   zip_code: string;
   city: string;
   industry_code: string;
+  industry_title?: string;
   email: string;
   phone: string;
   vat_period: string;

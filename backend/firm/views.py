@@ -86,7 +86,8 @@ def client_dict(client, staff=None):
     return {
         "id": client.id, "slug": client.slug, "name": client.name, "cvr": client.cvr,
         "legal_form": client.legal_form, "address": client.address, "zip_code": client.zip_code,
-        "city": client.city, "industry_code": client.industry_code, "email": client.email,
+        "city": client.city, "industry_code": client.industry_code,
+        "industry_title": _industry_title(client.industry_code), "email": client.email,
         "phone": client.phone, "vat_period": client.vat_period,
         "fiscal_year_start_month": client.fiscal_year_start_month, "accounting_class": client.accounting_class,
         "package": client.package.code, "package_name": client.package.name,
@@ -106,12 +107,26 @@ def client_dict(client, staff=None):
 CHART_TEMPLATES = ("standard", "holding", "enkeltmand")
 
 
+def _industry_title(code):
+    if not code:
+        return ""
+    from integrations.industry import describe
+    item = describe(code)
+    return item["title"] if item else ""
+
+
 def _validate_client_fields(data):
     if "name" in data and not (data.get("name") or "").strip():
         return "Navn skal udfyldes"
     cvr = (data.get("cvr") or "").strip()
     if cvr and (len(cvr) != 8 or not cvr.isdigit()):
         return "CVR-nummeret skal være 8 cifre"
+    if (data.get("industry_code") or "").strip():
+        from integrations.industry import normalize_code
+        code, _converted = normalize_code(data["industry_code"])
+        if code is None:
+            return "Ukendt branchekode. Vælg en kode fra listen (Dansk Branchekode DB25)."
+        data["industry_code"] = code  # gemmes som 6 cifre i DB25, også hvis en DB07-kode blev indtastet
     if "legal_form" in data and data["legal_form"] not in dict(ClientCompany.LEGAL_FORMS):
         return "Ukendt virksomhedsform"
     if "vat_period" in data and data["vat_period"] not in dict(ClientCompany.VAT_PERIODS):

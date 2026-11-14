@@ -17,6 +17,7 @@ import { useAdmin } from '../AdminContext';
 import { AccessChip } from './ClientsList';
 import { DeadlineTable } from './Deadlines';
 import { TaskTable } from './Tasks';
+import IndustryCodeField from '../components/IndustryCodeField';
 import AuditorTools from '../components/AuditorTools';
 
 const EDIT_FIELDS = ['name', 'cvr', 'legal_form', 'address', 'zip_code', 'city', 'industry_code', 'email', 'phone',
@@ -178,7 +179,7 @@ const ClientDetail: React.FC = () => {
             <Grid item xs={12} sm={6}>{tf('address', 'Adresse')}</Grid>
             <Grid item xs={4} sm={2}>{tf('zip_code', 'Postnr.')}</Grid>
             <Grid item xs={8} sm={4}>{tf('city', 'By')}</Grid>
-            <Grid item xs={12} sm={4}>{tf('industry_code', 'Branchekode (DB07)')}</Grid>
+            <Grid item xs={12} sm={6}><IndustryCodeField value={form.industry_code ?? ''} disabled={!canEdit} onChange={(code) => setForm({ ...form, industry_code: code })} /></Grid>
             <Grid item xs={12} sm={4}>{tf('email', 'E-mail')}</Grid>
             <Grid item xs={12} sm={4}>{tf('phone', 'Telefon')}</Grid>
             <Grid item xs={12} sm={4}>

@@ -39,6 +39,22 @@ def _integration_error(e):
 
 @api_view(["GET"])
 @permission_classes([IsFirmStaff])
+def industry_codes(request):
+    """Branchekoder (DB25). ?q= søger (kode, titel, beskrivelse); ?code= slår én op;
+    uden parametre returneres hele hierarkiet til oversigten."""
+    from . import industry
+    if request.query_params.get("code"):
+        item = industry.describe(request.query_params["code"])
+        if item is None:
+            return _err("Ukendt branchekode", 404)
+        return _ok({"code": item})
+    if "q" in request.query_params:
+        return _ok({"results": industry.search(request.query_params["q"], int(request.query_params.get("limit", 25)))})
+    return _ok(industry.tree())
+
+
+@api_view(["GET"])
+@permission_classes([IsFirmStaff])
 def cvr_lookup(request, number):
     try:
         company = cvr.lookup(number)

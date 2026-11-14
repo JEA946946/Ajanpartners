@@ -6,4 +6,5 @@ from . import views
 
 urlpatterns = [
     path("cvr/<str:number>", views.cvr_lookup),
+    path("industry-codes", views.industry_codes),
 ]

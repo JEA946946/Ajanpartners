@@ -9,6 +9,7 @@ import { firmApi } from '../../services/api';
 import {
   ACCOUNTING_CLASSES, CHART_TEMPLATES, errorText, label, LEGAL_FORMS, MONTHS, VAT_PERIODS,
 } from '../api';
+import IndustryCodeField from '../components/IndustryCodeField';
 import { useAdmin } from '../AdminContext';
 
 const STEPS = ['Virksomhed', 'Regnskab og moms', 'Pakke og ejer', 'Bekræft'];
@@ -148,7 +149,7 @@ const CreateClient: React.FC = () => {
             <Grid item xs={12}>{tf('address', 'Adresse')}</Grid>
             <Grid item xs={4}>{tf('zip_code', 'Postnr.')}</Grid>
             <Grid item xs={8}>{tf('city', 'By')}</Grid>
-            <Grid item xs={12} sm={4}>{tf('industry_code', 'Branchekode (DB07)')}</Grid>
+            <Grid item xs={12} sm={6}><IndustryCodeField value={form.industry_code} onChange={(code) => setForm((f) => ({ ...f, industry_code: code }))} /></Grid>
             <Grid item xs={12} sm={4}>{tf('email', 'E-mail')}</Grid>
             <Grid item xs={12} sm={4}>{tf('phone', 'Telefon')}</Grid>
           </Grid>
