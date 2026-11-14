@@ -6,6 +6,8 @@ import CssBaseline from '@mui/material/CssBaseline';
 
 import { AuthProvider } from './hooks/useAuth';
 import { SettingsProvider } from './hooks/useSettings';
+import { ClientProvider } from './hooks/useClient';
+import RequireFeature from './components/RequireFeature';
 import ProtectedRoute from './components/ProtectedRoute';
 import Layout from './components/Layout/Layout';
 
@@ -18,8 +20,10 @@ const Closing = React.lazy(() => import('./pages/Closing'));
 const Lettrage = React.lazy(() => import('./pages/Lettrage'));
 const BankStatements = React.lazy(() => import('./pages/BankStatements'));
 const Reports = React.lazy(() => import('./pages/Reports'));
-const MarginRecognition = React.lazy(() => import('./pages/MarginRecognition'));
-const CMRSync = React.lazy(() => import('./pages/CMRSync'));
+const SelectClient = React.lazy(() => import('./pages/SelectClient'));
+const Onboarding = React.lazy(() => import('./pages/Onboarding'));
+const AccessGrants = React.lazy(() => import('./pages/AccessGrants'));
+const AdminApp = React.lazy(() => import('./admin/AdminApp'));
 
 // New pages
 const Customers = React.lazy(() => import('./pages/Customers'));
@@ -50,8 +54,8 @@ const PageLoader = () => (
 
 const theme = createTheme({
   palette: {
-    primary: { main: '#2e7d32', light: '#4caf50', dark: '#1b5e20' },
-    secondary: { main: '#1976d2' },
+    primary: { main: '#0B3D5C', light: '#2E6A8E', dark: '#062638' },
+    secondary: { main: '#C8963E' },
     background: { default: '#f5f5f5', paper: '#ffffff' },
     text: { primary: '#333333', secondary: '#666666' },
   },
@@ -109,13 +113,14 @@ const theme = createTheme({
   },
 });
 
-const P = ({ children }: { children: React.ReactNode }) => (
-  <ProtectedRoute><Layout>{children}</Layout></ProtectedRoute>
+const P = ({ children, feature }: { children: React.ReactNode; feature?: string }) => (
+  <ProtectedRoute><Layout><RequireFeature feature={feature}>{children}</RequireFeature></Layout></ProtectedRoute>
 );
 
 function App() {
   return (
     <AuthProvider>
+      <ClientProvider>
       <SettingsProvider>
       <ThemeProvider theme={theme}>
         <CssBaseline />
@@ -123,43 +128,46 @@ function App() {
           <Suspense fallback={<PageLoader />}>
             <Routes>
               <Route path="/login" element={<Login />} />
+              <Route path="/select-client" element={<ProtectedRoute noClient><SelectClient /></ProtectedRoute>} />
+              <Route path="/onboarding" element={<ProtectedRoute noClient><Onboarding /></ProtectedRoute>} />
+              <Route path="/admin/*" element={<ProtectedRoute firmOnly><AdminApp /></ProtectedRoute>} />
+
               <Route path="/" element={<P><Dashboard /></P>} />
               <Route path="/dashboard" element={<P><Dashboard /></P>} />
-              {/* Bookkeeping */}
+
               <Route path="/accounts" element={<P><ChartOfAccounts /></P>} />
-              <Route path="/journal-entries" element={<P><JournalEntries /></P>} />
-              <Route path="/journals" element={<P><Journals /></P>} />
-              <Route path="/closing" element={<P><Closing /></P>} />
-              <Route path="/lettrage" element={<P><Lettrage /></P>} />
-              {/* Sales */}
+              <Route path="/journal-entries" element={<P feature="journal"><JournalEntries /></P>} />
+              <Route path="/journals" element={<P feature="journal"><Journals /></P>} />
+              <Route path="/closing" element={<P feature="journal"><Closing /></P>} />
+              <Route path="/lettrage" element={<P feature="lettrage"><Lettrage /></P>} />
+
               <Route path="/customers" element={<P><Customers /></P>} />
-              <Route path="/invoices" element={<P><Invoices /></P>} />
-              <Route path="/credit-notes" element={<P><CreditNotes /></P>} />
-              {/* Purchases */}
+              <Route path="/invoices" element={<P feature="invoicing"><Invoices /></P>} />
+              <Route path="/credit-notes" element={<P feature="invoicing"><CreditNotes /></P>} />
+
               <Route path="/suppliers" element={<P><Suppliers /></P>} />
-              <Route path="/bills" element={<P><Bills /></P>} />
-              <Route path="/expenses" element={<P><Expenses /></P>} />
-              {/* Payroll */}
-              <Route path="/payroll" element={<P><Payroll /></P>} />
-              {/* Bank */}
-              <Route path="/bank-statements" element={<P><BankStatements /></P>} />
-              <Route path="/bank-transactions" element={<P><BankTransactions /></P>} />
-              <Route path="/payments" element={<P><Payments /></P>} />
-              <Route path="/bank-reconciliation" element={<P><BankReconciliation /></P>} />
-              <Route path="/bank-rules" element={<P><BankRules /></P>} />
-              {/* Projects */}
-              <Route path="/projects" element={<P><Projects /></P>} />
-              {/* Tax */}
-              <Route path="/tax-codes" element={<P><TaxCodes /></P>} />
-              <Route path="/tax-report" element={<P><TaxReport /></P>} />
-              <Route path="/margin-recognition" element={<P><MarginRecognition /></P>} />
-              {/* Reports */}
-              <Route path="/reports" element={<P><Reports /></P>} />
-              {/* System */}
-              <Route path="/cmr-sync" element={<P><CMRSync /></P>} />
+              <Route path="/bills" element={<P feature="purchases"><Bills /></P>} />
+              <Route path="/expenses" element={<P feature="purchases"><Expenses /></P>} />
+
+              <Route path="/payroll" element={<P feature="payroll"><Payroll /></P>} />
+
+              <Route path="/bank-statements" element={<P feature="bank"><BankStatements /></P>} />
+              <Route path="/bank-transactions" element={<P feature="bank"><BankTransactions /></P>} />
+              <Route path="/payments" element={<P feature="bank"><Payments /></P>} />
+              <Route path="/bank-reconciliation" element={<P feature="bank"><BankReconciliation /></P>} />
+              <Route path="/bank-rules" element={<P feature="bank"><BankRules /></P>} />
+
+              <Route path="/projects" element={<P feature="projects"><Projects /></P>} />
+
+              <Route path="/tax-codes" element={<P feature="vat"><TaxCodes /></P>} />
+              <Route path="/tax-report" element={<P feature="vat"><TaxReport /></P>} />
+
+              <Route path="/reports" element={<P feature="reports"><Reports /></P>} />
+
               <Route path="/documents" element={<P><Documents /></P>} />
               <Route path="/audit-log" element={<P><AuditLog /></P>} />
               <Route path="/settings" element={<P><Settings /></P>} />
+              <Route path="/settings/access" element={<P><AccessGrants /></P>} />
               <Route path="/users" element={<P><Users /></P>} />
               <Route path="/accounting-rules" element={<P><AccountingRules /></P>} />
               <Route path="*" element={<Navigate to="/" replace />} />
@@ -168,6 +176,7 @@ function App() {
         </Router>
       </ThemeProvider>
       </SettingsProvider>
+      </ClientProvider>
     </AuthProvider>
   );
 }

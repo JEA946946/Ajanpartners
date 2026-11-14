@@ -1,50 +1,38 @@
-# Bogføring (bookkeeping.vmmorocco.com) – arbejdsnoter til Claude
+# Ajan Partners Bogføring – arbejdsnoter
 
-Django-backend (`backend/`) og React/MUI-frontend (`frontend/`). Fra 2026-10-27 arbejder vi kun her. Bøgerne blev tømt og startet forfra på den marokkanske kontoplan (PCGM).
+Gratis bogføringsprogram, som revisorhuset Ajan Partners tilbyder sine kunder. Dansk marked: Bogføringsloven (lov nr. 700 af 24/5/2022 + bekendtgørelser om digitale standardbogføringssystemer), momsloven, Årsregnskabsloven (klasse A/B), dansk løn. Kopieret 2026-11-14 fra `vmm-platform/bookkeeping` (marokkansk, single-tenant) og bygget om.
 
-## Lov og kontoplan
-- `Law/` er den gældende kilde: `Plan Comptable marocain (1).pdf` (PCGM) og `guide_fiscal_complet_agence.pdf` (LF 2026, rejsebureau med gæster fra udlandet). Ved uenighed vinder den over `TAX_REFERENCE_MOROCCO.md`.
-- `backend/accounts/pcgm.py`: hele PCGM, klasse 1–8 og 0 (klasse 9 er udeladt), plus egne underkonti. Klasse 8 og 0 er inaktive. Trykfejl i PDF'en er rettet; listen står i filens docstring.
-- `backend/accounts/chart.py`: alle konti koden bogfører på. Kontonumre må aldrig hårdkodes andre steder; brug konstanterne derfra (backend) og `frontend/src/utils/chart.ts` (frontend).
-- `seed_accounts` kører ved hver containerstart. Den opretter manglende konti og retter forældre, men omdøber og sletter aldrig.
+Django 5.2 + DRF backend (`backend/`), React 18 + MUI 5 + Vite frontend (`frontend/`). Sprog i UI og kode-kommentarer: dansk. Valuta: DKK.
 
-## Bogføringsregler (régime de la marge, Art. 125 bis CGI)
-| Hændelse | Debet | Kredit |
-|---|---|---|
-| Faktura (TTC, brutto) | 3421 Clients | 71243 Prestations de services |
-| Kunden betaler | 5141x bank | 3421 |
-| Forudbetaling før faktura | 5141x | 4421 |
-| Turismeleverandør (hotel, guide, transport) TTC, ingen fradrag | 61263x | 4411 |
-| Driftsomkostning med TVA | 61xx HT + 34552 | 4411 |
-| TVA på margin pr. periode = (salg − kostpris) / 1,2 × 20 % | 71243 | 4455 |
-| Løn | 61711 + 61741 | 4432 netto / 4441 CNSS / 44525 IR |
-| Husleje med RAS 10/15 % | 61312 | 4411 netto + 4457 |
+## Multi-tenancy (django-tenants, ét Postgres-skema pr. kunde)
+- **Public-skemaet** (`tenancy/`, `firm/`, auth): `Firm`, `ClientCompany` (tenant; CVR, pakke, momsperiode, status), `Package`, `FirmStaff` (partner/revisor/bogholder/assistent), `StaffAssignment`, `ClientMembership` (kundens egne brugere: admin/accountant/viewer), `AccessGrant` (kundens samtykke til revisorhuset: read/bookkeeping/full, kan tidsbegrænses og tilbagekaldes), `FirmAuditLog`.
+- **Tenant-skemaer** (`c_<slug>`): accounts, journals, sales, purchases, core, payroll — hele bogføringen. Nye bogføringsapps skal i `TENANT_APPS` i `config/settings/base.py`; apps med tværgående data (revisorhusets opgaver, frister) i `SHARED_APPS`.
+- `tenancy/middleware.py`: alle `/api/v1/`-kald undtagen `auth/`, `me`, `me/`, `public/` kræver headeren `X-Client: <slug>`. Middleware'en tjekker adgang (`tenancy/access.py: resolve`), pakkens funktioner (`tenancy/features.py: FEATURE_PATHS`), arkivstatus, og sætter skemaet. `request.tenant` er kunden, `request.client_access` rolle og vej ind (member/firm).
+- Pakkerne (Mini/Standard/Pro, alle gratis) begrænser **kun kundens egne brugere**. Revisorhuset har alle funktioner, når det har en aktiv grant. Ny funktion → tilføj den i `FEATURES`, `DEFAULT_PACKAGES` og `FEATURE_PATHS`, og i frontend `feature` på route (`App.tsx`) og menupunkt (`Layout.tsx`).
+- Rettigheder: `core.permissions.RoleWriteAccess` (læs alle, skriv admin/accountant), `IsAdmin` (kundens administrator), `IsFirmStaff`, `IsFirmPartner` (admin-portalen).
+- Audit: `core.audit.log_action` skriver i kundens hash-kædede log. Når en medarbejder fra revisorhuset handler, tilføjes `_via: firm` m.m. automatisk (via `tenancy/context.py`). Skrivende kald fra revisorhuset logges også i `FirmAuditLog`.
+- Kunder oprettes med `tenancy.services.create_client` (skema + migrationer + `seed_accounts --template` + en AccessGrant-anmodning). Kunden godkender adgangen ved første login (`/onboarding`).
+- Bilag gemmes pr. skema (`TenantFileSystemStorage`, `MEDIA_ROOT/<schema>/`).
 
-- Banklinjer importeres mod 34971 (à classer). Kategorisering, match af regninger og match af fakturaer omskriver dette ben.
-- CIH 600 EUR (51413) er i euro, ikke dirham. Euroer har ingen dirham-værdi, før de veksles til CIH 300 (51411); først da bogføres indtægten med de dirham, der kom ind (`journals/receipts.py`). Indtil da står modposten på 34972 (EUR).
-- Linjer med `currency` ≠ MAD holdes ude af alle dirham-summer: rapporter, TVA, margin, pengestrøm og board. Brug `JournalEntryLine.objects.in_mad()` i nye summer. Råbalance og balance viser EUR-saldi for sig selv (`foreign_rows`). Kontokort regner saldoen i kontoens egen valuta.
-- Margin og TVA beregnes i `journals/margin.py` og vises på siden Margin/TVA (`/margin-recognition`). Den gamle bogføring "margin_recognition" (240000→420000) findes ikke længere.
+## Admin-portalen
+- Backend: `firm/` → `/api/firm/...` (public). Frontend: `frontend/src/admin/` (route `/admin/*`), API-klient `firmApi` i `services/api.ts`.
+- Tal fra en kundes bøger kræver aktiv grant (`active_grant`). Stamdata gør ikke.
 
-## Journaler, validering og periodeafslutning (Loi 9-88)
-- Hver postering ligger i én journal (`journals.Journal`): BQ1 CIH 300 (51411), BQ2 CIH 600 (51412), BQ3 CIH 600 EUR (51413), BQ4 BP 09 (51414), CA kasse (51611), AC køb, VE salg, PA løn, OD diverse og AN åbning. Koderne står kun i `journals/journal_for.py`. Bank- og kasselinjer går i kontoens journal (`journal_for_account`), resten efter `source` (`journal_for_source`).
-- Status: kladde (`is_posted=False`, uden for bøgerne), brouillard (bogført, kan rettes) og valideret (`validated_at`).
-- Validering sker kun ved månedsafslutning (`journals/closing.py`, siden `/closing`). Måneder lukkes i rækkefølge. Lukningen kræver ingen kladder, at alle posteringer balancerer, og en afsluttet bankafstemning pr. bankjournal på månedens sidste dag. Saldo på 34971 er en advarsel. Posteringerne får endeligt nummer pr. journal og år i datoorden (`BQ1-2026-00001`); indtil da har de et kladdenummer `BR-000001`.
-- En valideret postering kan aldrig ændres eller slettes. Det håndhæves af signaler (`journals/signals.py`) og en database-trigger (migration 0013). Rettelser sker ved tilbageføring (`reverse_entry`, contre-passation) i en åben måned. `closed_period_error` afviser alt i en lukket måned eller et lukket år. Et lukket regnskabsår kan ikke genåbnes.
-- `reset_bookkeeping` løfter låsen med `journals.signals.allow_reset()`.
+## Frontend
+- `hooks/useClient.tsx`: `/me` (kunder, revisorrolle, ventende samtykker) og den valgte kunde (`features`, `access`). `useFeature('payroll')`, `RequireFeature`.
+- `services/api.ts` sætter `X-Client` fra `localStorage.ap_client` på alle kald undtagen `/auth`, `/me`.
+- Kontonumre kun via `frontend/src/utils/chart.ts`.
 
-## Tiers, lettrage og ét sted for hver betaling
-- Linjer på 3421, 4421 og 4411 har en tiers (`partner_type`/`partner_id`/`partner_name`, lokal Customer- eller Supplier-id). Fakturaer, kreditnotaer, regninger, CRM-sync og bankmatch sætter den; manuelle posteringer kræver den (`_tiers_error` i `journals/views.py`).
-- Lettrage (`journals/lettrage.py`, siden `/lettrage`): linjer på samme konto og tiers, som går i nul, får samme kode (AA, AB …). En fuldt betalt regning og en fuldt modtaget MAD-faktura udlignes automatisk; undo fjerner koden. Kun lettrage-felterne må ændres på en valideret linje (signal + migration 0015).
-- Aldersfordelingen kommer fra de ikke-udlignede linjer, FIFO pr. tiers, med 60 dages betalingsfrist (Loi 69-21).
-- Kontoudtoget er den eneste kilde til bevægelser i bankerne: betalingssiden opretter ikke længere betalinger, udgifter bogføres kun fra kassen (CA), løn krediterer 4432 (udbetalingen kategoriseres mod 4432), og CRM-leverandørbetalinger bogføres DR 61263x / CR 4411 i AC. CRM-fakturaer kan ikke længere importeres som fakturaer; CRM-sync bogfører dem i VE.
+## Bogføringsregler (bevaret fra originalen)
+- Hver postering i én journal; status kladde → bogført → valideret ved periodeafslutning. Validerede posteringer kan aldrig ændres (signaler + DB-trigger, journals migration 0013/0015); rettelser via tilbageføring. Lukket periode/år afviser alt.
+- Fortløbende nummerering pr. journal og år ved validering.
+- Udligning (lettrage) på debitor-/kreditorkonti med tiers.
+- Kontonumre må aldrig hårdkodes udenfor `backend/accounts/chart.py` og `frontend/src/utils/chart.ts`.
 
-## Data og drift
-- Apps: accounts, core (betalinger, afstemning, dokumenter, audit, firmaindstillinger), journals (posteringer, bankimport, CRM-sync, kvitteringer), purchases, sales, payroll, board (read-only API til board-appen).
-- CRM-sync: `journals/cmr_sync.py` (kommandoen `sync_cmr` og siden CMR Sync). Der er ingen scheduler; synkronisering sker kun, når nogen starter den.
-- `reset_bookkeeping [--confirm]`: tømmer alle tal og flytter stamdata over på PCGM. Uden `--confirm` er det en tør kørsel.
-- Prod: `/opt/dmc-bookkeeping` på 144.76.60.47, container `dmc_bookkeeping_django`, database `dmc_bookkeeping` i containeren `dmc-cmr-db`. Push til `main` deployer via `.github/workflows/deploy-bookkeeping.yml`. Backup tages med `docker exec dmc-cmr-db pg_dump -U postgres dmc_bookkeeping > /opt/backups/…`.
-- Uploadede filer (bilag) ligger på værten i `/opt/dmc-bookkeeping/media`, monteret som `/app/media`. De hentes kun via `documents/<id>/download` (kræver login). Hvert bilag får SHA-256 og størrelse ved upload, og et bilag til en valideret postering kan ikke slettes eller flyttes. Logoer gemmes som base64 i databasen.
-- `infra/backup.sh` kører hver nat kl. 02:30 (cron, installeres af deploy-workflowet) og gemmer database og media i `/opt/backups/bookkeeping`: daglige kopier i 40 dage, den 1. i hver måned for altid (10 års opbevaring, Loi 9-88 art. 22).
-- Audit-loggen er append-only og hash-kædet (`core/audit.py`, `verify_chain`, `/audit-log/verify`); en trigger (core migration 0011) afviser UPDATE og DELETE. Skriv altid via `log_action`.
-- Tests: `cd backend && DB_HOST=dmc-cmr-db.orb.local DB_PASSWORD=… DJANGO_SETTINGS_MODULE=config.settings.local .venv/bin/python manage.py test core.tests_ledger core.tests_pure core.tests_reset journals.tests_cmr_sync journals.tests_receipts`. Adgangskoden står i `crm/api/.envs/.local/.postgres`. `DB_NAME` vælger en anden lokal database.
-- Frontend: `npm run lint && npm run build`.
+## Drift og test
+- Lokalt: Homebrew Postgres på localhost, database `ajanpartners`. `cd backend && export DJANGO_SETTINGS_MODULE=config.settings.local`.
+  - `.venv/bin/python manage.py migrate_schemas --shared` (public) og `migrate_schemas` (alle kunder).
+  - `.venv/bin/python manage.py bootstrap_firm --partner-email … --partner-password …`.
+  - Tests: `.venv/bin/python manage.py test <moduler>` (django-tenants: brug `django_tenants.test.cases.TenantTestCase` for tenant-tests).
+- Frontend: `cd frontend && npm run lint && npm run build`.
+- Opbevaring: Bogføringsloven kræver 5 år. Kunder slettes aldrig, de arkiveres (`archive_client`, read-only, `auto_drop_schema = False`).

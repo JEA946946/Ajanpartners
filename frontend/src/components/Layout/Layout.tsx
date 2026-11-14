@@ -13,8 +13,9 @@ import {
   CloudUpload as CloudUploadIcon,
   Assessment as ReportsIcon,
   Logout as LogoutIcon,
-  Calculate as CalculateIcon,
-  Sync as SyncIcon,
+  SwapHoriz as SwapIcon,
+  AdminPanelSettings as AdminIcon,
+  VerifiedUser as AccessIcon,
   People as PeopleIcon,
   ShoppingCart as ShoppingCartIcon,
   Store as StoreIcon,
@@ -36,6 +37,7 @@ import {
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
+import { useClient } from '../../hooks/useClient';
 import { useTranslation } from 'react-i18next';
 import api from '../../services/api';
 
@@ -48,7 +50,7 @@ interface LayoutProps {
 
 interface MenuSection {
   label: string;
-  items: { text: string; icon: React.ReactNode; path: string }[];
+  items: { text: string; icon: React.ReactNode; path: string; feature?: string }[];
 }
 
 const Layout: React.FC<LayoutProps> = ({ children }) => {
@@ -56,16 +58,18 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const location = useLocation();
   const { user, logout } = useAuth();
   const { t, i18n } = useTranslation();
+  const { current, firm, firmStaff, clients, hasFeature } = useClient();
 
   const [siteLogo, setSiteLogo] = useState<string>('');
   useEffect(() => {
+    if (!current) return;
     api.get('/settings').then(res => {
       if (res.data.success) {
         const d = res.data.data?.settings ?? res.data.settings ?? res.data.data ?? {};
         setSiteLogo(d.logo1 || '');
       }
     }).catch(() => { /* ignore */ });
-  }, []);
+  }, [current]);
 
   const handleLogout = () => {
     logout();
@@ -86,71 +90,74 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       label: t('sidebar.sales'),
       items: [
         { text: t('sidebar.customers'), icon: <PeopleIcon fontSize="small" />, path: '/customers' },
-        { text: t('sidebar.invoices'), icon: <ReceiptLongIcon fontSize="small" />, path: '/invoices' },
-        { text: t('sidebar.creditNotes'), icon: <MoneyOffIcon fontSize="small" />, path: '/credit-notes' },
+        { text: t('sidebar.invoices'), icon: <ReceiptLongIcon fontSize="small" />, path: '/invoices', feature: 'invoicing' },
+        { text: t('sidebar.creditNotes'), icon: <MoneyOffIcon fontSize="small" />, path: '/credit-notes', feature: 'invoicing' },
       ],
     },
     {
       label: t('sidebar.purchasing'),
       items: [
         { text: t('sidebar.suppliers'), icon: <StoreIcon fontSize="small" />, path: '/suppliers' },
-        { text: t('sidebar.bills'), icon: <RequestQuoteIcon fontSize="small" />, path: '/bills' },
-        { text: t('sidebar.expenses'), icon: <ShoppingCartIcon fontSize="small" />, path: '/expenses' },
+        { text: t('sidebar.bills'), icon: <RequestQuoteIcon fontSize="small" />, path: '/bills', feature: 'purchases' },
+        { text: t('sidebar.expenses'), icon: <ShoppingCartIcon fontSize="small" />, path: '/expenses', feature: 'purchases' },
       ],
     },
     {
       label: t('sidebar.payroll'),
       items: [
-        { text: t('sidebar.payrollOverview'), icon: <BadgeIcon fontSize="small" />, path: '/payroll' },
+        { text: t('sidebar.payrollOverview'), icon: <BadgeIcon fontSize="small" />, path: '/payroll', feature: 'payroll' },
       ],
     },
     {
       label: t('sidebar.bank'),
       items: [
-        { text: t('sidebar.bankUpload'), icon: <CloudUploadIcon fontSize="small" />, path: '/bank-statements' },
-        { text: t('sidebar.bankTransactions'), icon: <ReceiptLongIcon fontSize="small" />, path: '/bank-transactions' },
-        { text: t('sidebar.payments'), icon: <PaymentIcon fontSize="small" />, path: '/payments' },
-        { text: t('sidebar.reconciliation'), icon: <AccountBalanceIcon fontSize="small" />, path: '/bank-reconciliation' },
-        { text: t('sidebar.bankRules'), icon: <RuleIcon fontSize="small" />, path: '/bank-rules' },
+        { text: t('sidebar.bankUpload'), icon: <CloudUploadIcon fontSize="small" />, path: '/bank-statements', feature: 'bank' },
+        { text: t('sidebar.bankTransactions'), icon: <ReceiptLongIcon fontSize="small" />, path: '/bank-transactions', feature: 'bank' },
+        { text: t('sidebar.payments'), icon: <PaymentIcon fontSize="small" />, path: '/payments', feature: 'bank' },
+        { text: t('sidebar.reconciliation'), icon: <AccountBalanceIcon fontSize="small" />, path: '/bank-reconciliation', feature: 'bank' },
+        { text: t('sidebar.bankRules'), icon: <RuleIcon fontSize="small" />, path: '/bank-rules', feature: 'bank' },
       ],
     },
     {
       label: t('sidebar.bookkeeping'),
       items: [
         { text: t('sidebar.chartOfAccounts'), icon: <AccountsIcon fontSize="small" />, path: '/accounts' },
-        { text: t('sidebar.journalEntries'), icon: <JournalIcon fontSize="small" />, path: '/journal-entries' },
-        { text: t('sidebar.journals'), icon: <JournalsIcon fontSize="small" />, path: '/journals' },
-        { text: t('sidebar.lettrage'), icon: <LettrageIcon fontSize="small" />, path: '/lettrage' },
-        { text: t('sidebar.closing'), icon: <ClosingIcon fontSize="small" />, path: '/closing' },
-        { text: t('sidebar.projects'), icon: <WorkIcon fontSize="small" />, path: '/projects' },
+        { text: t('sidebar.journalEntries'), icon: <JournalIcon fontSize="small" />, path: '/journal-entries', feature: 'journal' },
+        { text: t('sidebar.journals'), icon: <JournalsIcon fontSize="small" />, path: '/journals', feature: 'journal' },
+        { text: t('sidebar.lettrage'), icon: <LettrageIcon fontSize="small" />, path: '/lettrage', feature: 'lettrage' },
+        { text: t('sidebar.closing'), icon: <ClosingIcon fontSize="small" />, path: '/closing', feature: 'journal' },
+        { text: t('sidebar.projects'), icon: <WorkIcon fontSize="small" />, path: '/projects', feature: 'projects' },
       ],
     },
     {
       label: t('sidebar.taxVat'),
       items: [
-        { text: t('sidebar.taxReport'), icon: <GavelIcon fontSize="small" />, path: '/tax-report' },
-        { text: t('sidebar.taxCodes'), icon: <CreditCardIcon fontSize="small" />, path: '/tax-codes' },
-        { text: t('sidebar.marginTva'), icon: <CalculateIcon fontSize="small" />, path: '/margin-recognition' },
+        { text: t('sidebar.taxReport'), icon: <GavelIcon fontSize="small" />, path: '/tax-report', feature: 'vat' },
+        { text: t('sidebar.taxCodes'), icon: <CreditCardIcon fontSize="small" />, path: '/tax-codes', feature: 'vat' },
       ],
     },
     {
       label: t('sidebar.reports'),
       items: [
-        { text: t('sidebar.reportsOverview'), icon: <ReportsIcon fontSize="small" />, path: '/reports' },
+        { text: t('sidebar.reportsOverview'), icon: <ReportsIcon fontSize="small" />, path: '/reports', feature: 'reports' },
         { text: t('sidebar.accountingRules'), icon: <MenuBookIcon fontSize="small" />, path: '/accounting-rules' },
       ],
     },
     {
       label: t('sidebar.system'),
       items: [
-        { text: t('sidebar.cmrSync'), icon: <SyncIcon fontSize="small" />, path: '/cmr-sync' },
         { text: t('sidebar.documents'), icon: <DescriptionIcon fontSize="small" />, path: '/documents' },
         { text: t('sidebar.auditLog'), icon: <HistoryIcon fontSize="small" />, path: '/audit-log' },
         { text: t('sidebar.settings'), icon: <SettingsIcon fontSize="small" />, path: '/settings' },
         { text: t('sidebar.users'), icon: <ManageAccountsIcon fontSize="small" />, path: '/users' },
+        { text: 'Revisoradgang', icon: <AccessIcon fontSize="small" />, path: '/settings/access' },
       ],
     },
   ];
+
+  const visibleSections = menuSections
+    .map((sec) => ({ ...sec, items: sec.items.filter((i) => hasFeature(i.feature)) }))
+    .filter((sec) => sec.items.length > 0);
 
   const sidebarItemSx = (active: boolean) => ({
     py: 0.3,
@@ -169,7 +176,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     <Box sx={{ display: 'flex' }}>
       <AppBar
         position="fixed"
-        sx={{ zIndex: (theme) => theme.zIndex.drawer + 1, height: APPBAR_HEIGHT, bgcolor: '#2e7d32' }}
+        sx={{ zIndex: (theme) => theme.zIndex.drawer + 1, height: APPBAR_HEIGHT, bgcolor: firm?.primary_color || '#0B3D5C' }}
       >
         <Toolbar variant="dense" sx={{ minHeight: APPBAR_HEIGHT, height: APPBAR_HEIGHT }}>
           {siteLogo && (
@@ -177,14 +184,28 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
               sx={{ height: 30, maxWidth: 140, objectFit: 'contain', mr: 1.5 }}
               onError={(e: any) => { e.target.style.display = 'none'; }} />
           )}
-          <Typography variant="h6" noWrap sx={{ fontWeight: 'bold', fontSize: '16px', mr: 3 }}>
-            DMC Bookkeeping
+          <Typography variant="h6" noWrap sx={{ fontWeight: 'bold', fontSize: '16px', mr: 2 }}>
+            {firm?.name || 'Ajan Partners'}
           </Typography>
+          <Typography variant="body2" noWrap sx={{ fontSize: '13px', opacity: 0.9, mr: 1 }}>
+            {current?.client.name}{current?.client.cvr ? ` · CVR ${current.client.cvr}` : ''}
+            {current ? ` · ${current.package.name}` : ''}
+          </Typography>
+          {(clients.length > 1 || firmStaff) && (
+            <IconButton color="inherit" size="small" title="Skift virksomhed" onClick={() => navigate('/select-client')}>
+              <SwapIcon fontSize="small" />
+            </IconButton>
+          )}
+          {firmStaff && (
+            <IconButton color="inherit" size="small" title="Admin-portal" onClick={() => navigate('/admin')}>
+              <AdminIcon fontSize="small" />
+            </IconButton>
+          )}
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, ml: 'auto' }}>
             <Typography variant="body2" sx={{ fontSize: '12px', color: '#fff' }}>
               {user?.first_name} {user?.last_name}
             </Typography>
-            <Avatar sx={{ bgcolor: '#1b5e20', width: 28, height: 28, fontSize: '12px' }}>
+            <Avatar sx={{ bgcolor: 'rgba(255,255,255,0.2)', width: 28, height: 28, fontSize: '12px' }}>
               {user?.first_name?.charAt(0)}{user?.last_name?.charAt(0)}
             </Avatar>
             <Select
@@ -204,7 +225,6 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             >
               <MenuItem value="da">DA</MenuItem>
               <MenuItem value="en">EN</MenuItem>
-              <MenuItem value="fr">FR</MenuItem>
             </Select>
             <IconButton color="inherit" onClick={handleLogout} size="small">
               <LogoutIcon fontSize="small" />
@@ -231,7 +251,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         }}
       >
         <List dense sx={{ pt: 0.5 }}>
-          {menuSections.map((section, sIdx) => (
+          {visibleSections.map((section, sIdx) => (
             <React.Fragment key={sIdx}>
               {sIdx > 0 && <Divider sx={{ my: 0.3 }} />}
               <Typography
@@ -273,6 +293,19 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           minHeight: `calc(100vh - ${APPBAR_HEIGHT}px)`,
         }}
       >
+        {current?.access.via === 'firm' && (
+          <Box sx={{ mb: 2, px: 2, py: 0.75, borderRadius: 1, bgcolor: '#FFF4E0', border: '1px solid #E8C98A',
+            fontSize: '12.5px' }}>
+            Du arbejder i <b>{current.client.name}</b> som {firm?.name || 'revisor'} med adgangen
+            {' '}<b>{({ read: 'læse', bookkeeping: 'bogføre', full: 'fuld' } as Record<string, string>)[current.access.grant_scope || ''] || current.access.grant_scope}</b>.
+            {' '}Alt, du gør, logges hos kunden.
+          </Box>
+        )}
+        {current?.client.status === 'archived' && (
+          <Box sx={{ mb: 2, px: 2, py: 0.75, borderRadius: 1, bgcolor: '#EEE', fontSize: '12.5px' }}>
+            Virksomheden er arkiveret. Bøgerne kan kun læses.
+          </Box>
+        )}
         {children}
       </Box>
     </Box>

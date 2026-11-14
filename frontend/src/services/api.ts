@@ -17,7 +17,16 @@ const processQueue = (error: any, token: string | null = null) => {
   failedQueue = [];
 };
 
-api.interceptors.request.use((config) => {
+export const CLIENT_KEY = 'ap_client';
+
+export const getClientSlug = () => localStorage.getItem(CLIENT_KEY) || '';
+
+// Kald under /auth og /me kører uden kunde (public). Alt andet går til den
+// valgte kundes bøger via headeren X-Client (se backend tenancy/middleware.py).
+const isPublicPath = (url?: string) =>
+  !!url && (url.startsWith('/auth/') || url === '/me' || url.startsWith('/me/') || url.startsWith('/public/'));
+
+const addAuth = (config: any) => {
   // Don't send token on login/refresh — an expired token would cause 401
   const isAuthEndpoint = config.url?.includes('/auth/login') || config.url?.includes('/auth/refresh');
   if (!isAuthEndpoint) {
@@ -27,6 +36,29 @@ api.interceptors.request.use((config) => {
     }
   }
   return config;
+};
+
+api.interceptors.request.use((config) => {
+  addAuth(config);
+  const slug = getClientSlug();
+  if (slug && !isPublicPath(config.url)) {
+    config.headers['X-Client'] = slug;
+  }
+  return config;
+});
+
+/** Admin-portalen for revisorhuset (/api/firm, public-skemaet). */
+export const firmApi = axios.create({
+  baseURL: import.meta.env.VITE_FIRM_API_URL || '/api/firm',
+  timeout: 30000,
+  headers: { 'Content-Type': 'application/json' },
+});
+firmApi.interceptors.request.use(addAuth);
+firmApi.interceptors.response.use((r) => r, (error) => {
+  if (error.response?.status === 401 && window.location.pathname !== '/login') {
+    window.location.href = '/login';
+  }
+  return Promise.reject(error);
 });
 
 api.interceptors.response.use(
