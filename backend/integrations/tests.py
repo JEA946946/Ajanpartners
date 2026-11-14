@@ -32,6 +32,7 @@ NB_XML = b"""<?xml version="1.0" encoding="utf-8"?>
 </exchangerates>"""
 
 
+@override_settings(CVR_PROVIDER="mock")  # local.py bruger rigtige opslag; testene må ikke gå på nettet
 class CvrTests(SimpleTestCase):
     def test_mock_known_and_deterministic(self):
         c = cvr.MockCVRClient().lookup("DK 12 34 56 78")
@@ -39,21 +40,66 @@ class CvrTests(SimpleTestCase):
         self.assertEqual(c.legal_form, "aps")
         self.assertEqual(c.industry_code, "692000")
         self.assertEqual(c.fiscal_year_start_month, 1)
-        a, b = cvr.MockCVRClient().lookup("31313131"), cvr.MockCVRClient().lookup("31313131")
-        self.assertEqual(a, b)
+        # Ukendte numre giver en fejl – testtilstanden må aldrig opfinde et firma.
+        with self.assertRaises(IntegrationError) as cm:
+            cvr.MockCVRClient().lookup("39815206")
+        self.assertIn("testtilstand", str(cm.exception))
 
     def test_invalid_cvr(self):
         with self.assertRaises(IntegrationError):
             cvr.lookup("1234")
 
+    @override_settings(CVR_PROVIDER="")
     def test_default_is_mock(self):
         self.assertIsInstance(cvr.get_client(), cvr.MockCVRClient)
 
-    @override_settings(CVR_PROVIDER="virk")
-    def test_virk_stub_explains_agreement(self):
+    @override_settings(CVR_PROVIDER="virk", CVR_VIRK_USER="", CVR_VIRK_PASSWORD="")
+    def test_virk_without_credentials_explains_agreement(self):
         with self.assertRaises(AgreementRequired) as cm:
             cvr.lookup("12345678")
         self.assertIn("Erhvervsstyrelsen", str(cm.exception))
+
+    @override_settings(CVR_PROVIDER="cvrapi")
+    def test_cvrapi_quota_is_explained(self):
+        resp = mock.Mock(status_code=403)
+        resp.json.return_value = {"error": "QUOTA_EXCEEDED", "message": "Your quota has been exceeded."}
+        with mock.patch("requests.get", return_value=resp):
+            with self.assertRaises(cvr.QuotaExceeded) as cm:
+                cvr.lookup("39815206")
+        self.assertIn("kvote", str(cm.exception))
+
+    @override_settings(CVR_PROVIDER="virk,cvrapi", CVR_VIRK_USER="", CVR_VIRK_PASSWORD="")
+    def test_chain_falls_back_when_virk_has_no_agreement(self):
+        resp = mock.Mock(status_code=200)
+        resp.json.return_value = {"vat": 39815206, "name": "Rigtigt Firma ApS", "companydesc": "Anpartsselskab"}
+        with mock.patch("requests.get", return_value=resp):
+            self.assertEqual(cvr.lookup("39815206").name, "Rigtigt Firma ApS")
+
+    @override_settings(CVR_PROVIDER="virk", CVR_VIRK_USER="u", CVR_VIRK_PASSWORD="p")
+    def test_virk_parses_elasticsearch_hit(self):
+        hit = {"cvrNummer": 39815206,
+               "virksomhedMetadata": {
+                   "nyesteNavn": {"navn": "Eksempel ApS"},
+                   "nyesteBeliggenhedsadresse": {"vejnavn": "Strandvejen", "husnummerFra": 12, "bogstavFra": "B",
+                                                 "etage": "2", "sidedoer": "tv", "postnummer": 2900,
+                                                 "postdistrikt": "Hellerup"},
+                   "nyesteHovedbranche": {"branchekode": "692000", "branchetekst": "Bogføring og revision"},
+                   "nyesteVirksomhedsform": {"kortBeskrivelse": "APS", "langBeskrivelse": "Anpartsselskab"},
+                   "stiftelsesDato": "2018-08-01", "sammensatStatus": "Normal"},
+               "attributter": [
+                   {"type": "REGNSKABSÅR_START", "vaerdier": [{"vaerdi": "--07-01", "periode": {"gyldigTil": None}}]},
+                   {"type": "REGNSKABSÅR_SLUT", "vaerdier": [{"vaerdi": "--06-30", "periode": {"gyldigTil": None}}]}],
+               "elektroniskPost": [{"kontaktoplysning": "info@eksempel.dk"}]}
+        resp = mock.Mock(status_code=200)
+        resp.json.return_value = {"hits": {"hits": [{"_source": {"Vrvirksomhed": hit}}]}}
+        with mock.patch("requests.post", return_value=resp) as post:
+            c = cvr.lookup("39815206")
+        self.assertEqual(post.call_args.kwargs["auth"], ("u", "p"))
+        self.assertEqual((c.name, c.address, c.zip_code, c.city),
+                         ("Eksempel ApS", "Strandvejen 12B, 2, tv", "2900", "Hellerup"))
+        self.assertEqual((c.legal_form, c.industry_code, c.fiscal_year_start_month), ("aps", "692000", 7))
+        self.assertEqual(c.founded, date(2018, 8, 1))
+        self.assertEqual(c.email, "info@eksempel.dk")
 
     @override_settings(CVR_PROVIDER="cvrapi")
     def test_cvrapi_parses_and_sends_generic_user_agent(self):
@@ -70,6 +116,7 @@ class CvrTests(SimpleTestCase):
         self.assertEqual(ua, "bogforingssystem-integration/1.0")
 
 
+@override_settings(CVR_PROVIDER="mock")
 class CvrEndpointTests(TestCase):
     @override_settings(FIRM_MFA_REQUIRED=False)  # MFA testes i tenancy; her kun rollen
     def test_firm_staff_only(self):

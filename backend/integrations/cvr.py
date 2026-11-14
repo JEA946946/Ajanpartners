@@ -3,13 +3,14 @@
 Adaptere (vælges med ``CVR_PROVIDER``):
   mock    – deterministiske testdata (default)
   cvrapi  – cvrapi.dk (gratis med begrænset antal opslag; token via ``CVRAPI_TOKEN``)
-  virk    – Erhvervsstyrelsens System-til-system-adgang (stub, kræver aftale)
+  virk    – Erhvervsstyrelsens CVR System-til-system (gratis; kræver brugernavn/adgangskode)
+
+Flere kan angives i rækkefølge: ``CVR_PROVIDER=virk,cvrapi``.
 
 Resultatet er altid et ``CvrCompany`` med de felter, admin-portalen bruger, når
 en kunde oprettes.
 """
 
-import hashlib
 import re
 from dataclasses import asdict, dataclass, field
 from datetime import date, datetime
@@ -42,7 +43,7 @@ class CvrCompany:
     city: str = ""
     legal_form_text: str = ""          # fx "Anpartsselskab"
     legal_form: str = "andet"          # kode i ClientCompany.LEGAL_FORMS
-    industry_code: str = ""            # DB07, 6 cifre
+    industry_code: str = ""            # DB25 (fra 2025), 6 cifre
     industry_text: str = ""
     founded: date | None = None
     fiscal_year_start: str = ""        # "MM-DD", tom hvis ukendt
@@ -79,6 +80,10 @@ def legal_form_code(text):
     return LEGAL_FORM_MAP.get((text or "").strip().lower(), "andet")
 
 
+class QuotaExceeded(IntegrationError):
+    """Udbyderen afviser flere opslag lige nu (prøv næste udbyder i kæden)."""
+
+
 class CVRClient:
     """Interface."""
 
@@ -104,25 +109,14 @@ class MockCVRClient(CVRClient):
             industry_text="Engroshandel med it-udstyr", founded=date(1998, 7, 1),
             fiscal_year_start="07-01", fiscal_year_end="06-30", status="NORMAL", source="mock"),
     }
-    FORMS = ["Anpartsselskab", "Aktieselskab", "Enkeltmandsvirksomhed", "Interessentskab"]
-    CITIES = [("1050", "København K"), ("5000", "Odense C"), ("8000", "Aarhus C"), ("9000", "Aalborg")]
-
     def lookup(self, cvr):
         cvr = normalize_cvr(cvr)
         if cvr in self.KNOWN:
             return self.KNOWN[cvr]
-        if cvr == "00000000":
-            raise IntegrationError("CVR-nummeret findes ikke.")
-        h = int(hashlib.sha256(cvr.encode()).hexdigest(), 16)
-        form = self.FORMS[h % len(self.FORMS)]
-        zip_code, city = self.CITIES[(h // 7) % len(self.CITIES)]
-        suffix = {"Anpartsselskab": " ApS", "Aktieselskab": " A/S"}.get(form, "")
-        return CvrCompany(
-            cvr=cvr, name=f"Virksomhed {cvr}{suffix}", address=f"Mockvej {h % 200 + 1}",
-            zip_code=zip_code, city=city, legal_form_text=form, legal_form=legal_form_code(form),
-            industry_code="620100", industry_text="Computerprogrammering",
-            founded=date(2000 + h % 25, h % 12 + 1, 1), fiscal_year_start="01-01", fiscal_year_end="12-31",
-            status="NORMAL", source="mock")
+        # Opfind aldrig en virksomhed: et forkert firma, der ser rigtigt ud, er værre end ingen.
+        raise IntegrationError(
+            "CVR-opslag kører i testtilstand og kender kun testnumrene 12345678 og 87654321. "
+            "Udfyld oplysningerne manuelt, eller slå rigtigt opslag til (CVR_PROVIDER=virk eller cvrapi).")
 
 
 class CvrApiClient(CVRClient):
@@ -147,8 +141,15 @@ class CvrApiClient(CVRClient):
             raise IntegrationError(f"CVR-opslag fejlede: {e}") from e
         if resp.status_code == 404:
             raise IntegrationError("CVR-nummeret findes ikke.")
-        if resp.status_code == 429:
-            raise IntegrationError("For mange CVR-opslag. Prøv igen senere.")
+        try:
+            error = (resp.json() or {}).get("error", "")
+        except ValueError:
+            error = ""
+        if resp.status_code == 429 or error == "QUOTA_EXCEEDED":
+            raise QuotaExceeded("cvrapi.dk: den gratis kvote er brugt op for denne internetforbindelse. "
+                                "Prøv igen i morgen, brug en CVRAPI_TOKEN, eller slå CVR_PROVIDER=virk til.")
+        if error == "NOT_FOUND":
+            raise IntegrationError("CVR-nummeret findes ikke.")
         if resp.status_code >= 400:
             raise IntegrationError(f"CVR-opslag fejlede (HTTP {resp.status_code}).")
         return self.parse(resp.json())
@@ -181,18 +182,86 @@ def _parse_cvrapi_date(value):
 
 
 class VirkSystemToSystemClient(CVRClient):
-    """Erhvervsstyrelsens CVR System-til-system (Elasticsearch på distribution.virk.dk)."""
+    """Erhvervsstyrelsens CVR System-til-system (Elasticsearch på distribution.virk.dk).
+
+    Adgangen er gratis, men kræver brugernavn og adgangskode fra Erhvervsstyrelsen
+    (ansøg via virk.dk: "Adgang til CVR-data – System-til-system"). Sættes i
+    CVR_VIRK_USER og CVR_VIRK_PASSWORD.
+    """
 
     name = "virk"
+    URL = "http://distribution.virk.dk/cvr-permanent/virksomhed/_search"
+    TIMEOUT = 15
 
     def lookup(self, cvr):
-        raise AgreementRequired(
-            "CVR System-til-system",
-            "en aftale med Erhvervsstyrelsen om adgang til CVR-data (System-til-system). Når "
-            "brugernavn og adgangskode er udstedt, sættes CVR_VIRK_USER/CVR_VIRK_PASSWORD, og "
-            "klienten implementeres mod http://distribution.virk.dk/cvr-permanent/virksomhed/_search "
-            "(felterne Vrvirksomhed.virksomhedMetadata.nyesteNavn, nyesteBeliggenhedsadresse, "
-            "nyesteHovedbranche, nyesteVirksomhedsform, stiftelsesDato og regnskabsår).")
+        import requests
+
+        cvr = normalize_cvr(cvr)
+        user, password = setting("CVR_VIRK_USER"), setting("CVR_VIRK_PASSWORD")
+        if not user or not password:
+            raise AgreementRequired(
+                "CVR System-til-system",
+                "brugernavn og adgangskode fra Erhvervsstyrelsen (gratis; ansøg på virk.dk under "
+                "'Adgang til CVR-data – System-til-system'). Sæt CVR_VIRK_USER og CVR_VIRK_PASSWORD.")
+        body = {"_source": ["Vrvirksomhed"], "size": 1,
+                "query": {"term": {"Vrvirksomhed.cvrNummer": int(cvr)}}}
+        try:
+            resp = requests.post(self.URL, json=body, auth=(user, password), timeout=self.TIMEOUT,
+                                 headers={"User-Agent": user_agent()})
+        except requests.RequestException as e:
+            raise IntegrationError(f"CVR-opslag fejlede: {e}") from e
+        if resp.status_code in (401, 403):
+            raise IntegrationError("Erhvervsstyrelsen afviste CVR-brugernavn eller adgangskode.")
+        if resp.status_code == 429:
+            raise QuotaExceeded("Erhvervsstyrelsen: for mange CVR-opslag lige nu. Prøv igen om lidt.")
+        if resp.status_code >= 400:
+            raise IntegrationError(f"CVR-opslag fejlede (HTTP {resp.status_code}).")
+        hits = (resp.json().get("hits") or {}).get("hits") or []
+        if not hits:
+            raise IntegrationError("CVR-nummeret findes ikke.")
+        return self.parse(hits[0]["_source"]["Vrvirksomhed"])
+
+    @staticmethod
+    def parse(v):
+        meta = v.get("virksomhedMetadata") or {}
+        adr = meta.get("nyesteBeliggenhedsadresse") or {}
+        street = " ".join(str(x) for x in (adr.get("vejnavn"), adr.get("husnummerFra")) if x)
+        if adr.get("bogstavFra"):
+            street += str(adr["bogstavFra"])
+        if adr.get("husnummerTil"):
+            street += f"-{adr['husnummerTil']}"
+        floor = ", ".join(str(x) for x in (adr.get("etage"), adr.get("sidedoer")) if x)
+        if floor:
+            street += f", {floor}"
+        if adr.get("conavn"):
+            street = f"c/o {adr['conavn']}, {street}"
+        branche = meta.get("nyesteHovedbranche") or {}
+        form = meta.get("nyesteVirksomhedsform") or {}
+        form_text = form.get("langBeskrivelse") or form.get("kortBeskrivelse") or ""
+
+        def attr(name):
+            for a in v.get("attributter") or []:
+                if a.get("type") == name:
+                    vals = [x for x in a.get("vaerdier") or [] if not (x.get("periode") or {}).get("gyldigTil")]
+                    if vals:
+                        return vals[-1].get("vaerdi") or ""
+            return ""
+
+        start = attr("REGNSKABSÅR_START").lstrip("-")  # "--01-01" → "01-01"
+        end = attr("REGNSKABSÅR_SLUT").lstrip("-")
+        emails = v.get("elektroniskPost") or []
+        phones = v.get("telefonNummer") or []
+        founded = meta.get("stiftelsesDato")
+        return CvrCompany(
+            cvr=str(v.get("cvrNummer") or ""), name=(meta.get("nyesteNavn") or {}).get("navn") or "",
+            address=street, zip_code=str(adr.get("postnummer") or ""), city=adr.get("postdistrikt") or "",
+            legal_form_text=form_text, legal_form=legal_form_code(form_text),
+            industry_code=str(branche.get("branchekode") or ""), industry_text=branche.get("branchetekst") or "",
+            founded=date.fromisoformat(founded) if founded else None,
+            fiscal_year_start=start, fiscal_year_end=end,
+            email=(emails[-1].get("kontaktoplysning") if emails else "") or "",
+            phone=(phones[-1].get("kontaktoplysning") if phones else "") or "",
+            status=meta.get("sammensatStatus") or "", source="virk")
 
 
 CLIENTS = {"mock": MockCVRClient, "cvrapi": CvrApiClient, "virk": VirkSystemToSystemClient}
@@ -203,4 +272,17 @@ def get_client():
 
 
 def lookup(cvr):
-    return get_client().lookup(cvr)
+    """Slå op hos udbyderen i CVR_PROVIDER. En kommasepareret liste (fx "virk,cvrapi") prøves
+    i rækkefølge: næste udbyder bruges, når en mangler aftale eller har brugt sin kvote."""
+    names = [n.strip() for n in str(setting("CVR_PROVIDER", "mock") or "mock").split(",") if n.strip()]
+    last = None
+    for i, name in enumerate(names):
+        if name not in CLIENTS:
+            raise IntegrationError(f"Ukendt CVR-udbyder: {name}")
+        try:
+            return CLIENTS[name]().lookup(cvr)
+        except (QuotaExceeded, AgreementRequired) as e:
+            last = e
+            if i == len(names) - 1:
+                raise
+    raise last

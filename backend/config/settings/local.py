@@ -21,3 +21,7 @@ CORS_ALLOW_HEADERS = (*default_headers, "x-client")
 
 # Parallelle udviklere/agenter: hver sin testdatabase (TEST_DB_NAME) og dev-database (DB_NAME).
 DATABASES["default"]["TEST"] = {"NAME": os.environ.get("TEST_DB_NAME", "test_ajanpartners")}  # noqa: F405
+
+# CVR: rigtige opslag lokalt – Erhvervsstyrelsen først (kræver CVR_VIRK_USER/PASSWORD), ellers cvrapi.dk.
+# Testtilstand (kun testnumre) fås med CVR_PROVIDER=mock.
+CVR_PROVIDER = os.environ.get("CVR_PROVIDER", "virk,cvrapi")

@@ -83,16 +83,18 @@ const CreateClient: React.FC = () => {
     setLookup({ loading: true, message: '', severity: 'info' });
     try {
       const r = await firmApi.get(`/cvr/${form.cvr}`);
-      const found = fromCvr(r.data?.data ?? r.data);
+      const data = r.data?.data ?? r.data;
+      const found = fromCvr(data);
       setForm((f) => ({ ...f, ...found }));
-      setLookup({ loading: false, message: 'Oplysningerne er hentet fra CVR. Tjek dem, før du går videre.', severity: 'success' });
+      const source = data?.source === 'virk' ? 'Erhvervsstyrelsens CVR-register'
+        : data?.source === 'cvrapi' ? 'cvrapi.dk' : 'testdata (ikke et rigtigt opslag)';
+      setLookup({
+        loading: false, severity: data?.source === 'mock' ? 'warning' : 'success',
+        message: `Oplysningerne er hentet fra ${source}. Tjek dem, før du går videre.`,
+      });
     } catch (e: any) {
-      const code = e?.response?.status;
-      const message = code === 404
-        ? 'CVR-nummeret blev ikke fundet. Udfyld felterne manuelt.'
-        : code === 501 || code === 503
-          ? 'CVR-opslag er ikke sat op endnu. Udfyld felterne manuelt.'
-          : `CVR-opslaget mislykkedes (${errorText(e, 'ukendt fejl')}). Udfyld felterne manuelt.`;
+      // Backend forklarer selv, hvad der er galt (ukendt nummer, kvote brugt op, mangler aftale …).
+      const message = `${errorText(e, 'CVR-opslaget mislykkedes')} Felterne kan udfyldes manuelt.`;
       setLookup({ loading: false, message, severity: 'warning' });
     }
   };
