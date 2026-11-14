@@ -40,6 +40,7 @@ class RoleWriteAccess(BasePermission):
             return False
         access = get_access(request)
         if access is None:
+            self.message = "Du har ikke adgang til denne virksomhed."
             return False
         if request.method in SAFE_METHODS:
             return True

@@ -45,10 +45,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           // Fetch profile
           api.get('/auth/profile').then((res: any) => {
             if (res.data.success) setUser(res.data.data.user);
-          }).catch(() => {
-            localStorage.removeItem('bk_token');
-            localStorage.removeItem('bk_refreshToken');
-            setToken(null);
+          }).catch((err: any) => {
+            // Kun en afvist token (401) logger ud. Andre fejl (netværk, 403, 500) gør ikke:
+            // brugeren bliver logget ind, og siden prøver igen.
+            if (err?.response?.status === 401) {
+              localStorage.removeItem('bk_token');
+              localStorage.removeItem('bk_refreshToken');
+              setToken(null);
+            } else {
+              try {
+                const p = JSON.parse(atob(storedToken.split('.')[1]));
+                setUser({ id: String(p.userId ?? ''), username: '', email: '', first_name: '', last_name: '' });
+              } catch { /* ignore */ }
+            }
           }).finally(() => setLoading(false));
           return;
         } else {

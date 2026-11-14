@@ -97,6 +97,13 @@ class SecurityTests(TransactionTestCase):
         r = self.call("post", "/api/v1/me/mfa/disable", self.partner, data={"password": PW, "code": "123456"})
         self.assertEqual(r.status_code, 403)
 
+    # ── Genindlæsning ──
+    def test_profile_and_me_work_without_client(self):
+        """Ved genindlæsning kalder frontend /auth/profile og /me uden X-Client; de må ikke afvise."""
+        self.assertEqual(self.call("get", "/api/v1/auth/profile", self.owner).status_code, 200)
+        self.assertEqual(self.call("get", "/api/v1/me", self.owner).status_code, 200)
+        self.assertEqual(self.call("get", "/api/v1/auth/profile", self.partner).status_code, 200)
+
     # ── Adgangskoder ──
     def test_password_validators(self):
         r = self.call("post", "/api/v1/me/password", self.owner,

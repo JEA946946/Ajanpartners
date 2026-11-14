@@ -13,7 +13,7 @@ from rest_framework.decorators import (
     api_view, parser_classes, permission_classes, throttle_classes,
 )
 from rest_framework.parsers import MultiPartParser
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.throttling import AnonRateThrottle
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -207,7 +207,7 @@ def refresh_token(request):
 
 
 @api_view(["GET"])
-@permission_classes([RoleWriteAccess])
+@permission_classes([IsAuthenticated])  # public: kræver ingen valgt kunde (bruges ved genindlæsning)
 def profile(request):
     return Response({
         "success": True,
