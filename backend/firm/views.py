@@ -1,0 +1,396 @@
+"""Admin-portalen for Ajan Partners (public-skemaet, /api/firm/).
+
+Kundelisten viser stamdata for alle kunder, medarbejderen må se (partner og
+revisor: alle; bogholder og assistent: tildelte). Tal fra kundens bøger
+(status-endpointet) kræver en aktiv adgang fra kunden – stamdata gør ikke.
+"""
+
+from django.contrib.auth import get_user_model
+from django.db import transaction
+from django.db.models import Count, Q
+from django_tenants.utils import schema_context
+from rest_framework import status
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.response import Response
+
+from core.permissions import IsFirmPartner, IsFirmStaff
+from tenancy.access import active_grant, staff_of
+from tenancy.features import FEATURES
+from tenancy.models import (
+    AccessGrant, ClientCompany, ClientMembership, Firm, FirmAuditLog, FirmStaff, Package, StaffAssignment,
+)
+from tenancy.services import archive_client, create_client, invite_user
+from tenancy.views import firm_dict, grant_dict, package_dict
+
+User = get_user_model()
+
+CLIENT_FIELDS = ("name", "cvr", "legal_form", "address", "zip_code", "city", "industry_code", "email",
+                 "phone", "vat_period", "fiscal_year_start_month", "accounting_class")
+
+
+def _ok(data=None, code=200, message=None):
+    body = {"success": True, "data": data or {}}
+    if message:
+        body["message"] = message
+    return Response(body, status=code)
+
+
+def _err(message, code=400):
+    return Response({"success": False, "message": message}, status=code)
+
+
+def _log(request, action, client=None, **detail):
+    FirmAuditLog.objects.create(user=request.user, client=client, action=action, detail=detail,
+                                ip_address=request.META.get("REMOTE_ADDR"))
+
+
+def _clients_for(staff):
+    qs = ClientCompany.objects.exclude(schema_name="public").select_related("package", "responsible")
+    if not staff.sees_all_clients:
+        qs = qs.filter(assignments__staff=staff)
+    return qs
+
+
+def _client_or_404(request, slug):
+    staff = staff_of(request.user)
+    return _clients_for(staff).filter(slug=slug).first(), staff
+
+
+def _user_name(u):
+    return (u.get_full_name() or u.username) if u else None
+
+
+def client_dict(client, staff=None):
+    grant = active_grant(client, staff) if staff else None
+    pending = client.grants.filter(accepted_at__isnull=True, revoked_at__isnull=True).exists()
+    return {
+        "id": client.id, "slug": client.slug, "name": client.name, "cvr": client.cvr,
+        "legal_form": client.legal_form, "address": client.address, "zip_code": client.zip_code,
+        "city": client.city, "industry_code": client.industry_code, "email": client.email,
+        "phone": client.phone, "vat_period": client.vat_period,
+        "fiscal_year_start_month": client.fiscal_year_start_month, "accounting_class": client.accounting_class,
+        "package": client.package.code, "package_name": client.package.name,
+        "extra_features": client.extra_features, "status": client.status,
+        "responsible_id": client.responsible_id, "responsible_name": _user_name(client.responsible),
+        "access": grant.scope if grant else ("pending" if pending else None),
+        "retain_until": client.retain_until.isoformat() if client.retain_until else None,
+        "created_at": client.created_at.isoformat(),
+        "assigned_staff": list(client.assignments.values_list("staff_id", flat=True)),
+    }
+
+
+# ─── Kunder ───────────────────────────────────────────────────────────────────
+
+@api_view(["GET", "POST"])
+@permission_classes([IsFirmStaff])
+def clients(request):
+    staff = staff_of(request.user)
+    if request.method == "GET":
+        qs = _clients_for(staff)
+        q = request.query_params.get("q", "").strip()
+        if q:
+            qs = qs.filter(Q(name__icontains=q) | Q(cvr__icontains=q) | Q(slug__icontains=q))
+        for key in ("status", "package__code", "vat_period"):
+            value = request.query_params.get(key.replace("__code", ""))
+            if value:
+                qs = qs.filter(**{key: value})
+        if request.query_params.get("mine") == "1":
+            qs = qs.filter(Q(responsible=request.user) | Q(assignments__staff=staff)).distinct()
+        return _ok({"clients": [client_dict(c, staff) for c in qs]})
+
+    if staff.role == "assistent":
+        return _err("Assistenter kan ikke oprette kunder.", 403)
+    data = request.data
+    if not (data.get("name") or "").strip():
+        return _err("Navn skal udfyldes")
+    cvr = (data.get("cvr") or "").strip()
+    if cvr and (len(cvr) != 8 or not cvr.isdigit()):
+        return _err("CVR-nummeret skal være 8 cifre")
+    if cvr and ClientCompany.objects.filter(cvr=cvr).exists():
+        return _err("Der findes allerede en kunde med dette CVR-nummer")
+    package_code = data.get("package", "standard")
+    if not Package.objects.filter(code=package_code).exists():
+        return _err("Ukendt pakke")
+    fields = {f: data[f] for f in CLIENT_FIELDS if f in data and f != "name"}
+    fields["chart_template"] = data.get("chart_template", "standard")
+    responsible = User.objects.filter(id=data.get("responsible_id")).first() if data.get("responsible_id") else None
+    fields["responsible"] = responsible or request.user
+    client, owner = create_client(name=data["name"].strip(), package_code=package_code, created_by=request.user,
+                                  grant_scope=data.get("grant_scope", "bookkeeping"),
+                                  owner_email=data.get("owner_email", ""), owner_name=data.get("owner_name", ""),
+                                  **fields)
+    if not staff.sees_all_clients:
+        StaffAssignment.objects.get_or_create(staff=staff, client=client)
+    _log(request, "client_created", client, package=package_code)
+    result = {"client": client_dict(client, staff)}
+    if owner:
+        user, temp_password = owner
+        result["owner"] = {"username": user.username, "temporary_password": temp_password}
+    return _ok(result, 201, "Kunden er oprettet. Kunden skal godkende adgangen ved første login.")
+
+
+@api_view(["GET", "PUT"])
+@permission_classes([IsFirmStaff])
+def client_detail(request, slug):
+    client, staff = _client_or_404(request, slug)
+    if client is None:
+        return _err("Kunden findes ikke", 404)
+    if request.method == "GET":
+        members = ClientMembership.objects.filter(client=client).select_related("user")
+        return _ok({
+            "client": client_dict(client, staff),
+            "grants": [grant_dict(g) for g in client.grants.select_related("client", "requested_by")],
+            "members": [{"id": str(m.id), "user_id": m.user_id, "username": m.user.username,
+                         "name": _user_name(m.user), "email": m.user.email, "role": m.role,
+                         "is_active": m.is_active} for m in members],
+        })
+    if staff.role in ("assistent",):
+        return _err("Din rolle kan ikke ændre kunder.", 403)
+    data = request.data
+    changes = {}
+    for f in CLIENT_FIELDS:
+        if f in data and getattr(client, f) != data[f]:
+            changes[f] = [getattr(client, f), data[f]]
+            setattr(client, f, data[f])
+    if "package" in data and data["package"] != client.package.code:
+        package = Package.objects.filter(code=data["package"]).first()
+        if package is None:
+            return _err("Ukendt pakke")
+        changes["package"] = [client.package.code, package.code]
+        client.package = package
+    if "extra_features" in data:
+        extra = [f for f in data["extra_features"] if f in FEATURES]
+        changes["extra_features"] = [client.extra_features, extra]
+        client.extra_features = extra
+    if "responsible_id" in data:
+        client.responsible = User.objects.filter(id=data["responsible_id"]).first()
+        changes["responsible_id"] = data["responsible_id"]
+    if "assigned_staff" in data and staff.sees_all_clients:
+        ids = set(int(i) for i in data["assigned_staff"])
+        StaffAssignment.objects.filter(client=client).exclude(staff_id__in=ids).delete()
+        for sid in ids:
+            StaffAssignment.objects.get_or_create(client=client, staff_id=sid)
+        changes["assigned_staff"] = sorted(ids)
+    client.save()
+    _log(request, "client_updated", client, changes=changes)
+    return _ok({"client": client_dict(client, staff)})
+
+
+@api_view(["POST"])
+@permission_classes([IsFirmPartner])
+def client_archive(request, slug):
+    client, staff = _client_or_404(request, slug)
+    if client is None:
+        return _err("Kunden findes ikke", 404)
+    archive_client(client)
+    _log(request, "client_archived", client)
+    return _ok({"client": client_dict(client, staff)},
+               message="Kunden er arkiveret. Bøgerne gemmes read-only i mindst 5 år.")
+
+
+@api_view(["POST"])
+@permission_classes([IsFirmStaff])
+def client_request_access(request, slug):
+    client, staff = _client_or_404(request, slug)
+    if client is None:
+        return _err("Kunden findes ikke", 404)
+    scope = request.data.get("scope", "bookkeeping")
+    if scope not in dict(AccessGrant.SCOPES):
+        return _err("Ugyldigt omfang")
+    grant = AccessGrant.objects.create(client=client, firm=client.firm, scope=scope, requested_by=request.user,
+                                       request_note=request.data.get("note", ""),
+                                       valid_until=request.data.get("valid_until") or None)
+    _log(request, "access_requested", client, scope=scope)
+    return _ok({"grant": grant_dict(grant)}, 201, "Anmodningen er sendt til kunden.")
+
+
+@api_view(["POST"])
+@permission_classes([IsFirmStaff])
+def client_invite(request, slug):
+    client, staff = _client_or_404(request, slug)
+    if client is None:
+        return _err("Kunden findes ikke", 404)
+    email = (request.data.get("email") or "").strip()
+    if "@" not in email:
+        return _err("Angiv en gyldig e-mail")
+    role = request.data.get("role", "admin")
+    if role not in dict(ClientMembership.ROLES):
+        return _err("Ugyldig rolle")
+    limit = client.limit("users")
+    if limit is not None and ClientMembership.objects.filter(client=client, is_active=True).count() >= limit:
+        return _err(f"Pakken {client.package.name} har plads til {limit} bruger(e).", 403)
+    user, temp_password = invite_user(client, email, request.data.get("name", ""), role)
+    _log(request, "user_invited", client, email=email, role=role)
+    return _ok({"username": user.username, "temporary_password": temp_password}, 201)
+
+
+@api_view(["GET"])
+@permission_classes([IsFirmStaff])
+def client_status(request, slug):
+    """Nøgletal fra kundens bøger – kun med kundens samtykke."""
+    client, staff = _client_or_404(request, slug)
+    if client is None:
+        return _err("Kunden findes ikke", 404)
+    if active_grant(client, staff) is None:
+        return _err("Kunden har ikke givet adgang.", 403)
+    from journals.models import JournalEntry, Period
+    from core.models import BankReconciliation, Document
+    from accounts.chart import SUSPENSE
+    from journals.models import JournalEntryLine
+    from django.db.models import Sum
+    with schema_context(client.schema_name):
+        last_entry = JournalEntry.objects.order_by("-date").values_list("date", flat=True).first()
+        last_period = Period.objects.order_by("-year", "-month").first()
+        suspense = JournalEntryLine.objects.filter(account__code=SUSPENSE, journal_entry__is_posted=True) \
+            .aggregate(d=Sum("debit"), c=Sum("credit"))
+        data = {
+            "drafts": JournalEntry.objects.filter(is_posted=False).count(),
+            "unvalidated": JournalEntry.objects.filter(is_posted=True, validated_at__isnull=True).count(),
+            "documents_unlinked": Document.objects.filter(journal_entry__isnull=True, bill__isnull=True,
+                                                          invoice__isnull=True, expense__isnull=True).count(),
+            "suspense_balance": str((suspense["d"] or 0) - (suspense["c"] or 0)),
+            "open_reconciliations": BankReconciliation.objects.exclude(status="completed").count()
+            if hasattr(BankReconciliation, "status") else None,
+            "last_entry_date": last_entry.isoformat() if last_entry else None,
+            "last_closed_period": str(last_period) if last_period else None,
+        }
+    return _ok({"status": data})
+
+
+# ─── Pakker ───────────────────────────────────────────────────────────────────
+
+@api_view(["GET", "POST"])
+@permission_classes([IsFirmStaff])
+def packages(request):
+    if request.method == "GET":
+        return _ok({"packages": [package_dict(p) for p in Package.objects.annotate(n=Count("clients"))],
+                    "features": FEATURES})
+    if not staff_of(request.user).is_partner:
+        return _err("Kun partnere kan oprette pakker.", 403)
+    data = request.data
+    if Package.objects.filter(code=data.get("code")).exists():
+        return _err("Koden findes allerede")
+    p = Package.objects.create(code=data["code"], name=data.get("name", data["code"]),
+                               description=data.get("description", ""), order=data.get("order", 0),
+                               features=[f for f in data.get("features", []) if f in FEATURES],
+                               limits=data.get("limits", {}))
+    _log(request, "package_created", code=p.code)
+    return _ok({"package": package_dict(p)}, 201)
+
+
+@api_view(["PUT"])
+@permission_classes([IsFirmPartner])
+def package_detail(request, pk):
+    p = Package.objects.filter(pk=pk).first()
+    if p is None:
+        return _err("Pakken findes ikke", 404)
+    data = request.data
+    for f in ("name", "description", "order", "limits", "is_active"):
+        if f in data:
+            setattr(p, f, data[f])
+    if "features" in data:
+        p.features = [f for f in data["features"] if f in FEATURES]
+    p.save()
+    _log(request, "package_updated", code=p.code)
+    return _ok({"package": package_dict(p)})
+
+
+# ─── Medarbejdere ─────────────────────────────────────────────────────────────
+
+def staff_dict(s):
+    return {"id": s.id, "user_id": s.user_id, "username": s.user.username, "email": s.user.email,
+            "first_name": s.user.first_name, "last_name": s.user.last_name, "role": s.role,
+            "title": s.title, "is_active": s.is_active,
+            "clients": list(s.assignments.values_list("client__slug", flat=True))}
+
+
+@api_view(["GET", "POST"])
+@permission_classes([IsFirmStaff])
+def staff_list(request):
+    firm = Firm.current()
+    if request.method == "GET":
+        return _ok({"staff": [staff_dict(s) for s in FirmStaff.objects.filter(firm=firm).select_related("user")]})
+    if not staff_of(request.user).is_partner:
+        return _err("Kun partnere kan oprette medarbejdere.", 403)
+    data = request.data
+    email = (data.get("email") or "").strip().lower()
+    if "@" not in email or not data.get("password") or len(data["password"]) < 10:
+        return _err("E-mail og en adgangskode på mindst 10 tegn skal udfyldes")
+    if data.get("role") not in dict(FirmStaff.ROLES):
+        return _err("Ugyldig rolle")
+    with transaction.atomic():
+        user = User.objects.filter(email__iexact=email).first()
+        if user is None:
+            user = User.objects.create_user(username=email, email=email, password=data["password"],
+                                            first_name=data.get("first_name", ""),
+                                            last_name=data.get("last_name", ""))
+        s, _ = FirmStaff.objects.update_or_create(user=user, defaults={
+            "firm": firm, "role": data["role"], "title": data.get("title", ""), "is_active": True})
+    _log(request, "staff_created", email=email, role=s.role)
+    return _ok({"staff": staff_dict(s)}, 201)
+
+
+@api_view(["PUT"])
+@permission_classes([IsFirmPartner])
+def staff_detail(request, pk):
+    s = FirmStaff.objects.filter(pk=pk).select_related("user").first()
+    if s is None:
+        return _err("Medarbejderen findes ikke", 404)
+    data = request.data
+    if s.user_id == request.user.id and (data.get("role", "partner") != "partner" or data.get("is_active") is False):
+        return _err("Du kan ikke fjerne din egen partnerrolle")
+    for f in ("role", "title", "is_active"):
+        if f in data:
+            setattr(s, f, data[f])
+    s.save()
+    for f in ("first_name", "last_name"):
+        if f in data:
+            setattr(s.user, f, data[f])
+    if data.get("password"):
+        if len(data["password"]) < 10:
+            return _err("Adgangskoden skal være mindst 10 tegn")
+        s.user.set_password(data["password"])
+    s.user.save()
+    if "clients" in data:
+        slugs = set(data["clients"])
+        StaffAssignment.objects.filter(staff=s).exclude(client__slug__in=slugs).delete()
+        for c in ClientCompany.objects.filter(slug__in=slugs):
+            StaffAssignment.objects.get_or_create(staff=s, client=c)
+    _log(request, "staff_updated", staff=s.user.username)
+    return _ok({"staff": staff_dict(s)})
+
+
+# ─── Firma og log ─────────────────────────────────────────────────────────────
+
+@api_view(["GET", "PUT"])
+@permission_classes([IsFirmStaff])
+def firm_settings(request):
+    firm = Firm.current()
+    if request.method == "PUT":
+        if not staff_of(request.user).is_partner:
+            return _err("Kun partnere kan ændre firmaoplysninger.", 403)
+        for f in ("name", "cvr", "address", "email", "phone", "logo", "primary_color"):
+            if f in request.data:
+                setattr(firm, f, request.data[f])
+        firm.save()
+        _log(request, "firm_updated")
+    return _ok({"firm": firm_dict(firm)})
+
+
+@api_view(["GET"])
+@permission_classes([IsFirmStaff])
+def audit_log(request):
+    staff = staff_of(request.user)
+    qs = FirmAuditLog.objects.select_related("user", "client")
+    if not staff.sees_all_clients:
+        qs = qs.filter(user=request.user)
+    if request.query_params.get("client"):
+        qs = qs.filter(client__slug=request.query_params["client"])
+    if request.query_params.get("user"):
+        qs = qs.filter(user_id=request.query_params["user"])
+    rows = qs[: int(request.query_params.get("limit", 200))]
+    return _ok({"entries": [{
+        "id": r.id, "timestamp": r.timestamp.isoformat(), "user": _user_name(r.user),
+        "client": r.client.slug if r.client else None, "client_name": r.client.name if r.client else None,
+        "action": r.action, "detail": r.detail, "ip": r.ip_address,
+    } for r in rows]})
