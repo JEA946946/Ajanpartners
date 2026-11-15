@@ -14,6 +14,7 @@ const StaffPage = React.lazy(() => import('./pages/StaffPage'));
 const Packages = React.lazy(() => import('./pages/Packages'));
 const FirmAuditLog = React.lazy(() => import('./pages/FirmAuditLog'));
 const FirmSettings = React.lazy(() => import('./pages/FirmSettings'));
+const AdminSelectClient = React.lazy(() => import('./pages/SelectClient'));
 
 const Loader = () => (
   <Box sx={{ display: 'flex', justifyContent: 'center', mt: 8 }}><CircularProgress /></Box>
@@ -36,6 +37,7 @@ const AdminApp: React.FC = () => (
           <Route path="terms" element={<Terms />} />
           <Route path="audit-log" element={<FirmAuditLog />} />
           <Route path="settings" element={<FirmSettings />} />
+          <Route path="select-client" element={<AdminSelectClient />} />
           <Route path="*" element={<Navigate to="clients" replace />} />
         </Routes>
       </Suspense>

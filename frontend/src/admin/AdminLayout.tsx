@@ -53,8 +53,8 @@ const AdminLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
           </Typography>
           <Chip size="small" label="Admin-portal" sx={{ ml: 1.5, bgcolor: 'rgba(255,255,255,0.18)', color: '#fff' }} />
           <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 1.5 }}>
-            <Tooltip title="Til kundevalg">
-              <IconButton color="inherit" size="small" onClick={() => navigate('/select-client')}>
+            <Tooltip title="Arbejd i en kunde">
+              <IconButton color="inherit" size="small" onClick={() => navigate('/admin/select-client')}>
                 <SwapIcon fontSize="small" />
               </IconButton>
             </Tooltip>
@@ -97,9 +97,13 @@ const AdminLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
         </List>
         <Divider />
         <List dense>
-          <ListItemButton sx={{ mx: 1, borderRadius: 1 }} onClick={() => navigate('/select-client')}>
-            <ListItemIcon sx={{ minWidth: 30 }}><SwapIcon fontSize="small" /></ListItemIcon>
-            <ListItemText primary="Tilbage til kundevalg" primaryTypographyProps={{ fontSize: 12.5 }} />
+          <ListItemButton onClick={() => navigate('/admin/select-client')} sx={{
+            mx: 1, borderRadius: 1,
+            ...(active('/admin/select-client') ? { bgcolor: color, color: '#fff', '&:hover': { bgcolor: color } } : {}),
+            '& .MuiListItemIcon-root': { color: active('/admin/select-client') ? '#fff' : 'text.secondary', minWidth: 30 },
+          }}>
+            <ListItemIcon><SwapIcon fontSize="small" /></ListItemIcon>
+            <ListItemText primary="Arbejd i en kunde" primaryTypographyProps={{ fontSize: 12.5 }} />
           </ListItemButton>
         </List>
       </Drawer>

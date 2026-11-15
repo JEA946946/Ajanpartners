@@ -1,54 +1,54 @@
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Navigate, useNavigate } from 'react-router-dom';
 import {
-  Box, Button, Card, CardActionArea, CardContent, Chip, Container, Stack, Typography,
+  AppBar, Avatar, Box, Container, IconButton, Toolbar, Tooltip, Typography,
 } from '@mui/material';
+import { Logout as LogoutIcon } from '@mui/icons-material';
 import { useAuth } from '../hooks/useAuth';
 import { useClient } from '../hooks/useClient';
+import ClientPicker from '../components/ClientPicker';
 
-const ROLE: Record<string, string> = { admin: 'Administrator', accountant: 'Bogholder', viewer: 'Læser' };
+const BAR = 52;
 
-/** Vælg hvilken virksomheds bøger der skal åbnes. */
+/** Vælg hvilken virksomheds bøger der skal åbnes. Medarbejdere i revisorhuset vælger inde i admin-portalen. */
 const SelectClient: React.FC = () => {
-  const { clients, selectClient, firmStaff, firm } = useClient();
-  const { logout } = useAuth();
+  const { firmStaff, firm } = useClient();
+  const { user, logout } = useAuth();
   const navigate = useNavigate();
+  if (firmStaff) return <Navigate to="/admin/select-client" replace />;
+  const color = firm?.primary_color || '#0B3D5C';
 
   return (
-    <Container maxWidth="sm" sx={{ py: 6 }}>
-      <Typography variant="h5" gutterBottom>Vælg virksomhed</Typography>
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-        {firm?.name || 'Ajan Partners'} – gratis bogføring til vores kunder.
-      </Typography>
-      <Stack spacing={1.5}>
-        {clients.map((c) => (
-          <Card key={c.slug} variant="outlined">
-            <CardActionArea onClick={() => selectClient(c.slug)}>
-              <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                <Box sx={{ flex: 1 }}>
-                  <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>{c.name}</Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    {c.cvr ? `CVR ${c.cvr} · ` : ''}{c.package_name}
-                  </Typography>
-                </Box>
-                {c.status === 'archived' && <Chip size="small" label="Arkiveret" />}
-                <Chip size="small" variant="outlined"
-                  label={c.via === 'firm' ? `Revisor · ${ROLE[c.role]}` : ROLE[c.role]} />
-              </CardContent>
-            </CardActionArea>
-          </Card>
-        ))}
-        {clients.length === 0 && (
-          <Typography color="text.secondary">
-            Du har ikke adgang til nogen virksomheder endnu.
+    <Box sx={{ minHeight: '100vh', bgcolor: 'background.default' }}>
+      <AppBar position="fixed" sx={{ bgcolor: color }}>
+        <Toolbar variant="dense" sx={{ minHeight: BAR, height: BAR }}>
+          {firm?.logo && (
+            <Box component="img" src={firm.logo} alt="" sx={{ height: 30, maxWidth: 140, objectFit: 'contain', mr: 1.5 }} />
+          )}
+          <Typography variant="h6" noWrap sx={{ fontSize: 16, fontWeight: 700 }}>
+            {firm?.name || 'Ajan Partners'}
           </Typography>
-        )}
-      </Stack>
-      <Stack direction="row" spacing={1} sx={{ mt: 4 }}>
-        {firmStaff && <Button onClick={() => navigate('/admin')}>Til admin-portalen</Button>}
-        <Button color="inherit" onClick={() => { logout(); navigate('/login'); }}>Log ud</Button>
-      </Stack>
-    </Container>
+          <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 1.5 }}>
+            <Typography sx={{ fontSize: 12 }}>{user?.first_name} {user?.last_name}</Typography>
+            <Avatar sx={{ bgcolor: 'rgba(255,255,255,0.2)', width: 28, height: 28, fontSize: 12 }}>
+              {user?.first_name?.charAt(0)}{user?.last_name?.charAt(0)}
+            </Avatar>
+            <Tooltip title="Log ud">
+              <IconButton color="inherit" size="small" onClick={() => { logout(); navigate('/login'); }}>
+                <LogoutIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          </Box>
+        </Toolbar>
+      </AppBar>
+      <Container maxWidth="sm" sx={{ pt: `${BAR + 40}px`, pb: 6 }}>
+        <Typography variant="h5" gutterBottom>Vælg virksomhed</Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+          {firm?.name || 'Ajan Partners'} – gratis bogføring til vores kunder.
+        </Typography>
+        <ClientPicker />
+      </Container>
+    </Box>
   );
 };
 
