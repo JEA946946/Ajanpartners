@@ -59,6 +59,29 @@ class CvrTests(SimpleTestCase):
             cvr.lookup("12345678")
         self.assertIn("Erhvervsstyrelsen", str(cm.exception))
 
+    @override_settings(CVR_PROVIDER="apicvr")
+    def test_apicvr_parses_live_format(self):
+        resp = mock.Mock(status_code=200)
+        resp.json.return_value = {
+            "vat": 39815206, "name": "Stork Line ApS", "address": "Smedeholm 10", "zipcode": 2730,
+            "city": "Herlev", "protected": True, "phone": None, "email": None, "startdate": "2018-08-28",
+            "enddate": None, "industrycode": 464420, "industrydesc": "Engroshandel med rengøringsmidler",
+            "companydesc": "Anpartsselskab", "bankrupt": False, "status": "NORMAL"}
+        with mock.patch("requests.get", return_value=resp) as get:
+            c = cvr.lookup("39815206")
+        self.assertEqual(get.call_args.args[0], "https://apicvr.dk/api/v1/39815206")
+        self.assertEqual((c.name, c.address, c.zip_code, c.city), ("Stork Line ApS", "Smedeholm 10", "2730", "Herlev"))
+        self.assertEqual((c.legal_form, c.industry_code, c.founded), ("aps", "464420", date(2018, 8, 28)))
+        self.assertTrue(c.as_dict()["advertising_protected"])
+
+    @override_settings(CVR_PROVIDER="apicvr,cvrapi")
+    def test_chain_falls_back_on_network_error(self):
+        import requests
+        ok = mock.Mock(status_code=200)
+        ok.json.return_value = {"vat": 39815206, "name": "Fra cvrapi ApS", "companydesc": "Anpartsselskab"}
+        with mock.patch("requests.get", side_effect=[requests.ConnectionError("nede"), ok]):
+            self.assertEqual(cvr.lookup("39815206").name, "Fra cvrapi ApS")
+
     @override_settings(CVR_PROVIDER="cvrapi")
     def test_cvrapi_quota_is_explained(self):
         resp = mock.Mock(status_code=403)

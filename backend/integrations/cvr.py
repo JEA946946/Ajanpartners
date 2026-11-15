@@ -2,10 +2,11 @@
 
 Adaptere (vælges med ``CVR_PROVIDER``):
   mock    – deterministiske testdata (default)
+  apicvr  – apicvr.dk (gratis, ingen nøgle, live fra Erhvervsstyrelsen)
   cvrapi  – cvrapi.dk (gratis med begrænset antal opslag; token via ``CVRAPI_TOKEN``)
   virk    – Erhvervsstyrelsens CVR System-til-system (gratis; kræver brugernavn/adgangskode)
 
-Flere kan angives i rækkefølge: ``CVR_PROVIDER=virk,cvrapi``.
+Flere kan angives i rækkefølge: ``CVR_PROVIDER=apicvr,virk,cvrapi``.
 
 Resultatet er altid et ``CvrCompany`` med de felter, admin-portalen bruger, når
 en kunde oprettes.
@@ -65,6 +66,8 @@ class CvrCompany:
         d = asdict(self)
         d["founded"] = self.founded.isoformat() if self.founded else None
         d["fiscal_year_start_month"] = self.fiscal_year_start_month
+        # Reklamebeskyttet i CVR (CVR-loven): må ikke bruges til markedsføring.
+        d["advertising_protected"] = bool((self.extra or {}).get("protected"))
         d.pop("extra", None)
         return d
 
@@ -181,6 +184,57 @@ def _parse_cvrapi_date(value):
     return None
 
 
+class ApiCvrClient(CVRClient):
+    """apicvr.dk – gratis, uden nøgle, live fra Erhvervsstyrelsens CVR-distribution.
+
+    "Rimelige rate limits"; ved stort forbrug skal operatøren kontaktes. Vilkår: CVR-lovens
+    reklamebeskyttelse skal respekteres (``protected``) – vi bruger kun data til at oprette
+    egne kunder og leverandører, aldrig til markedsføring. Leverer ikke regnskabsår.
+    """
+
+    name = "apicvr"
+    URL = "https://apicvr.dk/api/v1/{cvr}"
+    TIMEOUT = 10
+
+    def lookup(self, cvr):
+        import requests
+
+        cvr = normalize_cvr(cvr)
+        try:
+            resp = requests.get(self.URL.format(cvr=cvr), timeout=self.TIMEOUT,
+                                headers={"User-Agent": user_agent(), "Accept": "application/json"})
+        except requests.RequestException as e:
+            raise IntegrationError(f"CVR-opslag fejlede: {e}") from e
+        if resp.status_code == 404:
+            raise IntegrationError("CVR-nummeret findes ikke.")
+        if resp.status_code == 429:
+            raise QuotaExceeded("apicvr.dk: for mange opslag lige nu. Prøv igen om lidt.")
+        if resp.status_code >= 400:
+            raise IntegrationError(f"CVR-opslag fejlede (HTTP {resp.status_code}).")
+        data = resp.json()
+        if not data or data.get("error") or not data.get("vat"):
+            raise IntegrationError("CVR-nummeret findes ikke.")
+        return self.parse(data)
+
+    @staticmethod
+    def parse(data):
+        form = data.get("companydesc") or ""
+        address = data.get("address") or ""
+        if data.get("addressco"):
+            address = f"c/o {data['addressco']}, {address}"
+        status = "OPHØRT" if data.get("enddate") else (data.get("status") or "NORMAL")
+        if data.get("bankrupt"):
+            status = "KONKURS"
+        return CvrCompany(
+            cvr=str(data.get("vat") or ""), name=data.get("name") or "", address=address,
+            zip_code=str(data.get("zipcode") or ""), city=data.get("city") or "",
+            legal_form_text=form, legal_form=legal_form_code(form),
+            industry_code=str(data.get("industrycode") or ""), industry_text=data.get("industrydesc") or "",
+            founded=_parse_cvrapi_date(data.get("startdate")), email=data.get("email") or "",
+            phone=str(data.get("phone") or ""), status=status, source="apicvr",
+            extra={"protected": bool(data.get("protected")), "employees": data.get("employees")})
+
+
 class VirkSystemToSystemClient(CVRClient):
     """Erhvervsstyrelsens CVR System-til-system (Elasticsearch på distribution.virk.dk).
 
@@ -264,7 +318,8 @@ class VirkSystemToSystemClient(CVRClient):
             status=meta.get("sammensatStatus") or "", source="virk")
 
 
-CLIENTS = {"mock": MockCVRClient, "cvrapi": CvrApiClient, "virk": VirkSystemToSystemClient}
+CLIENTS = {"mock": MockCVRClient, "apicvr": ApiCvrClient, "cvrapi": CvrApiClient,
+           "virk": VirkSystemToSystemClient}
 
 
 def get_client():
@@ -281,8 +336,13 @@ def lookup(cvr):
             raise IntegrationError(f"Ukendt CVR-udbyder: {name}")
         try:
             return CLIENTS[name]().lookup(cvr)
-        except (QuotaExceeded, AgreementRequired) as e:
+        except (QuotaExceeded, AgreementRequired) as e:  # prøv næste udbyder
             last = e
             if i == len(names) - 1:
                 raise
+        except IntegrationError as e:
+            # "Findes ikke" er et svar; netværks- og serverfejl er ikke – så prøv næste udbyder.
+            if "fejlede" not in str(e) or i == len(names) - 1:
+                raise
+            last = e
     raise last

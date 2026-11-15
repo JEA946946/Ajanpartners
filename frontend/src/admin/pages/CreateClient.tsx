@@ -87,10 +87,15 @@ const CreateClient: React.FC = () => {
       const found = fromCvr(data);
       setForm((f) => ({ ...f, ...found }));
       const source = data?.source === 'virk' ? 'Erhvervsstyrelsens CVR-register'
-        : data?.source === 'cvrapi' ? 'cvrapi.dk' : 'testdata (ikke et rigtigt opslag)';
+        : data?.source === 'apicvr' ? 'CVR-registret (via apicvr.dk)'
+          : data?.source === 'cvrapi' ? 'cvrapi.dk' : 'testdata (ikke et rigtigt opslag)';
+      const extra = [
+        data?.status && data.status !== 'NORMAL' ? `Status i CVR: ${data.status}.` : '',
+        data?.source === 'apicvr' || data?.source === 'cvrapi' ? 'Regnskabsåret oplyses ikke – tjek det.' : '',
+      ].filter(Boolean).join(' ');
       setLookup({
         loading: false, severity: data?.source === 'mock' ? 'warning' : 'success',
-        message: `Oplysningerne er hentet fra ${source}. Tjek dem, før du går videre.`,
+        message: `Oplysningerne er hentet fra ${source}. Tjek dem, før du går videre.${extra ? ' ' + extra : ''}`,
       });
     } catch (e: any) {
       // Backend forklarer selv, hvad der er galt (ukendt nummer, kvote brugt op, mangler aftale …).
