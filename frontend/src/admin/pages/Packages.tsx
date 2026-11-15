@@ -36,7 +36,7 @@ const Packages: React.FC = () => {
       </Typography>
       {!isPartner && <Alert severity="info" sx={{ mb: 2 }}>Kun partnere kan ændre pakkerne.</Alert>}
       <Grid container spacing={2}>
-        {packages.map((p) => (
+        {[...packages].reverse().map((p) => (
           <Grid item xs={12} md={4} key={p.id}>
             <Card sx={{ height: '100%', opacity: p.is_active ? 1 : 0.6 }}>
               <CardContent>
