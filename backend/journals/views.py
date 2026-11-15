@@ -907,7 +907,7 @@ def bank_statement_auto_map(request):
     )
 
     # Build name lookup: normalized name → account dict
-    # "hotel perle du sud" → {id, code, name}
+    # "tdc net a/s" → {id, code, name}
     name_index = {}  # normalized_name → account
     word_index = {}  # word → list of (account, total_words_in_name)
     for a in all_accounts:

@@ -89,9 +89,14 @@ export const ClientProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [current, setCurrent] = useState<ClientDetail | null>(null);
   const [slug, setSlug] = useState<string>(getClientSlug());
 
+  // Hvilken login-tilstand data er hentet for. Uden den når siderne at se "logget ind,
+  // men ingen kunde" i ét render, før /me er hentet – og sender brugeren tilbage til kundevalget.
+  const [loadedFor, setLoadedFor] = useState<boolean | null>(null);
+
   const load = useCallback(async () => {
     if (!isAuthenticated) {
       setLoading(false);
+      setLoadedFor(false);
       return;
     }
     setLoading(true);
@@ -119,6 +124,7 @@ export const ClientProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       setCurrent(null);
     } finally {
       setLoading(false);
+      setLoadedFor(true);
     }
   }, [isAuthenticated]);
 
@@ -142,7 +148,7 @@ export const ClientProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   return (
     <ClientContext.Provider value={{
-      loading, firm, firmStaff, mfa, clients, pendingGrants, current, slug,
+      loading: loading || loadedFor !== isAuthenticated, firm, firmStaff, mfa, clients, pendingGrants, current, slug,
       selectClient, clearClient, refresh: load, hasFeature,
       canWrite: !!current?.access.can_write,
     }}>

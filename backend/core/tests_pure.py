@@ -75,8 +75,8 @@ class BankDescNormalizeTests(SimpleTestCase):
         self.assertEqual(self._norm("  Virement \t EMIS \n de   X  "), "virement emis de x")
 
     def test_equal_after_normalization(self):
-        self.assertEqual(self._norm("PAIEMENT  PRLV\tMAROC TELECOM"),
-                         self._norm("paiement prlv maroc telecom"))
+        self.assertEqual(self._norm("BETALING  PBS\tTDC NET"),
+                         self._norm("betaling pbs tdc net"))
 
     def test_empty_and_none(self):
         self.assertEqual(self._norm(""), "")
@@ -153,14 +153,14 @@ class LoginLookupTests(SimpleTestCase):
         self.assertEqual(self._lookup("Chaimae", by_username="u1", by_email=["u2"]), "u1")
 
     def test_unique_email_matches(self):
-        self.assertEqual(self._lookup(" accounting@vmmorocco.com ", by_email=["u2"]), "u2")
+        self.assertEqual(self._lookup(" accounting@eksempel.dk ", by_email=["u2"]), "u2")
 
     def test_shared_email_does_not_match(self):
-        self.assertIsNone(self._lookup("team@vmmorocco.com", by_email=["u2", "u3"]))
+        self.assertIsNone(self._lookup("team@eksempel.dk", by_email=["u2", "u3"]))
 
     def test_unknown_returns_none(self):
         self.assertIsNone(self._lookup("nobody"))
-        self.assertIsNone(self._lookup("nobody@vmmorocco.com"))
+        self.assertIsNone(self._lookup("nobody@eksempel.dk"))
 
 
 class DanishRulesTests(SimpleTestCase):
