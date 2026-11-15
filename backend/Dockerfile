@@ -8,7 +8,8 @@ FROM python:3.13-slim AS app
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 PIP_NO_CACHE_DIR=1
 WORKDIR /app
 
-RUN apt-get update && apt-get install -y --no-install-recommends libpq5 && \
+# tesseract: lokal OCR af scannede fakturaer (purchases/invoice_reader.py) – intet sendes ud af serveren
+RUN apt-get update && apt-get install -y --no-install-recommends libpq5 tesseract-ocr tesseract-ocr-dan && \
     rm -rf /var/lib/apt/lists/*
 
 COPY backend/requirements.txt .

@@ -11,6 +11,7 @@ urlpatterns = [
     path("suppliers/<uuid:pk>", views.suppliers_detail, name="suppliers-detail"),
     path("suppliers/<uuid:pk>/statement", views.supplier_statement, name="supplier-statement"),
     # Bill import/export — must be before <uuid:pk>
+    path("bills/read-invoice", views.bills_read_invoice, name="bills-read-invoice"),
     path("bills/import/preview", views.bills_import_preview, name="bills-import-preview"),
     path("bills/import/confirm", views.bills_import_confirm, name="bills-import-confirm"),
     path("bills/export", views.bills_export, name="bills-export"),

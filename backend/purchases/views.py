@@ -526,6 +526,11 @@ def bills_list_create(request):
         bill.total = subtotal + tax_amount
         bill.save()
 
+        # Bilag fra "Læs faktura": kobl den uploadede fil til regningen.
+        if data.get("document_id"):
+            from core.models import Document
+            Document.objects.filter(id=data["document_id"], bill=None, journal_entry=None).update(bill=bill)
+
     bill.refresh_from_db()
     return Response({
         "success": True,
@@ -2745,3 +2750,82 @@ def bank_transaction_reconciliation(request, jel_id):
         return Response({"success": True, "message": "Payment link removed"})
 
     return Response({"success": False, "message": "Transaction is not reconciled"}, status=status.HTTP_400_BAD_REQUEST)
+
+
+# ─── Læs leverandørfaktura (PDF/XML, lokalt) ──────────────────────────────────
+
+READABLE_EXTENSIONS = {".pdf", ".xml", ".png", ".jpg", ".jpeg", ".tif", ".tiff"}
+
+
+@api_view(["POST"])
+@permission_classes([RoleWriteAccess])
+@parser_classes([MultiPartParser, FormParser])
+def bills_read_invoice(request):
+    """Upload en leverandørfaktura. Filen gemmes som bilag (SHA-256), læses lokalt og
+    returneres som forslag til en regning. Forslaget gemmes ikke – brugeren tjekker det
+    og opretter regningen med POST /bills (med document_id)."""
+    import hashlib
+    import os
+
+    from core.models import Document
+    from .invoice_reader import ReadError, ocr_available, read_invoice, suggest
+
+    f = request.FILES.get("file")
+    if f is None:
+        return Response({"success": False, "message": "Vælg en fil"}, status=status.HTTP_400_BAD_REQUEST)
+    ext = os.path.splitext(f.name or "")[1].lower()
+    if ext not in READABLE_EXTENSIONS:
+        return Response({"success": False, "message": "Kun PDF, XML (OIOUBL/Peppol) og billeder kan læses."},
+                        status=status.HTTP_400_BAD_REQUEST)
+    if ext != ".xml":
+        err = validate_upload(f)
+        if err:
+            return Response({"success": False, "message": err}, status=status.HTTP_400_BAD_REQUEST)
+    elif f.size > 15 * 1024 * 1024:
+        return Response({"success": False, "message": "Filen er for stor (maks. 15 MB)"},
+                        status=status.HTTP_400_BAD_REQUEST)
+    content = f.read()
+    digest = hashlib.sha256(content).hexdigest()
+    existing = Document.objects.filter(sha256=digest).exclude(bill=None).select_related("bill").first()
+    f.seek(0)
+    doc = Document.objects.create(
+        file=f, filename=f.name, description="Leverandørfaktura (læst automatisk)", sha256=digest,
+        size=f.size or len(content),
+        uploaded_by=f"{request.user.first_name} {request.user.last_name}".strip() or request.user.username,
+    )
+    log_action(request.user, "create", "Document", doc.id, {"source": "read_invoice", "sha256": digest})
+    data = {"document_id": str(doc.id), "filename": doc.filename, "ocr_available": ocr_available()}
+    if existing:
+        data["duplicate_of"] = {"bill_id": str(existing.bill_id), "bill_number": existing.bill.bill_number}
+    try:
+        result = read_invoice(content, f.name, getattr(getattr(request, "tenant", None), "cvr", "") or "")
+    except ReadError as e:
+        data.update({"read": False, "message": str(e)})
+        return Response({"success": True, "data": data})
+    parsed = result["parsed"]
+    sug = suggest(result)
+    sup = parsed.get("supplier") or {}
+    data.update({
+        "read": True, "source": result["source"], "confidence": result["confidence"],
+        "warnings": result["warnings"], "parsed": parsed,
+        "proposal": {
+            "supplier_id": sug.get("supplier_id"),
+            "new_supplier": None if sug.get("supplier_id") else {
+                "name": sup.get("name") or "", "tax_id": sup.get("cvr") or sup.get("vat_id") or "",
+                "address": "\n".join(x for x in (sup.get("street"), " ".join(
+                    x for x in (sup.get("zip_code"), sup.get("city")) if x)) if x)},
+            "reference": parsed.get("number") or "",
+            "date": parsed.get("issue_date"), "due_date": parsed.get("due_date"),
+            "currency": parsed.get("currency") or "DKK",
+            "notes": " ".join(x for x in (
+                f"Betaling: {parsed['payment_id']}" if parsed.get("payment_id") else "",
+                f"IBAN {parsed['payment_iban']}" if parsed.get("payment_iban") else "") if x),
+            "lines": [{"description": l.get("description") or "", "quantity": l.get("quantity") or "1",
+                       "unit_price": l.get("unit_price") or "0", "account_id": l.get("account_id") or "",
+                       "tax_code_id": l.get("tax_code_id") or "", "amount": l.get("amount") or "0"}
+                      for l in sug.get("lines") or []],
+            "totals": {"net": parsed.get("tax_exclusive"), "vat": parsed.get("tax_total"),
+                       "total": parsed.get("tax_inclusive")},
+        },
+    })
+    return Response({"success": True, "data": data})

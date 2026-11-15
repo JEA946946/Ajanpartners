@@ -21,6 +21,7 @@ import { useTranslation } from 'react-i18next';
 import api from '../services/api';
 import { downloadBlob } from '../utils/csvExport';
 import BillImportDialog from '../components/BillImportDialog';
+import { ReadInvoiceButton, ReadInvoiceNotice, ReadInvoiceResult } from '../components/ReadInvoice';
 
 interface Supplier {
   id: string;
@@ -161,6 +162,7 @@ const Bills: React.FC = () => {
     exchange_rate: '1',
   });
   const [lines, setLines] = useState<BillLine[]>([{ ...EMPTY_LINE }]);
+  const [readInfo, setReadInfo] = useState<ReadInvoiceResult | null>(null);
 
   const buildFilterParams = () => {
     const params = new URLSearchParams();
@@ -342,6 +344,7 @@ const Bills: React.FC = () => {
       }
     } else {
       setEditing(null);
+      setReadInfo(null);
       const today = new Date();
       setForm({
         supplier_id: '',
@@ -357,6 +360,46 @@ const Bills: React.FC = () => {
     setDialogOpen(true);
   };
 
+  /** Udfyld en ny regning ud fra en læst leverandørfaktura (kladde; brugeren tjekker og gemmer). */
+  const applyRead = (r: ReadInvoiceResult) => {
+    const p = r.proposal;
+    const today = new Date().toISOString().split('T')[0];
+    setEditing(null);
+    setReadInfo(r);
+    const supplier = suppliers.find((s) => s.id === p?.supplier_id);
+    setForm({
+      supplier_id: p?.supplier_id || '',
+      date: p?.date || today,
+      due_date: p?.due_date || '',
+      reference: p?.reference || '',
+      notes: p?.notes || '',
+      currency: p?.currency || BASE_CURRENCY,
+      exchange_rate: '1',
+    });
+    setLines(p?.lines?.length ? p.lines.map((l) => ({
+      description: l.description, quantity: l.quantity, unit_price: l.unit_price,
+      account_id: l.account_id || supplier?.default_account_id || '',
+      tax_code_id: l.tax_code_id || supplier?.default_tax_code_id || '',
+      amount: l.amount,
+    })) : [{ ...EMPTY_LINE }]);
+    setDialogOpen(true);
+  };
+
+  const createSupplierFromRead = async () => {
+    const ns = readInfo?.proposal?.new_supplier;
+    if (!ns) return;
+    try {
+      const res = await api.post('/suppliers', { name: ns.name || 'Ny leverandør', tax_id: ns.tax_id, address: ns.address });
+      const created = res.data.data.supplier;
+      const supRes = await api.get('/suppliers');
+      if (supRes.data.success) setSuppliers(supRes.data.data.suppliers);
+      setForm((prev) => ({ ...prev, supplier_id: created.id }));
+      setReadInfo((prev) => (prev && prev.proposal ? { ...prev, proposal: { ...prev.proposal, new_supplier: null, supplier_id: created.id } } : prev));
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Leverandøren kunne ikke oprettes');
+    }
+  };
+
   const handleView = async (bill: Bill) => {
     const res = await api.get(`/bills/${bill.id}`);
     if (res.data.success) {
@@ -370,6 +413,7 @@ const Bills: React.FC = () => {
       ...form,
       exchange_rate: form.currency === BASE_CURRENCY ? '1' : form.exchange_rate,
       lines: lines.filter(l => l.description || l.account_id),
+      ...(readInfo && !editing ? { document_id: readInfo.document_id } : {}),
     };
     try {
       if (editing) {
@@ -378,6 +422,7 @@ const Bills: React.FC = () => {
         await api.post('/bills', payload);
       }
       setDialogOpen(false);
+      setReadInfo(null);
       fetchBills();
     } catch (err: any) {
       alert(err.response?.data?.message || t('bills.errorSaving'));
@@ -516,6 +561,7 @@ const Bills: React.FC = () => {
           <Button variant="outlined" startIcon={<DownloadIcon />} onClick={handleExportBills} size="small">
             {t('importExport.export')}
           </Button>
+          <ReadInvoiceButton onRead={applyRead} />
           <Button variant="outlined" startIcon={<UploadIcon />} onClick={() => setImportOpen(true)} size="small">
             {t('importExport.import')}
           </Button>
@@ -729,6 +775,11 @@ const Bills: React.FC = () => {
       <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="lg" fullWidth>
         <DialogTitle>{editing ? t('bills.editBill', { number: editing.bill_number }) : t('bills.newBill')}</DialogTitle>
         <DialogContent>
+          {readInfo && !editing && (
+            <Box sx={{ mt: 1 }}>
+              <ReadInvoiceNotice info={readInfo} onCreateSupplier={createSupplierFromRead} />
+            </Box>
+          )}
           {editing && editing.status !== 'draft' && (
             <Box sx={{ mt: 1, mb: 1, p: 1, bgcolor: '#fff3e0', borderRadius: 1, border: '1px solid #ffe0b2' }}>
               <Typography variant="body2" sx={{ color: '#e65100' }}>
