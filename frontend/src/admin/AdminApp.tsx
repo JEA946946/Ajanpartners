@@ -2,6 +2,7 @@ import React, { Suspense } from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { Box, CircularProgress } from '@mui/material';
 import { AdminProvider } from './AdminContext';
+import Terms from './pages/Terms';
 import AdminLayout from './AdminLayout';
 
 const ClientsList = React.lazy(() => import('./pages/ClientsList'));
@@ -32,6 +33,7 @@ const AdminApp: React.FC = () => (
           <Route path="tasks" element={<Tasks />} />
           <Route path="staff" element={<StaffPage />} />
           <Route path="packages" element={<Packages />} />
+          <Route path="terms" element={<Terms />} />
           <Route path="audit-log" element={<FirmAuditLog />} />
           <Route path="settings" element={<FirmSettings />} />
           <Route path="*" element={<Navigate to="clients" replace />} />

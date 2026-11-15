@@ -40,7 +40,10 @@ export interface FirmClient {
   status: 'onboarding' | 'active' | 'archived';
   responsible_id: number | null;
   responsible_name: string | null;
-  access: 'read' | 'bookkeeping' | 'full' | 'pending' | null;
+  /** Adgang for den aktuelle medarbejder; 'ended' = aftalen ophørt; null = ikke tildelt kunden. */
+  access: 'read' | 'bookkeeping' | 'full' | 'ended' | null;
+  agreement_reference?: string;
+  agreement_accepted_on?: string | null;
   retain_until: string | null;
   created_at: string;
   assigned_staff: number[];
@@ -155,7 +158,7 @@ export const STAFF_ROLES: Record<string, string> = {
 export const CLIENT_ROLES: Record<string, string> = { admin: 'Administrator', accountant: 'Bogholder', viewer: 'Læser' };
 export const SCOPES: Record<string, string> = { read: 'Læse', bookkeeping: 'Bogføre', full: 'Fuld adgang' };
 export const GRANT_STATES: Record<string, string> = {
-  pending: 'Afventer kunden', active: 'Aktiv', revoked: 'Tilbagekaldt', expired: 'Udløbet',
+  pending: 'Ikke aktiv', active: 'Aktiv', revoked: 'Afsluttet', expired: 'Udløbet',
 };
 export const CLIENT_STATUS: Record<string, string> = {
   onboarding: 'Under oprettelse', active: 'Aktiv', archived: 'Arkiveret',
@@ -181,9 +184,9 @@ export const label = (pairs: [string, string][], value: string) =>
 export const errorText = (e: any, fallback = 'Noget gik galt') =>
   e?.response?.data?.message || e?.response?.data?.detail || fallback;
 
-/** Adgangsstatus til visning: aktiv / afventer / ingen. */
-export const accessState = (access: FirmClient['access']): 'active' | 'pending' | 'none' =>
-  access === 'pending' ? 'pending' : access ? 'active' : 'none';
+/** Adgangsstatus til visning: aktiv / afsluttet / ikke tildelt. */
+export const accessState = (access: FirmClient['access']): 'active' | 'ended' | 'none' =>
+  access === 'ended' ? 'ended' : access ? 'active' : 'none';
 
 export const isoDate = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;

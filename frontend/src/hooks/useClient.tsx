@@ -15,15 +15,12 @@ export interface ClientSummary {
   via: 'member' | 'firm';
 }
 
-export interface PendingGrant {
-  id: string;
+/** Betingelser, brugeren mangler at acceptere for en virksomhed (fra /me). */
+export interface TermsRequired {
   client: string;
-  scope: 'read' | 'bookkeeping' | 'full';
-  state: string;
-  request_note: string;
-  requested_by: string | null;
-  requested_at: string | null;
-  valid_until: string | null;
+  client_name: string;
+  role: string;
+  documents: { id: number; kind: string; kind_label: string; version: string; title: string; sha256: string }[];
 }
 
 export interface Firm {
@@ -57,7 +54,7 @@ interface ClientContextType {
   firmStaff: { role: string; title: string } | null;
   mfa: { enabled: boolean; required: boolean };
   clients: ClientSummary[];
-  pendingGrants: PendingGrant[];
+  termsRequired: TermsRequired[];
   current: ClientDetail | null;
   slug: string;
   selectClient: (slug: string) => void;
@@ -85,7 +82,7 @@ export const ClientProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [firmStaff, setFirmStaff] = useState<{ role: string; title: string } | null>(null);
   const [mfa, setMfa] = useState<{ enabled: boolean; required: boolean }>({ enabled: false, required: false });
   const [clients, setClients] = useState<ClientSummary[]>([]);
-  const [pendingGrants, setPendingGrants] = useState<PendingGrant[]>([]);
+  const [termsRequired, setTermsRequired] = useState<TermsRequired[]>([]);
   const [current, setCurrent] = useState<ClientDetail | null>(null);
   const [slug, setSlug] = useState<string>(getClientSlug());
 
@@ -107,7 +104,7 @@ export const ClientProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       setFirmStaff(d.firm_staff);
       setMfa(d.mfa || { enabled: false, required: false });
       setClients(d.clients);
-      setPendingGrants(d.pending_grants || []);
+      setTermsRequired(d.terms_required || []);
       let chosen = getClientSlug();
       if (chosen && !d.clients.some((c: ClientSummary) => c.slug === chosen)) chosen = '';
       if (!chosen && d.clients.length === 1 && !d.firm_staff) chosen = d.clients[0].slug;
@@ -148,7 +145,7 @@ export const ClientProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   return (
     <ClientContext.Provider value={{
-      loading: loading || loadedFor !== isAuthenticated, firm, firmStaff, mfa, clients, pendingGrants, current, slug,
+      loading: loading || loadedFor !== isAuthenticated, firm, firmStaff, mfa, clients, termsRequired, current, slug,
       selectClient, clearClient, refresh: load, hasFeature,
       canWrite: !!current?.access.can_write,
     }}>

@@ -160,7 +160,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         { text: t('sidebar.auditLog'), icon: <HistoryIcon fontSize="small" />, path: '/audit-log' },
         { text: t('sidebar.settings'), icon: <SettingsIcon fontSize="small" />, path: '/settings' },
         { text: t('sidebar.users'), icon: <ManageAccountsIcon fontSize="small" />, path: '/users' },
-        { text: 'Revisoradgang', icon: <AccessIcon fontSize="small" />, path: '/settings/access' },
+        { text: 'Aftale og betingelser', icon: <AccessIcon fontSize="small" />, path: '/settings/access' },
         { text: 'Eksport af data', icon: <DescriptionIcon fontSize="small" />, path: '/settings/export' },
       ],
     },

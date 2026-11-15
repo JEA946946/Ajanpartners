@@ -127,6 +127,12 @@ api.interceptors.response.use(
       }
     }
 
+    // Nye betingelser skal accepteres (fx efter en ny version) → accept-siden.
+    if (error.response?.status === 403 && error.response?.data?.code === 'terms_acceptance_required'
+        && window.location.pathname !== '/onboarding') {
+      window.location.href = '/onboarding';
+    }
+
     if (error.response?.status === 401) {
       localStorage.removeItem('bk_token');
       localStorage.removeItem('bk_refreshToken');

@@ -29,7 +29,9 @@ def seed_packages():
 
 def ensure_public_tenant(domain="localhost"):
     """django-tenants kræver en tenant for public-skemaet."""
+    from .terms_drafts import seed_terms
     seed_packages()
+    seed_terms()
     firm = Firm.current()
     public = ClientCompany.objects.filter(schema_name="public").first()
     if public is None:
@@ -71,24 +73,27 @@ def seed_client_books(client):
         settings_obj.save()
 
 
-def create_client(*, name, package_code="standard", created_by=None, grant_scope="bookkeeping",
+def create_client(*, name, package_code="standard", created_by=None, grant_scope="full",
                   owner_email="", owner_name="", **fields):
-    """Opret en kunde med eget skema, kontoplan og en anmodning om revisoradgang.
+    """Opret en kunde med eget skema, kontoplan og revisorhusets adgang.
 
-    Adgangen er en anmodning, indtil kunden accepterer den i onboarding. Uden en
-    ejer (owner_email) kan ingen acceptere, så huset kan intet se endnu – det er
-    bevidst: kunden ejer sine bøger.
+    Adgangen bygger på kundeaftalen/opdragsbrevet og gælder fra oprettelsen. Kundens
+    brugere accepterer forretningsbetingelser og databehandleraftale ved første login
+    (tenancy/terms.py), før de kan bruge programmet.
     """
     firm = Firm.current()
     package = Package.objects.get(code=package_code)
     slug = fields.pop("slug", None) or unique_slug(name)
+    fields.setdefault("status", "active")
     client = ClientCompany(firm=firm, slug=slug, schema_name=schema_for(slug), name=name,
                            package=package, **fields)
     client.save()  # opretter og migrerer skemaet (auto_create_schema)
     seed_client_books(client)
     with transaction.atomic():
+        ref = f" ({client.agreement_reference})" if client.agreement_reference else ""
         AccessGrant.objects.create(client=client, firm=firm, scope=grant_scope, requested_by=created_by,
-                                   request_note="Adgang til at levere bogføring og regnskab.")
+                                   accepted_by=created_by, accepted_at=timezone.now(),
+                                   request_note=f"Iht. kundeaftale/opdragsbrev{ref}.")
         owner = None
         if owner_email:
             owner = invite_user(client, owner_email, owner_name, role="admin")
@@ -117,6 +122,21 @@ def _random_password(length=14):
     import string
     alphabet = string.ascii_letters + string.digits
     return "".join(secrets.choice(alphabet) for _ in range(length))
+
+
+def open_access(client, user, scope="full", note="Adgang genåbnet"):
+    """Ny aktiv adgang for revisorhuset (fx hvis en tidligere er afsluttet ved en fejl)."""
+    return AccessGrant.objects.create(client=client, firm=client.firm, scope=scope, requested_by=user,
+                                      accepted_by=user, accepted_at=timezone.now(), request_note=note)
+
+
+def end_access(client, user):
+    """Afslut revisorhusets adgang (aftalen er ophørt, og huset skal ikke længere se bøgerne)."""
+    n = 0
+    for grant in AccessGrant.objects.filter(client=client, revoked_at__isnull=True):
+        revoke_grant(grant, user)
+        n += 1
+    return n
 
 
 def accept_grant(grant, user):

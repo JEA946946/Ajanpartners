@@ -83,6 +83,11 @@ class ClientTenantMiddleware:
             from .mfa import has_mfa, mfa_required_for
             if mfa_required_for(user) and not has_mfa(user):
                 return _error(403, "Slå to-faktor-login til, før du åbner en kundes bøger.", "mfa_setup_required")
+        if access.via == "member" and sub.rstrip("/") != "export-all":
+            from .terms import missing_for
+            if missing_for(user, client):
+                return _error(403, "Accepter forretningsbetingelser og databehandleraftale for at fortsætte.",
+                              "terms_acceptance_required")
         if client.status == "archived" and request.method not in SAFE:
             return _error(403, "Kunden er arkiveret og kan kun læses.", "client_archived")
         feature = feature_for_path(sub, request.method)

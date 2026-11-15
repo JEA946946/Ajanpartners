@@ -13,7 +13,7 @@ Kundens administrator kan altid hente alt under **Indstillinger → Eksport af d
 ## 3. Kurator eller myndighed
 1. Henvendelsen registreres som en intern opgave på kunden i admin-portalen med dokumentation for retsgrundlaget (fx kendelse om konkurs, påbud eller anmodning med hjemmel).
 2. En partner vurderer hjemlen og omfanget. Er kunden aktiv, orienteres kunden, medmindre myndigheden har bedt om det modsatte.
-3. Er kunden arkiveret, kan partneren hente **Eksportér alt** uden kundens samtykke i systemet. Er kunden aktiv, skal der være en adgang (eller kunden henter selv). Hver eksport logges i revisorhusets log (`export_all`) og i kundens audit-log.
+3. Er kunden arkiveret, kan partneren hente **Eksportér alt** uden kundens samtykke i systemet. Er kunden aktiv, har revisorhuset adgang efter kundeaftalen (eller kunden henter selv). Hver eksport logges i revisorhusets log (`export_all`) og i kundens audit-log.
 4. Eksporten indeholder `MANIFEST.txt` med SHA-256 for alle filer. Kontrolsummen noteres i opgaven, så det senere kan dokumenteres, hvad der blev udleveret.
 
 ## 4. Hvis Ajan Partners ophører med at drive systemet

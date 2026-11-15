@@ -39,7 +39,6 @@ const ClientDetail: React.FC = () => {
   const [deadlines, setDeadlines] = useState<Deadline[]>([]);
   const [invite, setInvite] = useState({ open: false, email: '', name: '', role: 'admin' });
   const [invited, setInvited] = useState<{ username: string; temporary_password: string | null } | null>(null);
-  const [request, setRequest] = useState({ open: false, scope: 'bookkeeping', note: '', valid_until: '' });
   const [archiveOpen, setArchiveOpen] = useState(false);
   const [archiveConfirm, setArchiveConfirm] = useState('');
 
@@ -93,13 +92,12 @@ const ClientDetail: React.FC = () => {
       load();
     } catch (e) { setError(errorText(e, 'Invitationen mislykkedes')); }
   };
-  const doRequest = async () => {
+  const changeAccess = async (action: 'end' | 'open') => {
     try {
-      await firmApi.post(`/clients/${slug}/request-access`, { ...request, valid_until: request.valid_until || null });
-      setRequest({ open: false, scope: 'bookkeeping', note: '', valid_until: '' });
-      setToast('Anmodningen er sendt til kunden');
+      const r = await firmApi.post(`/clients/${slug}/access`, { action });
+      setToast(r.data.message || (action === 'end' ? 'Adgangen er afsluttet' : 'Adgangen er genåbnet'));
       load();
-    } catch (e) { setError(errorText(e, 'Anmodningen mislykkedes')); }
+    } catch (e) { setError(errorText(e, 'Adgangen kunne ikke ændres')); }
   };
   const doArchive = async () => {
     try {
@@ -299,20 +297,22 @@ const ClientDetail: React.FC = () => {
         <Paper sx={{ p: 2 }}>
           <Box sx={{ display: 'flex', mb: 1 }}>
             <Typography fontWeight={600}>Adgangshistorik</Typography>
-            {!archived && <Button sx={{ ml: 'auto' }} variant="outlined" onClick={() => setRequest({ ...request, open: true })}>Anmod om adgang</Button>}
+            {isPartner && (accessState(client.access) === 'ended'
+              ? <Button sx={{ ml: 'auto' }} variant="outlined" onClick={() => changeAccess('open')}>Genåbn adgang</Button>
+              : <Button sx={{ ml: 'auto' }} color="error" variant="outlined" onClick={() => changeAccess('end')}>Afslut adgang</Button>)}
           </Box>
           <Table size="small">
             <TableHead>
               <TableRow>
                 <TableCell>Omfang</TableCell><TableCell>Status</TableCell><TableCell>Medarbejdere</TableCell>
-                <TableCell>Anmodet</TableCell><TableCell>Godkendt</TableCell><TableCell>Gyldig til</TableCell><TableCell>Tilbagekaldt</TableCell>
+                <TableCell>Oprettet</TableCell><TableCell>Gælder fra</TableCell><TableCell>Gyldig til</TableCell><TableCell>Afsluttet</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {grants.map((g) => (
                 <TableRow key={g.id}>
                   <TableCell>{SCOPES[g.scope]}</TableCell>
-                  <TableCell><Chip size="small" label={GRANT_STATES[g.state]} color={g.state === 'active' ? 'success' : g.state === 'pending' ? 'warning' : 'default'} /></TableCell>
+                  <TableCell><Chip size="small" label={GRANT_STATES[g.state]} color={g.state === 'active' ? 'success' : g.state === 'revoked' ? 'default' : 'warning'} /></TableCell>
                   <TableCell>{g.staff_scope === 'all' ? 'Alle' : g.staff.map((s) => s.name).join(', ')}</TableCell>
                   <TableCell>{formatDate(g.requested_at)}{g.requested_by ? ` · ${g.requested_by}` : ''}
                     {g.request_note && <Typography variant="caption" display="block" color="text.secondary">{g.request_note}</Typography>}
@@ -324,7 +324,12 @@ const ClientDetail: React.FC = () => {
               ))}
             </TableBody>
           </Table>
-          <Typography variant="caption" color="text.secondary">Kunden godkender og tilbagekalder adgangen i sit eget program.</Typography>
+          <Typography variant="caption" color="text.secondary" component="div" sx={{ mt: 1 }}>
+            Adgangen følger kundeaftalen og gælder fra oprettelsen{client.agreement_reference ? ` (${client.agreement_reference})` : ''}.
+            {' '}Kunden accepterede forretningsbetingelser og databehandleraftale{' '}
+            {client.agreement_accepted_on ? formatDate(client.agreement_accepted_on) : '– endnu ikke (ved første login)'}.
+            {' '}Afslut kun adgangen, når aftalen er ophørt; ved arkivering kan bøgerne stadig læses i opbevaringsperioden.
+          </Typography>
         </Paper>
       )}
 
@@ -361,22 +366,6 @@ const ClientDetail: React.FC = () => {
         <DialogActions><Button variant="contained" onClick={() => setInvited(null)}>Færdig</Button></DialogActions>
       </Dialog>
 
-      <Dialog open={request.open} onClose={() => setRequest({ ...request, open: false })} maxWidth="xs" fullWidth>
-        <DialogTitle>Anmod om adgang</DialogTitle>
-        <DialogContent>
-          <TextField select fullWidth size="small" sx={{ mt: 1 }} label="Omfang" value={request.scope} onChange={(e) => setRequest({ ...request, scope: e.target.value })}>
-            {Object.entries(SCOPES).map(([k, v]) => <MenuItem key={k} value={k}>{v}</MenuItem>)}
-          </TextField>
-          <TextField fullWidth size="small" type="date" sx={{ mt: 2 }} label="Gyldig til (valgfri)" InputLabelProps={{ shrink: true }}
-            value={request.valid_until} onChange={(e) => setRequest({ ...request, valid_until: e.target.value })} />
-          <TextField fullWidth multiline minRows={2} size="small" sx={{ mt: 2 }} label="Besked til kunden"
-            value={request.note} onChange={(e) => setRequest({ ...request, note: e.target.value })} />
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setRequest({ ...request, open: false })}>Annullér</Button>
-          <Button variant="contained" onClick={doRequest}>Send anmodning</Button>
-        </DialogActions>
-      </Dialog>
 
       <Dialog open={archiveOpen} onClose={() => setArchiveOpen(false)} maxWidth="sm" fullWidth>
         <DialogTitle>Arkivér {client.name}?</DialogTitle>

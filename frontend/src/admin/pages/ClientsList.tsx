@@ -70,8 +70,8 @@ const StatusCell: React.FC<{ slug: string }> = ({ slug }) => {
 export const AccessChip: React.FC<{ access: FirmClient['access'] }> = ({ access }) => {
   const s = accessState(access);
   if (s === 'active') return <Chip size="small" color="success" label={`Aktiv · ${SCOPES[access as string]}`} />;
-  if (s === 'pending') return <Chip size="small" color="warning" label="Afventer kunden" />;
-  return <Chip size="small" variant="outlined" label="Ingen" />;
+  if (s === 'ended') return <Chip size="small" label="Afsluttet" />;
+  return <Chip size="small" variant="outlined" label="Ikke tildelt" />;
 };
 
 const ClientsList: React.FC = () => {
@@ -138,7 +138,7 @@ const ClientsList: React.FC = () => {
         <TextField select size="small" label="Adgang" value={access} onChange={(e) => setAccess(e.target.value)} sx={{ minWidth: 130 }}>
           <MenuItem value="">Alle</MenuItem>
           <MenuItem value="active">Aktiv</MenuItem>
-          <MenuItem value="pending">Afventer</MenuItem>
+          <MenuItem value="ended">Afsluttet</MenuItem>
           <MenuItem value="none">Ingen</MenuItem>
         </TextField>
         <FormControlLabel control={<Switch checked={mine} onChange={(e) => setMine(e.target.checked)} />} label="Mine kunder" />

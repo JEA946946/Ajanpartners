@@ -2,13 +2,14 @@
 
 /api/v1/me                    hvem er jeg, hvilke kunder kan jeg åbne
 /api/v1/me/clients/<slug>     adgang, pakke og funktioner i én kunde
-/api/v1/access-grants         (X-Client, admin) kundens samtykker til revisorhuset
+/api/v1/me/terms              betingelser, der skal accepteres; /me/terms/accept
+/api/v1/access-grants         (X-Client) aftale og revisoradgang – kun oplysning
 """
 
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 
 from core.audit import log_action
@@ -18,7 +19,6 @@ from .access import resolve, staff_of, visible_clients
 from .features import FEATURES
 from .models import AccessGrant, ClientCompany, Firm, FirmAuditLog, FirmStaff
 from .mfa import has_mfa, mfa_required_for
-from .services import accept_grant, revoke_grant
 
 
 def firm_dict(firm):
@@ -55,6 +55,28 @@ def grant_dict(g):
     }
 
 
+def doc_dict(d, body=False):
+    out = {"id": d.id, "kind": d.kind, "kind_label": d.get_kind_display(), "version": d.version,
+           "title": d.title, "sha256": d.sha256,
+           "published_at": d.published_at.isoformat() if d.published_at else None}
+    if body:
+        out["body"] = d.body
+    return out
+
+
+def _terms_required(user):
+    """Kunder, hvor brugeren (som kundens egen bruger) mangler at acceptere betingelserne."""
+    from .models import ClientMembership
+    from .terms import missing_for
+    out = []
+    for m in ClientMembership.objects.filter(user=user, is_active=True).select_related("client"):
+        missing = missing_for(user, m.client)
+        if missing:
+            out.append({"client": m.client.slug, "client_name": m.client.name, "role": m.role,
+                        "documents": [doc_dict(d) for d in missing]})
+    return out
+
+
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def me(request):
@@ -72,9 +94,7 @@ def me(request):
         "mfa": {"enabled": has_mfa(user), "required": mfa_required_for(user)},
         "firm": firm_dict(Firm.current()),
         "clients": clients,
-        "pending_grants": [grant_dict(g) for g in AccessGrant.objects.filter(
-            client__memberships__user=user, client__memberships__role="admin",
-            accepted_at__isnull=True, revoked_at__isnull=True).select_related("client", "requested_by")],
+        "terms_required": _terms_required(user),
     }})
 
 
@@ -103,73 +123,146 @@ def me_client(request, slug):
     }})
 
 
-# ─── I kunden: revisoradgang ──────────────────────────────────────────────────
+# ─── Betingelser ─────────────────────────────────────────────────────────────
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def me_terms(request):
+    """Teksterne, brugeren skal acceptere (pr. virksomhed), med fuld tekst."""
+    from .models import TermsDocument
+    docs = {d.id: d for d in TermsDocument.objects.filter(published_at__isnull=False)}
+    required = _terms_required(request.user)
+    for r in required:
+        r["documents"] = [doc_dict(docs[d["id"]], body=True) for d in r["documents"]]
+    privacy = TermsDocument.current("privacy")
+    from integrations.esign import signature_method
+    return Response({"success": True, "data": {"required": required, "signature_method": signature_method(),
+                                               "privacy": doc_dict(privacy, body=True) if privacy else None}})
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def me_terms_accept(request):
+    """Accepter de gældende versioner for én virksomhed. Logges med tid, IP, browser og sha256."""
+    from .models import ClientMembership
+    from .terms import accept, missing_for
+    slug = request.data.get("client")
+    m = ClientMembership.objects.filter(user=request.user, client__slug=slug, is_active=True) \
+        .select_related("client").first()
+    if m is None:
+        return Response({"success": False, "message": "Du er ikke bruger i den virksomhed."},
+                        status=status.HTTP_403_FORBIDDEN)
+    from integrations.esign import signature_method
+    if signature_method() == "mitid":
+        return Response({"success": False, "message": "Betingelserne skal underskrives med MitID."},
+                        status=status.HTTP_400_BAD_REQUEST)
+    if not request.data.get("confirm"):
+        return Response({"success": False, "message": "Sæt flueben for at acceptere."},
+                        status=status.HTTP_400_BAD_REQUEST)
+    missing = missing_for(request.user, m.client)
+    shown = set(request.data.get("sha256") or [])
+    if shown and {d.sha256 for d in missing} - shown:
+        return Response({"success": False, "message": "Betingelserne er ændret, mens du læste dem. Genindlæs siden."},
+                        status=status.HTTP_409_CONFLICT)
+    fwd = request.META.get("HTTP_X_FORWARDED_FOR")
+    ip = fwd.split(",")[-1].strip() if fwd else request.META.get("REMOTE_ADDR")
+    rows = accept(request.user, m.client, missing, ip=ip, user_agent=request.META.get("HTTP_USER_AGENT", ""))
+    FirmAuditLog.objects.create(user=request.user, client=m.client, action="terms_accepted", ip_address=ip,
+                                detail={"documents": [f"{r.document.kind} {r.document.version}" for r in rows],
+                                        "role": m.role})
+    return Response({"success": True, "message": "Tak – betingelserne er accepteret."})
+
+
+def _ip(request):
+    fwd = request.META.get("HTTP_X_FORWARDED_FOR")
+    return fwd.split(",")[-1].strip() if fwd else request.META.get("REMOTE_ADDR")
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def me_terms_sign(request):
+    """Start MitID-underskrift (TERMS_SIGNATURE_METHOD=mitid). Returnerer udbyderens URL."""
+    from integrations.base import AgreementRequired
+    from integrations.esign import provider
+    from .models import ClientMembership
+    from .terms import missing_for
+    m = ClientMembership.objects.filter(user=request.user, client__slug=request.data.get("client"),
+                                        is_active=True).select_related("client").first()
+    if m is None:
+        return Response({"success": False, "message": "Du er ikke bruger i den virksomhed."},
+                        status=status.HTTP_403_FORBIDDEN)
+    docs = missing_for(request.user, m.client)
+    try:
+        result = provider().send_for_signature(
+            f"Aftale med {m.client.firm.name}: {m.client.name}", docs, request.user.email,
+            request.user.get_full_name() or request.user.username,
+            request.data.get("return_url") or "/onboarding")
+    except AgreementRequired as e:
+        return Response({"success": False, "message": str(e)}, status=status.HTTP_501_NOT_IMPLEMENTED)
+    return Response({"success": True, "data": result})
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def me_terms_sign_complete(request):
+    """Udbyderen har sendt brugeren tilbage: tjek status og registrér accepten som MitID."""
+    from integrations.esign import provider
+    from .models import ClientMembership
+    from .terms import accept, missing_for
+    m = ClientMembership.objects.filter(user=request.user, client__slug=request.data.get("client"),
+                                        is_active=True).select_related("client").first()
+    ref = request.data.get("reference") or ""
+    if m is None or not ref:
+        return Response({"success": False, "message": "Ugyldig underskrift"}, status=status.HTTP_400_BAD_REQUEST)
+    p = provider()
+    if p.status(ref) != "signed":
+        return Response({"success": False, "message": "Underskriften er ikke gennemført."},
+                        status=status.HTTP_409_CONFLICT)
+    rows = accept(request.user, m.client, missing_for(request.user, m.client), ip=_ip(request),
+                  user_agent=request.META.get("HTTP_USER_AGENT", ""), method="mitid", signature_reference=ref)
+    FirmAuditLog.objects.create(user=request.user, client=m.client, action="terms_signed", ip_address=_ip(request),
+                                detail={"reference": ref, "provider": p.name,
+                                        "documents": [f"{r.document.kind} {r.document.version}" for r in rows]})
+    return Response({"success": True, "message": "Tak – betingelserne er underskrevet."})
+
+
+@api_view(["GET"])
+@permission_classes([AllowAny])
+def public_terms(request, kind):
+    """Gældende tekst uden login (til link i kundeaftale og invitationsmail)."""
+    from .models import TermsDocument
+    d = TermsDocument.current(kind)
+    if d is None:
+        return Response({"success": False, "message": "Findes ikke"}, status=status.HTTP_404_NOT_FOUND)
+    return Response({"success": True, "data": {"document": doc_dict(d, body=True)}})
+
+
+# ─── I kunden: aftale og revisoradgang (kun oplysning) ───────────────────────
 
 @api_view(["GET"])
 @permission_classes([RoleWriteAccess])
 def access_grants(request):
-    grants = AccessGrant.objects.filter(client=request.tenant).select_related("client", "requested_by")
-    staff = FirmStaff.objects.filter(firm=request.tenant.firm, is_active=True).select_related("user")
+    """Hvem i revisorhuset der har adgang, og hvilke betingelser virksomhedens brugere har accepteret.
+    Adgangen følger kundeaftalen og kan ikke ændres her."""
+    from .models import TermsAcceptance
+    client = request.tenant
+    grants = AccessGrant.objects.filter(client=client).select_related("client", "requested_by")
+    active = [g for g in grants if g.is_active]
+    staff = [s for s in FirmStaff.objects.filter(firm=client.firm, is_active=True).select_related("user")
+             if any(g.covers(s) for g in active)]
+    acceptances = TermsAcceptance.objects.filter(client=client).select_related("user", "document")
     return Response({"success": True, "data": {
-        "grants": [grant_dict(g) for g in grants],
-        "firm": firm_dict(request.tenant.firm),
+        "firm": firm_dict(client.firm),
+        "agreement_reference": client.agreement_reference,
+        "agreement_accepted_on": client.agreement_accepted_on.isoformat() if client.agreement_accepted_on else None,
+        "access_active": bool(active),
+        "access_since": min((g.accepted_at for g in active), default=None),
         "staff": [{"id": s.id, "name": s.user.get_full_name() or s.user.username, "role": s.role,
                    "title": s.title} for s in staff],
+        "acceptances": [{"user": a.user.get_full_name() or a.user.username, "document": a.document.title,
+                         "kind": a.document.kind, "version": a.document.version, "method": a.method,
+                         "accepted_at": a.accepted_at.isoformat()} for a in acceptances],
     }})
-
-
-def _grant(request, pk):
-    return AccessGrant.objects.filter(client=request.tenant, pk=pk).first()
-
-
-@api_view(["POST"])
-@permission_classes([IsAdmin])
-def access_grant_create(request):
-    """Kunden giver selv adgang (fx efter at have tilbagekaldt en tidligere)."""
-    data = request.data
-    scope = data.get("scope", "bookkeeping")
-    if scope not in dict(AccessGrant.SCOPES):
-        return Response({"success": False, "message": "Ugyldigt omfang"}, status=status.HTTP_400_BAD_REQUEST)
-    grant = AccessGrant.objects.create(
-        client=request.tenant, firm=request.tenant.firm, scope=scope,
-        staff_scope=data.get("staff_scope", "all"), valid_until=data.get("valid_until") or None,
-        requested_by=request.user, accepted_by=request.user, accepted_at=timezone.now(),
-        request_note="Givet af virksomheden",
-    )
-    if grant.staff_scope == "named":
-        grant.staff.set(FirmStaff.objects.filter(firm=request.tenant.firm, id__in=data.get("staff_ids", [])))
-    log_action(request.user, "create", "AccessGrant", grant.id, changes={"scope": scope})
-    return Response({"success": True, "data": {"grant": grant_dict(grant)}}, status=status.HTTP_201_CREATED)
-
-
-@api_view(["POST"])
-@permission_classes([IsAdmin])
-def access_grant_accept(request, pk):
-    grant = _grant(request, pk)
-    if grant is None or grant.state != "pending":
-        return Response({"success": False, "message": "Anmodningen findes ikke eller er allerede behandlet"},
-                        status=status.HTTP_400_BAD_REQUEST)
-    data = request.data
-    if data.get("scope") in dict(AccessGrant.SCOPES):
-        grant.scope = data["scope"]  # kunden kan give mindre (eller mere) end der blev bedt om
-    if "valid_until" in data:
-        grant.valid_until = data.get("valid_until") or None
-    grant.save()
-    accept_grant(grant, request.user)
-    log_action(request.user, "update", "AccessGrant", grant.id,
-               changes={"action": "accepted", "scope": grant.scope, "valid_until": str(grant.valid_until or "")})
-    return Response({"success": True, "data": {"grant": grant_dict(grant)}})
-
-
-@api_view(["POST"])
-@permission_classes([IsAdmin])
-def access_grant_revoke(request, pk):
-    grant = _grant(request, pk)
-    if grant is None or grant.revoked_at:
-        return Response({"success": False, "message": "Adgangen findes ikke"}, status=status.HTTP_404_NOT_FOUND)
-    revoke_grant(grant, request.user)
-    log_action(request.user, "update", "AccessGrant", grant.id, changes={"action": "revoked"})
-    return Response({"success": True, "data": {"grant": grant_dict(grant)}})
 
 
 # ─── Eksportér alt ────────────────────────────────────────────────────────────

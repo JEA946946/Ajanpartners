@@ -92,6 +92,10 @@ class ClientCompany(TenantMixin):
         related_name="responsible_for",
     )
     status = models.CharField(max_length=20, choices=STATUS, default="onboarding")
+    # Kundeaftalen: reference til opdragsbrevet (valgfri) og hvornår kundens administrator
+    # første gang accepterede forretningsbetingelser og databehandleraftale i systemet.
+    agreement_reference = models.CharField(max_length=200, blank=True, default="")
+    agreement_accepted_on = models.DateTimeField(null=True, blank=True)
     archived_at = models.DateTimeField(null=True, blank=True)
     retain_until = models.DateField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -289,3 +293,64 @@ class MFADevice(models.Model):
     @property
     def is_confirmed(self):
         return self.confirmed_at is not None
+
+
+class TermsDocument(models.Model):
+    """En version af forretningsbetingelser, databehandleraftale eller privatlivspolitik.
+
+    En publiceret version ændres aldrig (accepterne peger på dens sha256). En ny
+    tekst er en ny version, som kunderne skal acceptere igen.
+    """
+
+    KINDS = [("terms", "Forretningsbetingelser"), ("dpa", "Databehandleraftale"),
+             ("privacy", "Privatlivspolitik")]
+    REQUIRED_KINDS = ("terms", "dpa")  # skal accepteres; privatlivspolitikken er information
+
+    kind = models.CharField(max_length=10, choices=KINDS)
+    version = models.CharField(max_length=20)          # fx "2026-11"
+    title = models.CharField(max_length=200)
+    body = models.TextField()                          # markdown
+    sha256 = models.CharField(max_length=64)
+    published_at = models.DateTimeField(null=True, blank=True)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+                                   related_name="+")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "terms_documents"
+        unique_together = [("kind", "version")]
+        ordering = ["kind", "-published_at"]
+
+    def __str__(self):
+        return f"{self.get_kind_display()} {self.version}"
+
+    def save(self, *args, **kwargs):
+        import hashlib
+        self.sha256 = hashlib.sha256(f"{self.kind}|{self.version}|{self.title}|{self.body}".encode()).hexdigest()
+        super().save(*args, **kwargs)
+
+    @classmethod
+    def current(cls, kind):
+        return cls.objects.filter(kind=kind, published_at__isnull=False).order_by("-published_at").first()
+
+
+class TermsAcceptance(models.Model):
+    """Bevis for accept: hvem, for hvilken virksomhed, hvornår, hvorfra og præcis hvilken tekst."""
+
+    METHODS = [("click", "Accepteret i systemet"), ("mitid", "Underskrevet med MitID")]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="terms_acceptances")
+    client = models.ForeignKey(ClientCompany, on_delete=models.CASCADE, related_name="terms_acceptances")
+    document = models.ForeignKey(TermsDocument, on_delete=models.PROTECT, related_name="acceptances")
+    sha256 = models.CharField(max_length=64)
+    method = models.CharField(max_length=10, choices=METHODS, default="click")
+    accepted_at = models.DateTimeField(default=timezone.now)
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    user_agent = models.CharField(max_length=300, blank=True, default="")
+    signature_reference = models.CharField(max_length=200, blank=True, default="")  # MitID-sag hos udbyderen
+    signed_document = models.TextField(blank=True, default="")  # sti til underskrevet PDF (MitID)
+
+    class Meta:
+        db_table = "terms_acceptances"
+        ordering = ["-accepted_at"]

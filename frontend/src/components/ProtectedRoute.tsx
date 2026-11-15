@@ -9,7 +9,7 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode; noClient?: boolean; 
   children, noClient, firmOnly,
 }) => {
   const { isAuthenticated, loading } = useAuth();
-  const { loading: clientLoading, current, firmStaff, pendingGrants, mfa } = useClient();
+  const { loading: clientLoading, current, firmStaff, termsRequired, mfa } = useClient();
   const location = useLocation();
 
   if (loading || (isAuthenticated && clientLoading)) {
@@ -24,7 +24,10 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode; noClient?: boolean; 
   if (mfa.required && !mfa.enabled && location.pathname !== '/profile') return <Navigate to="/profile" replace />;
   if (firmOnly && !firmStaff) return <Navigate to="/" replace />;
   if (!noClient && !firmOnly) {
-    if (!firmStaff && pendingGrants.length > 0) return <Navigate to="/onboarding" replace />;
+    // Kundens brugere skal acceptere forretningsbetingelser og databehandleraftale først.
+    if (termsRequired.length > 0 && (!firmStaff || termsRequired.some((t) => t.client === current?.client.slug))) {
+      return <Navigate to="/onboarding" replace />;
+    }
     if (!current) return <Navigate to={firmStaff ? '/admin' : '/select-client'} replace />;
   }
   return <>{children}</>;

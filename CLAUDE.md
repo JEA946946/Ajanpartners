@@ -5,13 +5,13 @@ Gratis bogføringsprogram, som revisorhuset Ajan Partners tilbyder sine kunder. 
 Django 5.2 + DRF backend (`backend/`), React 18 + MUI 5 + Vite frontend (`frontend/`). Sprog i UI og kode-kommentarer: dansk. Valuta: DKK.
 
 ## Multi-tenancy (django-tenants, ét Postgres-skema pr. kunde)
-- **Public-skemaet** (`tenancy/`, `firm/`, auth): `Firm`, `ClientCompany` (tenant; CVR, pakke, momsperiode, status), `Package`, `FirmStaff` (partner/revisor/bogholder/assistent), `StaffAssignment`, `ClientMembership` (kundens egne brugere: admin/accountant/viewer), `AccessGrant` (kundens samtykke til revisorhuset: read/bookkeeping/full, kan tidsbegrænses og tilbagekaldes), `FirmAuditLog`.
+- **Public-skemaet** (`tenancy/`, `firm/`, auth): `Firm`, `ClientCompany` (tenant; CVR, pakke, momsperiode, status), `Package`, `FirmStaff` (partner/revisor/bogholder/assistent), `StaffAssignment`, `ClientMembership` (kundens egne brugere: admin/accountant/viewer), `AccessGrant` (revisorhusets adgang iht. kundeaftalen: oprettes aktiv, afsluttes af en partner ved ophør), `TermsDocument`/`TermsAcceptance` (versionerede betingelser og bevis for accept), `FirmAuditLog`.
 - **Tenant-skemaer** (`c_<slug>`): accounts, journals, sales, purchases, core, payroll — hele bogføringen. Nye bogføringsapps skal i `TENANT_APPS` i `config/settings/base.py`; apps med tværgående data (revisorhusets opgaver, frister) i `SHARED_APPS`.
 - `tenancy/middleware.py`: alle `/api/v1/`-kald undtagen `auth/`, `me`, `me/`, `public/` kræver headeren `X-Client: <slug>`. Middleware'en tjekker adgang (`tenancy/access.py: resolve`), pakkens funktioner (`tenancy/features.py: FEATURE_PATHS`), arkivstatus, og sætter skemaet. `request.tenant` er kunden, `request.client_access` rolle og vej ind (member/firm).
 - Pakkerne (Mini/Standard/Pro, alle gratis) begrænser **kun kundens egne brugere**. Revisorhuset har alle funktioner, når det har en aktiv grant. Ny funktion → tilføj den i `FEATURES`, `DEFAULT_PACKAGES` og `FEATURE_PATHS`, og i frontend `feature` på route (`App.tsx`) og menupunkt (`Layout.tsx`).
 - Rettigheder: `core.permissions.RoleWriteAccess` (læs alle, skriv admin/accountant), `IsAdmin` (kundens administrator), `IsFirmStaff`, `IsFirmPartner` (admin-portalen).
 - Audit: `core.audit.log_action` skriver i kundens hash-kædede log. Når en medarbejder fra revisorhuset handler, tilføjes `_via: firm` m.m. automatisk (via `tenancy/context.py`). Skrivende kald fra revisorhuset logges også i `FirmAuditLog`.
-- Kunder oprettes med `tenancy.services.create_client` (skema + migrationer + `seed_accounts --template` + en AccessGrant-anmodning). Kunden godkender adgangen ved første login (`/onboarding`).
+- Kunder oprettes med `tenancy.services.create_client` (skema + migrationer + `seed_accounts --template` + en **aktiv** AccessGrant iht. kundeaftalen). Kundens brugere accepterer forretningsbetingelser og databehandleraftale ved første login (`/onboarding`, `tenancy/terms.py`). Middleware'en afviser kundens brugere med `terms_acceptance_required`, indtil det er sket (undtagen `export-all`). Tests med kundebrugere skal kalde `tenancy.terms.accept(...)`.
 - Bilag gemmes pr. skema (`TenantFileSystemStorage`, `MEDIA_ROOT/<schema>/`).
 
 ## Sikkerhed
@@ -26,7 +26,7 @@ Django 5.2 + DRF backend (`backend/`), React 18 + MUI 5 + Vite frontend (`fronte
 - Tal fra en kundes bøger kræver aktiv grant (`active_grant`). Stamdata gør ikke.
 
 ## Frontend
-- `hooks/useClient.tsx`: `/me` (kunder, revisorrolle, ventende samtykker) og den valgte kunde (`features`, `access`). `useFeature('payroll')`, `RequireFeature`.
+- `hooks/useClient.tsx`: `/me` (kunder, revisorrolle, manglende accept af betingelser) og den valgte kunde (`features`, `access`). `useFeature('payroll')`, `RequireFeature`.
 - `services/api.ts` sætter `X-Client` fra `localStorage.ap_client` på alle kald undtagen `/auth`, `/me`.
 - Kontonumre kun via `frontend/src/utils/chart.ts`.
 

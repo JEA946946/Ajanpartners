@@ -29,6 +29,8 @@ class SecurityTests(TransactionTestCase):
                                                         owner_email="g@g.dk", created_by=self.partner)
         self.owner.set_password(PW)
         self.owner.save()
+        from tenancy.terms import accept, required_documents
+        accept(self.owner, self.client_co, required_documents())
         self.http = Client()
 
     def tearDown(self):
@@ -139,8 +141,11 @@ class SecurityTests(TransactionTestCase):
         self.assertTrue(log["chain"]["ok"])
 
     def test_firm_export_needs_grant_unless_archived_and_partner(self):
+        from tenancy.services import end_access
         self.enable_mfa(self.partner)
         slug = self.client_co.slug
+        self.assertEqual(self.call("get", f"/api/firm/clients/{slug}/export-all", self.partner).status_code, 200)
+        end_access(self.client_co, self.partner)
         self.assertEqual(self.call("get", f"/api/firm/clients/{slug}/export-all", self.partner).status_code, 403)
         archive_client(self.client_co)
         r = self.call("get", f"/api/firm/clients/{slug}/export-all", self.partner)

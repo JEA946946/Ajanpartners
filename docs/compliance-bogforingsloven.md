@@ -154,7 +154,7 @@ Stier er relative til repo-roden.
 - **I koden:** `archive_client` (read-only med `retain_until`). Skemaet slettes ikke. Backuppen
   har skemaer pr. kunde, så en kunde kan gendannes og udleveres for sig.
 - **Lukket i koden:** "Eksportér alt" virker også for arkiverede kunder (kundens administrator,
-  og en partner uden samtykke ved ophør, kurator eller myndighed – logges som `export_all`).
+  og en partner uden aktiv adgang ved ophør, kurator eller myndighed – logges som `export_all`).
   Procedure: `docs/udlevering.md`.
 - **Mangler (organisatorisk):** Kontraktbestemmelse med kunderne og deponering (escrow) af
   backupnøglen og lageradgangen, som beskrevet i `docs/udlevering.md` afsnit 4.
@@ -165,8 +165,11 @@ Stier er relative til repo-roden.
 - **I koden:**
   - Ét Postgres-skema pr. kunde, `X-Client` og adgangskontrol i `tenancy/middleware.py` og
     `tenancy/access.py`. Testet i `tenancy/tests_isolation.py`.
-  - Roller (admin/accountant/viewer) i `core/permissions.py`. Revisorens adgang kræver kundens
-    samtykke (`AccessGrant`), som kan tidsbegrænses og tilbagekaldes.
+  - Roller (admin/accountant/viewer) i `core/permissions.py`. Revisorhusets adgang følger
+    kundeaftalen (`AccessGrant` oprettes aktiv) og afsluttes af en partner ved ophør.
+  - Forretningsbetingelser og databehandleraftale (GDPR art. 28) accepteres af kundens brugere
+    ved første login og ved nye versioner; accepten logges med tid, IP og SHA-256 af teksten
+    (`tenancy/terms.py`, `TermsAcceptance`). MitID-underskrift kan slås til (`integrations/esign.py`).
   - Throttling af login (`REST_FRAMEWORK.DEFAULT_THROTTLE_RATES`), JWT og sikre cookies i
     `config/settings/server.py`. TLS i reverse proxy (`docker-compose.server.yml`).
   - Backups er krypteret (punkt 4). Containerne kører som en ikke-root-bruger (`backend/Dockerfile`).
@@ -179,7 +182,7 @@ Stier er relative til repo-roden.
     `tenancy/tests_security.py`.
   - `FIELD_ENCRYPTION_KEY` skal komme fra miljøet i produktion (`config/settings/server.py`).
 - **Mangler (drift):** Kryptering af disk/volumen hos hostingudbyderen, periodisk
-  adgangsgennemgang (fx kvartalsvis: medarbejdere, tildelinger, aktive samtykker) og en proces
+  adgangsgennemgang (fx kvartalsvis: medarbejdere, tildelinger, aktive adgange) og en proces
   for sikkerhedsopdateringer.
 
 ## 10. Logning

@@ -19,12 +19,13 @@ interface Form {
   industry_code: string; email: string; phone: string;
   vat_period: string; fiscal_year_start_month: number; accounting_class: string; chart_template: string;
   package: string; responsible_id: number | ''; owner_email: string; owner_name: string; grant_scope: string;
+  agreement_reference: string;
 }
 
 const EMPTY: Form = {
   cvr: '', name: '', legal_form: 'aps', address: '', zip_code: '', city: '', industry_code: '', email: '', phone: '',
   vat_period: 'quarter', fiscal_year_start_month: 1, accounting_class: 'B', chart_template: 'standard',
-  package: 'standard', responsible_id: '', owner_email: '', owner_name: '', grant_scope: 'bookkeeping',
+  package: 'standard', responsible_id: '', owner_email: '', owner_name: '', grant_scope: 'full', agreement_reference: '',
 };
 
 const PERSONAL = ['enk', 'pmv', 'is'];
@@ -199,20 +200,22 @@ const CreateClient: React.FC = () => {
                   <MenuItem key={s.user_id} value={s.user_id}>{`${s.first_name} ${s.last_name}`.trim() || s.username}</MenuItem>),
               ] })}
             </Grid>
-            <Grid item xs={12} sm={6}>{tf('owner_email', 'Ejerens e-mail', { type: 'email', helperText: 'Ejeren får et login og skal godkende jeres adgang' })}</Grid>
+            <Grid item xs={12} sm={6}>{tf('owner_email', 'Ejerens e-mail', { type: 'email', helperText: 'Ejeren får et login og accepterer betingelserne ved første login' })}</Grid>
             <Grid item xs={12} sm={6}>{tf('owner_name', 'Ejerens navn')}</Grid>
             <Grid item xs={12} sm={6}>
-              {tf('grant_scope', 'Adgang der anmodes om', { select: true, children: [
+              {tf('grant_scope', 'Ajan Partners\' adgang', { select: true, children: [
                 <MenuItem key="read" value="read">Læse</MenuItem>,
                 <MenuItem key="bookkeeping" value="bookkeeping">Bogføre</MenuItem>,
                 <MenuItem key="full" value="full">Fuld adgang</MenuItem>,
               ] })}
             </Grid>
-            {!form.owner_email && (
-              <Grid item xs={12}>
-                <Alert severity="warning">Uden en ejer kan ingen godkende adgangen, så I kan ikke arbejde i bøgerne endnu.</Alert>
-              </Grid>
-            )}
+            <Grid item xs={12} sm={6}>{tf('agreement_reference', 'Reference til opdragsbrev/kundeaftale (valgfri)')}</Grid>
+            <Grid item xs={12}>
+              <Alert severity="info">
+                I får adgang til bøgerne med det samme, iht. kundeaftalen. Kunden accepterer forretningsbetingelser og
+                databehandleraftale ved første login.
+              </Alert>
+            </Grid>
           </Grid>
         )}
 

@@ -14,11 +14,12 @@ Ajan Partners Bogføring er et digitalt standardbogføringssystem. Revisorhuset 
 | Backup | `infra/backup.sh`, age/gpg, S3-kompatibel lagring i EU | Krypteret kopi hos tredjepart |
 
 ### Adskillelse af kunder
-Hver kunde har sit eget Postgres-skema med hele bogføringen: kontoplan, posteringer, bilag, fakturaer, løn og audit-log. Skemaet vælges for hvert kald ud fra headeren `X-Client`, men først efter at systemet har tjekket, at brugeren har adgang til netop den kunde (`backend/tenancy/middleware.py`, `access.py`). Det fælles public-skema indeholder kun brugere, kunder, pakker, adgangssamtykker, revisorhusets opgaver og revisorhusets log.
+Hver kunde har sit eget Postgres-skema med hele bogføringen: kontoplan, posteringer, bilag, fakturaer, løn og audit-log. Skemaet vælges for hvert kald ud fra headeren `X-Client`, men først efter at systemet har tjekket, at brugeren har adgang til netop den kunde (`backend/tenancy/middleware.py`, `access.py`). Det fælles public-skema indeholder kun brugere, kunder, pakker, revisorhusets adgange, betingelser og accepter, revisorhusets opgaver og revisorhusets log.
 
 ### Brugere og roller
 - **Kundens brugere**: administrator, bogholder og læser (`ClientMembership`). Administratoren styrer brugere, revisoradgang og eksport.
-- **Revisorhusets medarbejdere**: partner, revisor, bogholder og assistent (`FirmStaff`). De kommer kun ind i en kundes bøger, hvis kunden har givet samtykke (`AccessGrant`). Samtykket har et omfang (læse, bogføre eller fuld), kan tidsbegrænses og kan tilbagekaldes med det samme. Bogholdere og assistenter ser kun de kunder, de er tildelt.
+- **Revisorhusets medarbejdere**: partner, revisor, bogholder og assistent (`FirmStaff`). Revisorhuset har adgang til en kundes bøger fra oprettelsen efter kundeaftalen/opdragsbrevet (`AccessGrant`). Bogholdere og assistenter ser kun de kunder, de er tildelt. En partner afslutter adgangen, når aftalen ophører.
+- **Forretningsbetingelser og databehandleraftale** (`TermsDocument`) ligger versioneret i systemet. Kundens brugere skal acceptere dem ved første login og igen ved nye versioner, før de kan bruge programmet. Accepten logges med bruger, tid, IP, browser og SHA-256 af teksten (`TermsAcceptance`). Accept med MitID via Penneo/Criipto kan slås til (`TERMS_SIGNATURE_METHOD=mitid`).
 - **Pakker** (Mini, Standard, Pro) styrer, hvilke funktioner kundens egne brugere har. Revisorhuset er ikke begrænset af pakken.
 
 ## 2. Registrering og opbevaring (Bogføringsloven)
@@ -31,7 +32,7 @@ Hver kunde har sit eget Postgres-skema med hele bogføringen: kontoplan, posteri
 | Audit-log | Hver kunde har en log, der kun kan tilføjes til og er hash-kædet. Den kan kontrolleres med `/audit-log/verify`. Revisorhusets handlinger er mærket og logges desuden i revisorhusets egen log, både læsning (én post pr. medarbejder, kunde og time) og skrivning. |
 | Opbevaring i 5 år | Kunder slettes aldrig automatisk. Ved ophør arkiveres de (read-only), og `retain_until` sættes. Jobbet `retention_report` opretter en opgave til en partner, når perioden er udløbet. Sletning sker manuelt efter partnerens godkendelse. |
 | Backup hos tredjepart | Hver nat kl. 02:30 dumpes hvert skema og dets bilag, krypteres og sendes til EU-lagring. Daglige kopier gemmes i 40 dage og månedlige for altid. Den 1. i hver måned gendannes backuppen i en testdatabase. |
-| Udlevering | "Eksportér alt": SAF-T Financial DK 2.1 pr. regnskabsår, saldobalancer, alle bilag med SHA-256, audit-log og et manifest. Kan hentes af kundens administrator og af en partner/revisor med samtykke, og af en partner, når kunden er arkiveret. |
+| Udlevering | "Eksportér alt": SAF-T Financial DK 2.1 pr. regnskabsår, saldobalancer, alle bilag med SHA-256, audit-log og et manifest. Kan hentes af kundens administrator og af en partner/revisor med aktiv adgang, og af en partner, når kunden er arkiveret. |
 | E-faktura | OIOUBL 2.1 og Peppol BIS 3.0, både at sende og modtage (`backend/einvoice/`). |
 | Bankafstemning | Bankimport, bankkobling via open banking og afstemning med krav om afsluttet afstemning ved månedsafslutning. |
 
@@ -44,7 +45,7 @@ Hver kunde har sit eget Postgres-skema med hele bogføringen: kontoplan, posteri
 
 ## 4. Dataflow (eksempler)
 1. **Faktura**: kunden opretter en faktura → bogføres i SALG-journalen → kan sendes som e-faktura via access point → indbetalingen kommer fra banken (import/bankkobling) → matches → udlignes.
-2. **Bilag fra revisorhuset**: en medarbejder opretter en bilagsforespørgsel → kunden svarer og vedhæfter bilaget i "Beskeder fra revisor" → medarbejderen bogfører i kundens bøger med kundens samtykke. Alt bliver logget.
+2. **Bilag fra revisorhuset**: en medarbejder opretter en bilagsforespørgsel → kunden svarer og vedhæfter bilaget i "Beskeder fra revisor" → medarbejderen bogfører i kundens bøger efter kundeaftalen. Alt bliver logget.
 3. **Moms**: momsangivelsen dannes ud fra bogføringen for kundens momsperiode → afstemmes mod saldobalancen → angives (via Skats system-til-system, når aftalen er på plads, ellers i TastSelv) → perioden låses og afregningen bogføres.
 
 ## 5. Drift
@@ -57,5 +58,5 @@ Hver kunde har sit eget Postgres-skema med hele bogføringen: kontoplan, posteri
 |---|---|
 | Drift, backup, sikkerhedsopdateringer | Ajan Partners (systemleverandør) |
 | Korrekt bogføring og bilag | Kunden (bogføringspligtig), med hjælp fra revisorhuset efter aftale |
-| Adgang for revisorhuset | Kunden (samtykke i systemet) |
+| Adgang for revisorhuset | Kundeaftalen/opdragsbrevet; betingelser accepteres i systemet |
 | Udlevering ved ophør, til kurator og myndigheder | Ajan Partners, se `docs/udlevering.md` |

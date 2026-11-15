@@ -4,11 +4,7 @@ Til kunderne. Revisorhusets medarbejdere har deres egen del af programmet (admin
 
 ## Kom i gang
 1. Du får en e-mail fra Ajan Partners med brugernavn og en midlertidig adgangskode. Log ind, og skift adgangskoden under **Min profil** (klik på dine initialer øverst til højre).
-2. Første gang bliver du spurgt, om Ajan Partners må arbejde i jeres bogføring. Vælg omfanget:
-   - **Læse**: revisor kan se, men ikke ændre.
-   - **Bogføre**: revisor kan bogføre, afstemme og lave moms, men ikke ændre brugere og adgang.
-   - **Fuld adgang**: som jeres egen administrator.
-   Du kan sætte en slutdato og altid trække adgangen tilbage under **Indstillinger → Revisoradgang**.
+2. Første gang skal du læse og acceptere **forretningsbetingelserne** og **databehandleraftalen**. De supplerer jeres aftale med Ajan Partners. Ajan Partners har adgang til jeres bøger efter aftalen, så de kan levere bogføring, moms og regnskab, og al deres læsning og ændring logges. Under **Indstillinger → Aftale og betingelser** kan du altid se aftalen, hvem i Ajan Partners der har adgang, og hvad der er accepteret.
 3. Vi anbefaler at slå **to-faktor-login** til under Min profil. Så skal du også bruge en kode fra telefonen, når du logger ind. Gem gendannelseskoderne et sikkert sted.
 
 ## Pakker
@@ -39,8 +35,9 @@ Bogføringsloven kræver, at regnskabsmaterialet gemmes i 5 år. Vi tager backup
 
 ## Til revisorhusets medarbejdere
 - Admin-portalen ligger under **/admin**. Du skal have to-faktor-login, før du kommer ind.
-- **Kunder**: oversigt med adgangsstatus, næste frist og åbne opgaver. "Arbejd i kunden" åbner kundens bøger. Det kræver kundens samtykke, og alt logges. Et gult banner viser, at du arbejder hos en kunde.
-- **Opret kunde**: CVR-opslag udfylder stamdata. Vælg pakke, momsperiode og kontoplan. Kunden skal godkende adgangen ved første login.
+- **Kunder**: oversigt med adgangsstatus, næste frist og åbne opgaver. "Arbejd i kunden" åbner kundens bøger efter kundeaftalen, og alt logges. Et gult banner viser, at du arbejder hos en kunde.
+- **Opret kunde**: CVR-opslag udfylder stamdata. Vælg pakke, momsperiode og kontoplan, og angiv eventuelt en reference til opdragsbrevet. I har adgang med det samme. Kunden accepterer betingelserne ved første login.
+- **Betingelser**: partnere publicerer nye versioner af forretningsbetingelser, databehandleraftale og privatlivspolitik. En ny version skal accepteres igen af kunderne.
 - **Fristkalender**: moms, A-skat og AM-bidrag, årsrapport og selvangivelse, beregnet ud fra kundens stamdata. Tjek altid mod Skats kalender ved tvivl.
 - **Opgaver**: bilagsforespørgsler og spørgsmål til kunden. Interne opgaver kan kunden ikke se.
 - **Eksportér alt**: på kundedetaljen; se `docs/udlevering.md` for proceduren ved ophør, kurator og myndigheder.

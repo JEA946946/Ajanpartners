@@ -25,7 +25,7 @@ from tenancy.views import firm_dict, grant_dict, package_dict
 User = get_user_model()
 
 CLIENT_FIELDS = ("name", "cvr", "legal_form", "address", "zip_code", "city", "industry_code", "email",
-                 "phone", "vat_period", "fiscal_year_start_month", "accounting_class")
+                 "phone", "vat_period", "fiscal_year_start_month", "accounting_class", "agreement_reference")
 
 
 def _ok(data=None, code=200, message=None):
@@ -82,7 +82,7 @@ def _next_deadline(client):
 
 def client_dict(client, staff=None):
     grant = active_grant(client, staff) if staff else None
-    pending = client.grants.filter(accepted_at__isnull=True, revoked_at__isnull=True).exists()
+    any_active = any(g.is_active for g in client.grants.all())
     return {
         "id": client.id, "slug": client.slug, "name": client.name, "cvr": client.cvr,
         "legal_form": client.legal_form, "address": client.address, "zip_code": client.zip_code,
@@ -93,7 +93,11 @@ def client_dict(client, staff=None):
         "package": client.package.code, "package_name": client.package.name,
         "extra_features": client.extra_features, "status": client.status,
         "responsible_id": client.responsible_id, "responsible_name": _user_name(client.responsible),
-        "access": grant.scope if grant else ("pending" if pending else None),
+        # Revisorhusets adgang følger kundeaftalen: scope for denne medarbejder, "ended" når
+        # adgangen er afsluttet, None når medarbejderen ikke er tildelt kunden.
+        "access": grant.scope if grant else (None if any_active else "ended"),
+        "agreement_reference": client.agreement_reference,
+        "agreement_accepted_on": client.agreement_accepted_on.isoformat() if client.agreement_accepted_on else None,
         "retain_until": client.retain_until.isoformat() if client.retain_until else None,
         "created_at": client.created_at.isoformat(),
         "assigned_staff": list(client.assignments.values_list("staff_id", flat=True)),
@@ -184,7 +188,7 @@ def clients(request):
     responsible = User.objects.filter(id=data.get("responsible_id")).first() if data.get("responsible_id") else None
     fields["responsible"] = responsible or request.user
     client, owner = create_client(name=data["name"].strip(), package_code=package_code, created_by=request.user,
-                                  grant_scope=data.get("grant_scope", "bookkeeping"),
+                                  grant_scope=data.get("grant_scope", "full"),
                                   owner_email=data.get("owner_email", ""), owner_name=data.get("owner_name", ""),
                                   **fields)
     if not staff.sees_all_clients:
@@ -263,18 +267,28 @@ def client_archive(request, slug):
 
 @api_view(["POST"])
 @permission_classes([IsFirmStaff])
-def client_request_access(request, slug):
+def client_access(request, slug):
+    """Afslut eller genåbn revisorhusets adgang (kun partner). Adgangen følger kundeaftalen,
+    så det bruges kun, når aftalen er ophørt, eller hvis adgangen er afsluttet ved en fejl."""
+    from tenancy.services import end_access, open_access
     client, staff = _client_or_404(request, slug)
     if client is None:
         return _err("Kunden findes ikke", 404)
-    scope = request.data.get("scope", "bookkeeping")
-    if scope not in dict(AccessGrant.SCOPES):
-        return _err("Ugyldigt omfang")
-    grant = AccessGrant.objects.create(client=client, firm=client.firm, scope=scope, requested_by=request.user,
-                                       request_note=request.data.get("note", ""),
-                                       valid_until=request.data.get("valid_until") or None)
-    _log(request, "access_requested", client, scope=scope)
-    return _ok({"grant": grant_dict(grant)}, 201, "Anmodningen er sendt til kunden.")
+    if not staff.is_partner:
+        return _err("Kun partnere kan ændre revisorhusets adgang.", 403)
+    action = request.data.get("action")
+    if action == "end":
+        n = end_access(client, request.user)
+        _log(request, "access_ended", client, grants=n)
+        return _ok({"client": client_dict(client, staff)}, message="Revisorhusets adgang er afsluttet.")
+    if action == "open":
+        scope = request.data.get("scope", "full")
+        if scope not in dict(AccessGrant.SCOPES):
+            return _err("Ugyldigt omfang")
+        open_access(client, request.user, scope, request.data.get("note") or "Adgang genåbnet iht. kundeaftale")
+        _log(request, "access_opened", client, scope=scope)
+        return _ok({"client": client_dict(client, staff)}, message="Revisorhusets adgang er genåbnet.")
+    return _err("action skal være 'end' eller 'open'")
 
 
 @api_view(["POST"])
@@ -502,3 +516,46 @@ def audit_log(request):
         "client": r.client.slug if r.client else None, "client_name": r.client.name if r.client else None,
         "action": r.action, "detail": r.detail, "ip": r.ip_address,
     } for r in rows]})
+
+
+# ─── Betingelser (forretningsbetingelser, databehandleraftale, privatlivspolitik) ──
+
+@api_view(["GET", "POST"])
+@permission_classes([IsFirmStaff])
+def terms(request):
+    from django.utils import timezone
+    from tenancy.models import TermsAcceptance, TermsDocument
+    from tenancy.views import doc_dict
+    if request.method == "GET":
+        docs = TermsDocument.objects.order_by("kind", "-created_at")
+        current = {k: getattr(TermsDocument.current(k), "id", None) for k, _ in TermsDocument.KINDS}
+        return _ok({"documents": [{**doc_dict(d, body=True), "is_current": current.get(d.kind) == d.id,
+                                   "acceptances": TermsAcceptance.objects.filter(document=d).count()}
+                                  for d in docs], "kinds": dict(TermsDocument.KINDS)})
+    if not staff_of(request.user).is_partner:
+        return _err("Kun partnere kan publicere betingelser.", 403)
+    data = request.data
+    if data.get("kind") not in dict(TermsDocument.KINDS):
+        return _err("Ukendt dokumenttype")
+    if not (data.get("version") or "").strip() or not (data.get("body") or "").strip():
+        return _err("Version og tekst skal udfyldes")
+    if TermsDocument.objects.filter(kind=data["kind"], version=data["version"].strip()).exists():
+        return _err("Versionen findes allerede – en publiceret tekst kan ikke ændres; brug et nyt versionsnummer.")
+    d = TermsDocument.objects.create(kind=data["kind"], version=data["version"].strip(),
+                                     title=(data.get("title") or dict(TermsDocument.KINDS)[data["kind"]]).strip(),
+                                     body=data["body"], published_at=timezone.now(), created_by=request.user)
+    _log(request, "terms_published", kind=d.kind, version=d.version, sha256=d.sha256)
+    return _ok({"document": doc_dict(d, body=True)}, 201,
+               "Publiceret. Kundernes brugere skal acceptere den nye version ved næste login."
+               if d.kind in TermsDocument.REQUIRED_KINDS else "Publiceret.")
+
+
+@api_view(["GET"])
+@permission_classes([IsFirmStaff])
+def terms_acceptances(request, pk):
+    from tenancy.models import TermsAcceptance
+    rows = TermsAcceptance.objects.filter(document_id=pk).select_related("user", "client")
+    return _ok({"acceptances": [{
+        "client": a.client.slug, "client_name": a.client.name, "user": _user_name(a.user),
+        "email": a.user.email, "accepted_at": a.accepted_at.isoformat(), "method": a.method,
+        "ip": a.ip_address, "sha256": a.sha256} for a in rows]})

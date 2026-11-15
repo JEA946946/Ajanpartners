@@ -10,7 +10,8 @@ from django.test import Client, TransactionTestCase, override_settings
 from django_tenants.utils import schema_context
 
 from tenancy.models import AccessGrant, FirmAuditLog, FirmStaff, Firm
-from tenancy.services import accept_grant, create_client, ensure_public_tenant, revoke_grant
+from tenancy.services import accept_grant, archive_client, create_client, end_access, ensure_public_tenant
+from tenancy.terms import accept, required_documents
 
 User = get_user_model()
 PW = "Test-1234567"
@@ -34,9 +35,10 @@ class IsolationTests(TransactionTestCase):
                                                   created_by=self.partner)
         self.b, (self.owner_b, _) = create_client(name="Beta ApS", package_code="pro", owner_email="b@b.dk",
                                                   created_by=self.partner)
-        for u in (self.owner_a, self.owner_b):
+        for u, c in ((self.owner_a, self.a), (self.owner_b, self.b)):
             u.set_password(PW)
             u.save()
+            accept(u, c, required_documents())  # betingelserne accepteres ved første login
         self.http = Client()
 
     def tearDown(self):
@@ -71,13 +73,25 @@ class IsolationTests(TransactionTestCase):
         with schema_context(self.b.schema_name):
             self.assertFalse(Account.objects.filter(description="kun-alfa").exists())
 
-    def test_firm_needs_accepted_grant(self):
-        self.assertEqual(self.call("get", "/api/v1/accounts", self.partner, self.a.slug).status_code, 403)
-        grant = AccessGrant.objects.get(client=self.a)
-        accept_grant(grant, self.owner_a)
+    def test_firm_has_access_from_creation(self):
+        # Adgangen følger kundeaftalen: ingen godkendelse fra kunden i systemet.
         self.assertEqual(self.call("get", "/api/v1/accounts", self.partner, self.a.slug).status_code, 200)
-        revoke_grant(grant, self.owner_a)
+        end_access(self.a, self.partner)  # aftalen er ophørt
         self.assertEqual(self.call("get", "/api/v1/accounts", self.partner, self.a.slug).status_code, 403)
+
+    def test_archived_client_is_read_only_for_firm(self):
+        archive_client(self.b)
+        self.assertEqual(self.call("get", "/api/v1/accounts", self.partner, self.b.slug).status_code, 200)
+        r = self.call("post", "/api/v1/customers", self.partner, self.b.slug, {"name": "Ny A/S"})
+        self.assertEqual(r.json()["code"], "client_archived")
+
+    def test_client_cannot_change_firm_access(self):
+        grant = AccessGrant.objects.get(client=self.a)
+        for path in (f"/api/v1/access-grants/{grant.id}/revoke", "/api/v1/access-grants/create"):
+            self.assertEqual(self.call("post", path, self.owner_a, self.a.slug).status_code, 404)
+        r = self.call("get", "/api/v1/access-grants", self.owner_a, self.a.slug)
+        self.assertEqual(r.status_code, 200)
+        self.assertTrue(r.json()["data"]["access_active"])
 
     def test_bogholder_needs_assignment(self):
         accept_grant(AccessGrant.objects.get(client=self.a), self.owner_a)
@@ -121,5 +135,7 @@ class IsolationTests(TransactionTestCase):
     def test_firm_endpoints_require_staff(self):
         self.assertEqual(self.call("get", "/api/firm/clients", self.owner_a).status_code, 403)
         self.assertEqual(self.call("get", "/api/firm/clients", self.partner).status_code, 200)
+        self.assertEqual(self.call("get", f"/api/firm/clients/{self.a.slug}/status", self.partner).status_code, 200)
+        end_access(self.a, self.partner)
         r = self.call("get", f"/api/firm/clients/{self.a.slug}/status", self.partner)
-        self.assertEqual(r.status_code, 403)  # stamdata ja, tal fra bøgerne kun med samtykke
+        self.assertEqual(r.status_code, 403)  # stamdata ja, tal fra bøgerne kun med aktiv adgang

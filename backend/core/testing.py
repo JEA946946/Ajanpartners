@@ -62,6 +62,10 @@ class LedgerTestCase(TenantTestCase):
         connection.set_schema_to_public()
         self.user = get_user_model().objects.create_user("bogholder@test.dk", "bogholder@test.dk", "x")
         ClientMembership.objects.create(user=self.user, client=self.tenant, role="admin")
+        from tenancy.terms import accept, required_documents
+        from tenancy.terms_drafts import seed_terms
+        seed_terms()
+        accept(self.user, self.tenant, required_documents())
         connection.set_tenant(self.tenant)
         self.api = APIClient()
         self.api.credentials(HTTP_AUTHORIZATION=f"Bearer {RefreshToken.for_user(self.user).access_token}",

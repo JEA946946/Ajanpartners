@@ -10,7 +10,7 @@ const ROLE: Record<string, string> = { admin: 'Administrator', accountant: 'Bogh
 
 /** Vælg hvilken virksomheds bøger der skal åbnes. */
 const SelectClient: React.FC = () => {
-  const { clients, selectClient, firmStaff, firm, pendingGrants } = useClient();
+  const { clients, selectClient, firmStaff, firm } = useClient();
   const { logout } = useAuth();
   const navigate = useNavigate();
 
@@ -20,11 +20,6 @@ const SelectClient: React.FC = () => {
       <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
         {firm?.name || 'Ajan Partners'} – gratis bogføring til vores kunder.
       </Typography>
-      {pendingGrants.length > 0 && (
-        <Button variant="contained" sx={{ mb: 2 }} onClick={() => navigate('/onboarding')}>
-          Godkend adgang for {firm?.name || 'revisor'} ({pendingGrants.length})
-        </Button>
-      )}
       <Stack spacing={1.5}>
         {clients.map((c) => (
           <Card key={c.slug} variant="outlined">

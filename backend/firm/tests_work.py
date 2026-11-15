@@ -28,6 +28,9 @@ class FirmWorkTests(TransactionTestCase):
                                                   created_by=self.partner, vat_period="quarter")
         self.b, (self.owner_b, _) = create_client(name="Beta ApS", package_code="pro", owner_email="b@b.dk",
                                                   created_by=self.partner, legal_form="enk", accounting_class="A")
+        from tenancy.terms import accept, required_documents
+        for owner, client in ((self.owner_a, self.a), (self.owner_b, self.b)):
+            accept(owner, client, required_documents())
         self.http = Client()
 
     def tearDown(self):
@@ -64,7 +67,7 @@ class FirmWorkTests(TransactionTestCase):
         r = self.call("get", "/api/firm/clients", self.partner)
         c = next(c for c in r.json()["data"]["clients"] if c["slug"] == self.a.slug)
         self.assertIsNotNone(c["next_deadline"])
-        self.assertEqual(c["access"], "pending")
+        self.assertEqual(c["access"], "full")  # adgang fra oprettelsen iht. kundeaftalen
 
     # ─── Opgaver og indbakke ──────────────────────────────────────────────────
 
@@ -123,9 +126,11 @@ class FirmWorkTests(TransactionTestCase):
     # ─── Revisorværktøjer ─────────────────────────────────────────────────────
 
     def test_tools_need_grant(self):
+        from tenancy.services import end_access, open_access
+        end_access(self.a, self.partner)  # aftalen ophørt → ingen tal fra bøgerne
         self.assertEqual(self.call("get", f"/api/firm/clients/{self.a.slug}/trial-balance", self.partner).status_code, 403)
         self.assertEqual(self.call("get", f"/api/firm/clients/{self.a.slug}/account-comments", self.partner).status_code, 403)
-        accept_grant(AccessGrant.objects.get(client=self.a), self.owner_a)
+        open_access(self.a, self.partner)
         r = self.call("get", f"/api/firm/clients/{self.a.slug}/trial-balance", self.partner)
         self.assertEqual(r.status_code, 200, r.content)
         r = self.call("get", f"/api/firm/clients/{self.a.slug}/trial-balance?export=csv&from=2026-01-01&to=2026-12-31",
