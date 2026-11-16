@@ -21,7 +21,7 @@
     {"name": "udbytte_betaling", "label": "Udbetalingsdato for udbytte", "type": "date"},
     {"name": "decharge", "label": "Decharge behandlet", "type": "checkbox", "default": true},
     {"name": "bestyrelse_valgt", "label": "Valgte bestyrelsesmedlemmer (tom hvis ingen bestyrelse/ingen ændring)", "type": "textarea"},
-    {"name": "revisionsvalg", "label": "Revision", "type": "select", "options": ["Genvalg af revisor", "Valg af ny revisor", "Fravalg af revision", "Revision er fravalgt (ingen ændring)", "Revision efter erklæringsstandard for små virksomheder"], "default": "Genvalg af revisor"},
+    {"name": "revisionsvalg", "label": "Revision", "type": "select", "options": ["Genvalg af revisor", "Valg af ny revisor", "Fravalg af revision", "Revision er fravalgt (ingen ændring)", "Udvidet gennemgang (erklæringsstandard for små virksomheder)"], "default": "Genvalg af revisor"},
     {"name": "revisor_navn", "label": "Valgt revisor/revisionsfirma (inkl. CVR)", "type": "text", "default": "{{ firma.navn }}, CVR-nr. {{ firma.cvr }}"},
     {"name": "vedtaegtsaendring", "label": "Vedtagne vedtægtsændringer (fuld ordlyd)", "type": "textarea"},
     {"name": "eventuelt", "label": "Eventuelt", "type": "textarea", "default": "Intet at referere."},
@@ -99,8 +99,8 @@ Generalforsamlingen besluttede enstemmigt, at selskabets årsregnskab fremover i
 Ledelsen sikrer, at det i ledelsespåtegningen i årsrapporten for {{ regnskab.aar }} oplyses, at revision fravælges for kommende regnskabsår, og at det i den første ureviderede årsrapport erklæres, at betingelserne for fravalg er opfyldt.
 {% elif felt.revisionsvalg == "Revision er fravalgt (ingen ændring)" %}
 Dirigenten oplyste, at selskabet fortsat opfylder betingelserne for fravalg af revision efter årsregnskabslovens § 135, stk. 1. Generalforsamlingen tog dette til efterretning, og der blev ikke valgt revisor.
-{% elif felt.revisionsvalg == "Revision efter erklæringsstandard for små virksomheder" %}
-{{ felt.revisor_navn }} blev valgt som selskabets revisor. Generalforsamlingen tog til efterretning, at revisionen udføres efter Erhvervsstyrelsens erklæringsstandard for små virksomheder, jf. årsregnskabslovens § 135, stk. 1, 2. pkt.
+{% elif felt.revisionsvalg == "Udvidet gennemgang (erklæringsstandard for små virksomheder)" %}
+{{ felt.revisor_navn }} blev valgt som selskabets revisor. Generalforsamlingen tog til efterretning, at revisionen udføres som udvidet gennemgang efter Erhvervsstyrelsens erklæringsstandard for små virksomheder, jf. årsregnskabslovens § 135, stk. 1, 2. pkt.
 {% else %}
 {{ felt.revisor_navn }} blev {% if felt.revisionsvalg == "Genvalg af revisor" %}genvalgt{% else %}valgt{% endif %} som selskabets revisor.
 {% endif %}

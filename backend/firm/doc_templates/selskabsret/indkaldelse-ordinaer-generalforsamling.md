@@ -61,7 +61,7 @@ Der foreslås udbytte på {{ felt.udbytte_beloeb }} kr. Udbyttet udbetales efter
 {% endif %}
 {% if felt.revisionsvalg == "Fravalg af revision" %}
 **Fravalg af revision**
-Det foreslås, at selskabets årsregnskab fremover ikke revideres. Selskabet har i de to seneste på hinanden følgende regnskabsår på balancedagen ikke overskredet to af følgende grænser: balancesum 4 mio. kr., nettoomsætning 8 mio. kr. og gennemsnitligt 12 heltidsbeskæftigede, jf. årsregnskabslovens § 135, stk. 1. Vedtages forslaget, fratræder den hidtidige revisor, og eventuelle bestemmelser om revision i vedtægterne foreslås samtidig ophævet (behandles under dagsordenspunktet om vedtægtsændringer).
+Det foreslås, at selskabets årsregnskab fremover ikke revideres. Selskabet har i de to seneste på hinanden følgende regnskabsår på balancedagen ikke overskredet to af følgende grænser: balancesum 4 mio. kr., nettoomsætning 8 mio. kr. og gennemsnitligt 12 heltidsbeskæftigede, jf. årsregnskabslovens § 135, stk. 1, balancesummen har ikke oversteget 50 mio. kr. (stk. 2), og selskabet er ikke udelukket efter § 135 a. Vedtages forslaget, fratræder den hidtidige revisor, og eventuelle bestemmelser om revision i vedtægterne foreslås samtidig ophævet (behandles under dagsordenspunktet om vedtægtsændringer).
 {% elif felt.revisionsvalg == "Genvalg af revisor" or felt.revisionsvalg == "Valg af ny revisor" %}
 **Valg af revisor**
 Det foreslås, at {{ felt.revisor_navn }} vælges som selskabets revisor.
