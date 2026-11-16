@@ -49,7 +49,7 @@ Hver kunde har sit eget Postgres-skema med hele bogføringen: kontoplan, posteri
 3. **Moms**: momsangivelsen dannes ud fra bogføringen for kundens momsperiode → afstemmes mod saldobalancen → angives (via Skats system-til-system, når aftalen er på plads, ellers i TastSelv) → perioden låses og afregningen bogføres.
 
 ## 5. Drift
-- Installation: `docker-compose.yml` (postgres, django, worker) og `.env` ud fra `.env.example`. Første gang: `bootstrap_firm` opretter revisorhuset og den første partner.
+- Installation: `docker-compose.yml` (postgres, django, worker) og `.env` ud fra `.env.example`. Første gang: `bootstrap_firm --firm-name … --cvr … --partner-email …` opretter revisorhuset med stamdata (CVR, adresse, e-mail, telefon – bruges i bl.a. skabeloner) og den første partner.
 - Planlagte job (`infra/worker.sh`): backup 02:30, restore-test den 1. i måneden, bankdata 06:00, påmindelse om bankkobling dagligt og opbevaringsjob månedligt.
 - Opdatering: push til `main` → CI (tests, lint, build) → deploy. Migrationer køres med `migrate_schemas` for alle kunder.
 

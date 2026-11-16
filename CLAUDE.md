@@ -40,7 +40,7 @@ Django 5.2 + DRF backend (`backend/`), React 18 + MUI 5 + Vite frontend (`fronte
 ## Drift og test
 - Lokalt: Homebrew Postgres på localhost, database `ajanpartners`. `cd backend && export DJANGO_SETTINGS_MODULE=config.settings.local`.
   - `.venv/bin/python manage.py migrate_schemas --shared` (public) og `migrate_schemas` (alle kunder).
-  - `.venv/bin/python manage.py bootstrap_firm --partner-email … --partner-password …`.
+  - `.venv/bin/python manage.py bootstrap_firm --firm-name … --cvr … [--address … --email … --phone …] --partner-email … --partner-password …` (kan køres igen; kun angivne stamdata opdateres).
   - Tests: `.venv/bin/python manage.py test <moduler>` (django-tenants: brug `django_tenants.test.cases.TenantTestCase` for tenant-tests).
 - Hele testsuiten: `TEST_DB_NAME=test_ap_main .venv/bin/python manage.py test --noinput` (≈190 tests, ca. 3 min).
 - Lokalt: backend `manage.py runserver 8011` (8001 bruges af et andet projekt), frontend `BOOKKEEPING_API_URL=http://localhost:8011 npm run dev` → http://localhost:5174.

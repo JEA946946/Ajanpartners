@@ -1,28 +1,53 @@
-"""Opret public-tenant, pakker og (valgfrit) den første partner.
+"""Opret public-tenant, pakker, revisorhusets stamdata og (valgfrit) den første partner.
 
-    python manage.py bootstrap_firm --partner-email jamal@ajanpartners.dk --partner-password ...
+    python manage.py bootstrap_firm --firm-name "Ajan Partners" --cvr 46922514 \
+        --address "Vej 1, 1000 København K" --email info@ajanpartners.dk --phone "+45 12 34 56 78" \
+        --partner-email jamal@ajanpartners.dk --partner-password ...
+
+Kan køres igen: kun de stamdata, der angives, opdateres.
 """
 
 from django.contrib.auth import get_user_model
-from django.core.management.base import BaseCommand
+from django.core.management.base import BaseCommand, CommandError
 
+from integrations.cvr import normalize_cvr
+from integrations.base import IntegrationError
 from tenancy.models import Firm, FirmStaff
 from tenancy.services import ensure_public_tenant
 
+FIRM_FIELDS = {"firm_name": "name", "cvr": "cvr", "address": "address", "email": "email", "phone": "phone"}
+
 
 class Command(BaseCommand):
-    help = "Opret public-tenant, standardpakker og den første partner i Ajan Partners."
+    help = "Opret public-tenant, standardpakker, revisorhusets stamdata og den første partner i Ajan Partners."
 
     def add_arguments(self, parser):
         parser.add_argument("--domain", default="localhost")
+        parser.add_argument("--firm-name", help="Revisorhusets navn")
+        parser.add_argument("--cvr", help="Revisorhusets CVR-nummer (8 cifre)")
+        parser.add_argument("--address", help="Revisorhusets adresse")
+        parser.add_argument("--email", help="Revisorhusets e-mail")
+        parser.add_argument("--phone", help="Revisorhusets telefon")
         parser.add_argument("--partner-email")
         parser.add_argument("--partner-password")
         parser.add_argument("--partner-name", default="")
 
     def handle(self, *args, **opts):
+        values = {field: opts[arg].strip() for arg, field in FIRM_FIELDS.items() if opts.get(arg) is not None}
+        if "cvr" in values:
+            try:
+                values["cvr"] = normalize_cvr(values["cvr"])
+            except IntegrationError as e:
+                raise CommandError(f"--cvr: {e}") from e
+
         ensure_public_tenant(opts["domain"])
         firm = Firm.current()
-        self.stdout.write(f"Firma: {firm.name}")
+        for field, value in values.items():
+            setattr(firm, field, value)
+        if values:
+            firm.save(update_fields=list(values))
+        self.stdout.write(f"Firma: {firm.name}" + (f" (CVR {firm.cvr})" if firm.cvr else " – CVR ikke angivet"))
+
         email = opts.get("partner_email")
         if email:
             User = get_user_model()
