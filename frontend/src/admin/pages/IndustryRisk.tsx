@@ -99,7 +99,7 @@ const IndustryRisk: React.FC = () => {
           <CardContent>
             <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>Officielle risikobrancher (årsregnskabslovens § 135, stk. 5)</Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-              {official.source}. Gælder for regnskabsår fra 1. januar 2025 og i to år. Hovedbranchekoden i CVR på
+              {official.source}. I kraft 1. januar 2026 med virkning for regnskabsår, der begynder 1. januar 2025 eller senere, og gælder i to regnskabsår (§§ 2–3). Afløser BEK nr. 32/2023. Hovedbranchekoden i CVR på
               balancedagen er afgørende. Klasse B-virksomheder i disse brancher med en nettoomsætning over 5 mio. kr.
               i to år i træk kan ikke fravælge revisorerklæring – de skal mindst have en opstillingserklæring.
               Listen er en del af lovgivningen og er adskilt fra vores egen vurdering nedenfor.

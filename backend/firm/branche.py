@@ -61,7 +61,9 @@ MOMSFRITAGET = {"sundhed", "undervisning", "finans", "kultur_fritid", "forening"
 LAGER = {"fremstilling", "engros", "detail", "bilhandel", "landbrug"}
 IGANGVAERENDE = {"byggeri", "liberalt_erhverv", "it"}
 # Officielle "klassificerede risikobrancher" efter årsregnskabslovens § 135, stk. 5 og 8:
-# BEK nr. 1488 af 27/11/2025 § 1 (DB25-koder, udtømmende; gælder for regnskabsår fra 1/1 2025 og i to år, § 2).
+# BEK nr. 1488 af 27/11/2025 § 1 (DB25-koder, udtømmende). I kraft 1/1 2026; virkning for regnskabsår, der
+# begynder 1/1 2025 eller senere (§ 3, stk. 2); klassifikationen gælder i to regnskabsår (§ 2). Afløser BEK nr. 32
+# af 12/1 2023. Kontrolleret mod den officielle PDF på retsinformation.dk/eli/lta/2025/1488.
 # Hovedbranchekoden i CVR på balancedagen er afgørende. Klasse B-virksomheder i en risikobranche med
 # nettoomsætning over 5 mio. kr. i 2 på hinanden følgende år skal have mindst en opstillingserklæring.
 RISIKOBRANCHER_KILDE = "BEK nr. 1488 af 27/11/2025 om klassificerede risikobrancher, § 1"
