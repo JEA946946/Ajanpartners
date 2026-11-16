@@ -37,7 +37,7 @@ class Firm(models.Model):
     def current(cls):
         firm = cls.objects.order_by("id").first()
         if firm is None:
-            firm = cls.objects.create(name="Ajan Partners")
+            firm = cls.objects.create(name="Ajan & Partners")
         return firm
 
 

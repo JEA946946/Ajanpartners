@@ -1,6 +1,6 @@
 """Opret public-tenant, pakker, revisorhusets stamdata og (valgfrit) den første partner.
 
-    python manage.py bootstrap_firm --firm-name "Ajan Partners" --cvr 46922514 \
+    python manage.py bootstrap_firm --firm-name "Ajan & Partners" --cvr 46922514 \
         --address "Vej 1" --zip-code 1000 --city "København K" --email info@ajanpartners.dk --phone "+45 12 34 56 78" \
         --partner-email jamal@ajanpartners.dk --partner-password ...
 
