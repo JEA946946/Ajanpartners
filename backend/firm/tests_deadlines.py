@@ -89,17 +89,18 @@ class AnnualTests(SimpleTestCase):
         self.assertEqual(dl.fiscal_year_start(7, date(2026, 6, 30)), date(2025, 7, 1))
 
     def test_annual_report_class_b(self):
-        self.assertEqual(dl.annual_report_due(date(2025, 12, 31), "B"), date(2026, 5, 31))
-        self.assertEqual(dl.annual_report_due(date(2026, 6, 30), "B"), date(2026, 11, 30))
-        self.assertEqual(dl.annual_report_due(date(2025, 9, 30), "B"), date(2026, 2, 28))
-        self.assertEqual(dl.annual_report_due(date(2025, 12, 31), "C"), date(2026, 4, 30))
+        self.assertEqual(dl.annual_report_due(date(2025, 12, 31), "B"), date(2026, 6, 30))
+        self.assertEqual(dl.annual_report_due(date(2026, 6, 30), "B"), date(2026, 12, 31))
+        self.assertEqual(dl.annual_report_due(date(2025, 9, 30), "B"), date(2026, 3, 31))
+        self.assertEqual(dl.annual_report_due(date(2025, 12, 31), "C"), date(2026, 6, 30))
+        self.assertEqual(dl.annual_report_due(date(2025, 12, 31), "D"), date(2026, 4, 30))
 
     def test_annual_report_shift(self):
-        p = dl.Profile(vat_period="none", has_payroll=False)
+        p = dl.Profile(vat_period="none", fiscal_year_start_month=12, has_payroll=False)
         items = [d for d in dl.deadlines_for(p, date(2026, 5, 1), date(2026, 6, 30)) if d.kind == "aarsrapport"]
-        self.assertEqual(items[0].due, date(2026, 5, 31))   # søndag
+        self.assertEqual(items[0].due, date(2026, 5, 31))   # søndag (6 mdr. efter 30/11 2025)
         self.assertEqual(items[0].date, date(2026, 6, 1))
-        self.assertEqual(items[0].period, "Regnskabsår 2025")
+        self.assertEqual(items[0].period, "Regnskabsår 2024/25")
 
     def test_company_tax_return(self):
         self.assertEqual(dl.company_tax_return_due(date(2025, 12, 31)), date(2026, 6, 30))
@@ -120,7 +121,7 @@ class AnnualTests(SimpleTestCase):
         p = dl.Profile(vat_period="none", fiscal_year_start_month=7, has_payroll=False)
         items = [d for d in dl.deadlines_for(p, date(2026, 11, 1), date(2026, 12, 31)) if d.kind == "aarsrapport"]
         self.assertEqual(items[0].period, "Regnskabsår 2025/26")
-        self.assertEqual(items[0].date, date(2026, 11, 30))
+        self.assertEqual(items[0].date, date(2026, 12, 31))
 
     def test_aconto(self):
         p = dl.Profile(vat_period="none", has_payroll=False)

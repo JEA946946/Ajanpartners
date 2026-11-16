@@ -245,11 +245,13 @@ def build_context(firm, client=None, user=None, staff=None, year=None, with_figu
             ctx["kunde"]["branchekode"] = info.get("display", client.industry_code)
             ctx["kunde"]["branchetekst"] = info.get("title", "")
         if year:
-            # Klasse B: 5 måneder efter regnskabsårets udløb (ÅRL § 138); klasse C/D: 4 måneder.
-            months = 5 if client.accounting_class.upper().startswith(("A", "B")) else 4
+            from firm.deadlines import ANNUAL_REPORT_MONTHS, annual_report_due
+
+            cls = (client.accounting_class or "B").upper()
+            due = annual_report_due(year["end"], cls if cls in ANNUAL_REPORT_MONTHS else "B")
             ctx["regnskab"] = {
                 "aar": year_label(year["start"], year["end"]), "start": da_date(year["start"]),
-                "slut": da_date(year["end"]), "frist_aarsrapport": da_date(_add_months(year["end"], months)),
+                "slut": da_date(year["end"]), "frist_aarsrapport": da_date(due),
                 "omsaetning": "", "resultat": "", "balancesum": "", "egenkapital": "",
             }
             if with_figures:

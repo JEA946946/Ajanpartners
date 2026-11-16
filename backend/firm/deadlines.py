@@ -215,11 +215,12 @@ def a_tax_deadlines(profile, year):
 
 # ─── Årsrapport og selvangivelse ──────────────────────────────────────────────
 
-ANNUAL_REPORT_MONTHS = {"B": 5, "C": 4, "D": 4}
+ANNUAL_REPORT_MONTHS = {"B": 6, "C": 6, "D": 4}  # ÅRL § 138, stk. 1
 
 
 def annual_report_due(year_end, accounting_class):
-    """Klasse B: 5 måneder efter regnskabsårets udløb; klasse C og D: 4 måneder.
+    """ÅRL § 138, stk. 1: modtaget i Erhvervsstyrelsen senest 6 måneder efter regnskabsårets udløb
+    (klasse B og C); klasse D: 4 måneder.
     Slutter året den sidste i måneden, er fristen også den sidste i måneden."""
     months = ANNUAL_REPORT_MONTHS[accounting_class]
     y, m = add_months(year_end.year, year_end.month, months)
