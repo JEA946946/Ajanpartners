@@ -123,3 +123,36 @@ def _quote(s):
     return quote(s)
 
 
+
+
+@api_view(["GET"])
+@permission_classes([IsFirmStaff])
+def industry_risk(request):
+    """Revisorhusets egen, indikative vurdering af brancherisiko efter hvidvaskloven (firm/branche.py).
+    ?code=<branchekode> viser vurderingen for én kode. Kunderne tælles pr. gruppe (dem medarbejderen kan se)."""
+    from firm import branche
+    from firm.views import _clients_for
+    from integrations.industry import describe
+
+    code = request.query_params.get("code")
+    if code:
+        ctx = branche.context(code)
+        info = describe(code)
+        if not info:
+            return _err("Branchekoden findes ikke i DB25", 404)
+        return _ok({"code": info["display"], "title": info["title"], "groups": ctx["grupper"],
+                    "level": ctx["hvidvask_risiko"], "reasons": ctx["hvidvask_grunde"], "focus": ctx["hvidvask_fokus"]})
+
+    rows = branche.overview()
+    counts, clients_by_level = {}, {"høj": [], "forhøjet": [], "normal": [], "ukendt": []}
+    for c in _clients_for(staff_of(request.user)).filter(status__in=("active", "onboarding")):
+        found, _ = branche.groups(c.industry_code)
+        for g in found:
+            counts[g] = counts.get(g, 0) + 1
+        level = branche.assess(found)[0] if c.industry_code else "ukendt"
+        clients_by_level[level].append({"slug": c.slug, "name": c.name, "industry_code": c.industry_code,
+                                        "groups": sorted(found)})
+    for r in rows:
+        r["clients"] = counts.get(r["group"], 0)
+    return _ok({"groups": rows, "kontant": {"level": branche.KONTANT_RISK[0], "reasons": branche.KONTANT_RISK[1]},
+                "clients": clients_by_level})

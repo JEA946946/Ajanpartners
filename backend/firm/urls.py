@@ -19,6 +19,7 @@ urlpatterns = [
     path("terms/<int:pk>/acceptances", views.terms_acceptances),
     path("audit-log", views.audit_log),
     path("templates", views_templates.templates),
+    path("industry-risk", views_templates.industry_risk),
     path("templates/<slug:template_id>/render", views_templates.template_render),
     path("templates/<slug:template_id>/docx", views_templates.template_docx),
     path("deadlines", views_work.deadlines),

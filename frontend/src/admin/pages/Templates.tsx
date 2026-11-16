@@ -285,7 +285,8 @@ const Templates: React.FC = () => {
                   <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
                     {result.client.industry_label && <Chip size="small" label={`Branche: ${result.client.industry_label}`} />}
                     {result.client.industry_code && <Chip size="small" color={RISK_COLOR[result.client.aml_risk] || 'default'} variant="outlined"
-                      label={`Hvidvaskrisiko: ${result.client.aml_risk}`} />}
+                      label={`Hvidvaskrisiko: ${result.client.aml_risk} (intern vurdering)`}
+                      onClick={() => navigate('/admin/industry-risk')} />}
                     <Chip size="small" variant="outlined" label={result.client.figures ? 'Tal fra bogføringen' : 'Ingen tal fra bogføringen'} />
                   </Box>
                   {meta?.industry_aware && !result.client.industry_code && (

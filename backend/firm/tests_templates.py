@@ -220,3 +220,18 @@ class FirmSettingsTests(TransactionTestCase):
         self.assertEqual(self.put({"cvr": "123"}).status_code, 400)
         self.assertEqual(self.put({"email": "ikke-en-mail"}).status_code, 400)
         self.assertEqual(self.put({"name": " "}).status_code, 400)
+
+
+class IndustryRiskTests(SimpleTestCase):
+    def test_every_risk_group_has_reasons_and_prefixes(self):
+        for row in branche.overview():
+            self.assertIn(row["level"], {"høj", "forhøjet", "normal"})
+            self.assertTrue(row["reasons"], row["group"])
+            self.assertTrue(row["prefixes"], row["group"])
+
+    def test_highest_level_wins_and_reasons_follow(self):
+        ctx = branche.context("561010")  # restauration
+        self.assertEqual(ctx["hvidvask_risiko"], "høj")
+        self.assertTrue(any("kontant" in r.lower() for r in ctx["hvidvask_grunde"]))
+        self.assertEqual(branche.context("473000")["hvidvask_risiko"], "forhøjet")  # tankstation: kontantintensiv
+        self.assertEqual(branche.context("")["hvidvask_risiko"], "normal")
