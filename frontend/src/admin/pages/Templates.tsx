@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Alert, Autocomplete, Box, Button, Card, CardContent, Checkbox, Chip, CircularProgress, Divider, FormControlLabel,
   InputAdornment, List, ListItemButton, ListItemText, ListSubheader, MenuItem, Paper, Snackbar, Stack, Tab, Tabs,
@@ -32,6 +32,8 @@ interface Rendered {
   };
   years: { id: string; label: string; start: string; end: string }[];
   year: string | null;
+  firm_missing: string[];
+  client_missing: string[];
 }
 
 const FORM_LABEL = Object.fromEntries(LEGAL_FORMS);
@@ -56,6 +58,7 @@ const printText = (title: string, html: string) => {
 /** Admin-portalen → Skabeloner: vælg skabelon, vælg kunde, og få dokumentet flettet. */
 const Templates: React.FC = () => {
   const [params, setParams] = useSearchParams();
+  const navigate = useNavigate();
   const [list, setList] = useState<Meta[]>([]);
   const [cats, setCats] = useState<{ id: string; label: string }[]>([]);
   const [errors, setErrors] = useState<{ id: string; error: string }[]>([]);
@@ -323,6 +326,18 @@ const Templates: React.FC = () => {
           {result && result.missing > 0 && (
             <Alert severity="info" sx={{ borderRadius: 0 }}>
               {result.missing} oplysning(er) mangler og er markeret med <b>[…]</b>{!client ? ' – vælg en kunde for at udfylde stamdata' : ''}.
+            </Alert>
+          )}
+          {result && result.firm_missing.length > 0 && (
+            <Alert severity="warning" sx={{ borderRadius: 0 }}
+              action={<Button size="small" onClick={() => navigate('/admin/settings')}>Udfyld</Button>}>
+              Revisorhusets {result.firm_missing.join(', ')} er ikke udfyldt og mangler derfor i dokumentet.
+            </Alert>
+          )}
+          {result && result.client && result.client_missing.length > 0 && (
+            <Alert severity="warning" sx={{ borderRadius: 0 }}
+              action={<Button size="small" onClick={() => navigate(`/admin/clients/${result.client!.slug}`)}>Åbn kunden</Button>}>
+              Kundens {result.client_missing.join(', ')} er ikke udfyldt i stamdata.
             </Alert>
           )}
           {edited !== null && (

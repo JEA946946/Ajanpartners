@@ -87,6 +87,10 @@ def template_render(request, template_id):
             "aml_risk": b.get("hvidvask_risiko"),
             "figures": bool(ctx["regnskab"].get("omsaetning")) if year else False,
         } if client else None,
+        "firm_missing": [label for key, label in (("cvr", "CVR-nr."), ("adresse", "adresse"), ("email", "e-mail"),
+                                                  ("telefon", "telefon")) if not ctx["firma"][key]],
+        "client_missing": [label for key, label in (("cvr", "CVR-nr."), ("adresse", "adresse"), ("branchekode", "branchekode"))
+                           if not ctx["kunde"][key]] if client else [],
         "years": [{"id": y["id"], "label": templating.year_label(y["start"], y["end"]),
                    "start": y["start"].isoformat(), "end": y["end"].isoformat()} for y in years],
         "year": year["id"] if year else None,

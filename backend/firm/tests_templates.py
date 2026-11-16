@@ -166,6 +166,8 @@ class TemplateEndpointTests(TransactionTestCase):
         self.assertEqual(d["client"]["aml_risk"], "høj")
         self.assertIn("restauration", d["client"]["industry_groups"])
         self.assertTrue(d["years"])
+        self.assertEqual(d["client_missing"], ["adresse"])  # CVR og branchekode er udfyldt
+        self.assertIn("CVR-nr.", d["firm_missing"]) if not Firm.current().cvr else None
         self.assertFalse(FirmAuditLog.objects.filter(action="template_render").exists())
         self.call("post", f"/api/firm/templates/{tid}/render", self.partner, {"client": self.client_co.slug, "final": True})
         self.assertTrue(FirmAuditLog.objects.filter(action="template_render", client=self.client_co).exists())
