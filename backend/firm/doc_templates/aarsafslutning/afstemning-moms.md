@@ -3,7 +3,7 @@
   "title": "Afstemning af moms",
   "description": "Arbejdspapir til afstemning af momsangivelser mod bogføring og skattekonto, samt årsafstemning af momspligtig omsætning, med branchespecifikke momsforhold.",
   "kind": "arbejdspapir",
-  "references": ["Momsloven §§ 4, 37-38, 46, 57", "Momsbekendtgørelsen", "Opkrævningsloven (skattekontoen)", "Lønsumsafgiftsloven"],
+  "references": ["Momsloven §§ 4, 37-38, 42-44, 46, 51, 57 (LBK nr. 209 af 27. februar 2024 med senere ændringer)", "Momsbekendtgørelsen", "Opkrævningsloven (skattekontoen)", "Lønsumsafgiftsloven"],
   "legal_forms": [],
   "industry_aware": true,
   "fields": [
@@ -41,13 +41,13 @@ Udarbejdet af: {{ medarbejder.navn }}, {{ dato.idag }}
 | Difference (forklares) | |
 
 - [ ] Rubrik A (EU-køb), rubrik B (EU-salg varer/ydelser) og rubrik C er afstemt til bogføringen og EU-salgsangivelsen
-- [ ] Købsmoms: stikprøver på fradragsbegrænsninger – repræsentation (25 %), hotel (50 %), personbiler (intet fradrag), private udgifter
+- [ ] Købsmoms: stikprøver på fradragsbegrænsninger (momsloven § 42) – restaurationsydelser af strengt erhvervsmæssig karakter (25 %, § 42, stk. 2), hotelovernatning (fradragsbegrænsningen ophævet fra 1. januar 2015), øvrig repræsentation, personbiler og private udgifter
 - [ ] Fradrag for moms af tab på debitorer er korrekt (konstateret tab)
 
 ## 3. Branchespecifikke forhold
 {% if branche.byggeri %}- [ ] **Omvendt betalingspligt** ved køb/salg af byggeydelser mellem momsregistrerede (momsloven § 46) og ved salg af byggegrunde/nye bygninger (momspligtigt salg af fast ejendom)
 {% endif %}{% if branche.bilhandel %}- [ ] **Brugtmomsordningen** (momsloven kap. 17): beregning af avance pr. bil, krav til bogføring, demobiler og leasingbiler; registreringsafgift og eksport
-{% endif %}{% if branche.ejendom %}- [ ] **Udlejning af fast ejendom** er momsfritaget, medmindre der er frivillig registrering for erhvervsudlejning (momsloven § 51); regulering af købsmoms på investeringsgoder (10-årig reguleringsperiode for fast ejendom)
+{% endif %}{% if branche.ejendom %}- [ ] **Udlejning af fast ejendom** er momsfritaget, medmindre der er frivillig registrering for erhvervsudlejning (momsloven § 51); regulering af købsmoms på investeringsgoder (regulering med en tiendedel pr. år for fast ejendom, momsloven § 44)
 {% endif %}{% if branche.momsfritaget %}- [ ] **Delvis fradragsret**: pro rata-sats (momsloven § 38) beregnet på årsbasis og efterreguleret; **lønsumsafgift** er opgjort og angivet{% if branche.sundhed %} (sundhedsydelser){% endif %}{% if branche.undervisning %} (undervisning){% endif %}{% if branche.finans %} (finansielle ydelser){% endif %}
 {% endif %}{% if branche.restauration or branche.hotel %}- [ ] Fradrag for moms af hotelophold og restaurationsydelser hos kunder er korrekt; ingen fradragsbegrænsning på egne varekøb; moms af personaleforplejning og egetforbrug
 {% endif %}{% if branche.transport %}- [ ] Persontransport er momsfritaget (fx taxi, bus); godstransport momspligtig. Udenlandsk moms og energiafgift på brændstof søgt tilbage; moms af vejafgifter

@@ -3,7 +3,7 @@
   "title": "Virksomhedsordningen (VSO) – opgørelse og tjekliste",
   "description": "Arbejdspapir for virksomhedsskatteordningen: indskudskonto, kapitalafkastgrundlag, kapitalafkast (2 % i 2026), mellemregningskonto, hæverækkefølgen, opsparet overskud og virksomhedsskat (22 %), rentekorrektion og kontrolpunkter.",
   "kind": "arbejdspapir",
-  "references": ["Virksomhedsskatteloven §§ 1-22 b", "VSL § 3 (indskudskonto)", "VSL § 4 a (mellemregningskonto)", "VSL § 5 (hæverækkefølge)", "VSL §§ 7-8 (kapitalafkast og -grundlag)", "VSL § 10 (opsparet overskud)", "VSL § 11 (rentekorrektion)", "SKM2026.414.SKTST (kapitalafkastsats 2026)", "Den juridiske vejledning C.C.5.2"],
+  "references": ["Virksomhedsskatteloven §§ 1-22 b", "VSL § 3 (indskudskonto)", "VSL § 4 a (mellemregningskonto)", "VSL § 5 (hæverækkefølge)", "VSL §§ 7-9 (kapitalafkast, -grundlag og -sats)", "VSL § 10 (opsparet overskud og virksomhedsskat)", "VSL § 11 (rentekorrektion)", "SKM2026.414.SKTST (kapitalafkastsats 2026)", "Den juridiske vejledning C.C.5.2"],
   "legal_forms": ["enk", "is", "pmv"],
   "industry_aware": true,
   "fields": [
@@ -26,7 +26,7 @@
 **Ejer:** {{ felt.ejer }} · **Virksomhed:** {{ kunde.navn }}, CVR-nr. {{ kunde.cvr }}
 **Udarbejdet af:** {{ medarbejder.navn }}, {{ dato.idag }}
 
-Satser {{ regnskab.aar }}: kapitalafkastsats **{{ felt.kapitalafkastsats }} %** (2026: 2 %, uændret fra 2025, SKM2026.414.SKTST) · virksomhedsskat **{{ felt.virksomhedsskat }} %** (svarer til selskabsskatten).
+Satser {{ regnskab.aar }}: kapitalafkastsats **{{ felt.kapitalafkastsats }} %** (2026: 2 %, uændret fra 2025, VSL § 9, stk. 1; SKM2026.414.SKTST) · virksomhedsskat **{{ felt.virksomhedsskat }} %** (2026: 22 %, VSL § 10, stk. 2).
 
 ## 1. Betingelser
 - [ ] Der drives selvstændig erhvervsvirksomhed (ikke lønmodtagerlignende eller hobby).
@@ -42,10 +42,10 @@ Satser {{ regnskab.aar }}: kapitalafkastsats **{{ felt.kapitalafkastsats }} %** 
 |---|---|
 | Aktiver indskudt (handelsværdi; ejendomme til ejendomsværdi + evt. tillæg/fradrag, driftsmidler til skattemæssig nedskreven værdi) | |
 | ÷ Gæld overført til virksomheden | |
-| **Indskudskonto** (må ikke være negativ – ved negativ værdi skal der foretages rentekorrektion eller tilføres midler) | |
+| **Indskudskonto** (kan blive negativ; en negativ saldo er udtryk for privat gæld og udløser rentekorrektion, VSL § 11, stk. 1) | |
 
 - [ ] Ikke-erhvervsmæssige aktiver (privat bil, privatbolig undtagen erhvervsandel, værdipapirer) holdes udenfor.
-- [ ] Gæld, der ikke vedrører virksomheden, må ikke indskydes (vurdér "indskud af privat gæld" og hæverækkefølgens udvidede regler).
+- [ ] Gæld, der ikke vedrører virksomheden: vurdér behandlingen efter den udvidede hæverækkefølge (Den juridiske vejledning C.C.5.2.7.3).
 {% else %}
 ## 2. Indskudskonto
 | | Kr. |
@@ -55,7 +55,7 @@ Satser {{ regnskab.aar }}: kapitalafkastsats **{{ felt.kapitalafkastsats }} %** 
 | Årets hævninger fra indskudskonto (sidst i hæverækkefølgen) | |
 | **Indskudskonto ultimo** | |
 {% endif %}
-{% if felt.privat_gaeld_ind %}- [ ] **Bemærk:** Indskud og hævninger af gæld/aktiver i året skal behandles efter VSL § 5 og § 3. Overførsel af privat gæld til virksomheden anses som en hævning.
+{% if felt.privat_gaeld_ind %}- [ ] **Bemærk:** Indskud og hævninger af gæld/aktiver i året skal behandles efter VSL §§ 3 og 5 (se Den juridiske vejledning C.C.5.2.5 og C.C.5.2.7.3 om overførsel af gæld). Både hævning og indskud på indskudskontoen i samme år udløser rentekorrektion (VSL § 11, stk. 2).
 {% endif %}
 
 ## 3. Kapitalafkastgrundlag (VSL § 8)
@@ -66,14 +66,14 @@ Satser {{ regnskab.aar }}: kapitalafkastsats **{{ felt.kapitalafkastsats }} %** 
 | ÷ Mellemregningskonto og beløb hensat til senere hævning | | |
 | **Kapitalafkastgrundlag** | {{ felt.kag_primo }} | {{ felt.kag_ultimo }} |
 
-Kapitalafkast = kapitalafkastgrundlag primo × {{ felt.kapitalafkastsats }} %. Er grundlaget negativt, er kapitalafkastet negativt, og det overføres til den personlige indkomst (forhøjer den). Kapitalafkastet kan ikke overstige virksomhedens overskud før renter.
+Kapitalafkast = kapitalafkastgrundlag ved indkomstårets begyndelse × {{ felt.kapitalafkastsats }} % (VSL § 7). Er grundlaget negativt, sættes kapitalafkastet til 0 kr. Kapitalafkastet kan ikke overstige årets skattepligtige overskud (efter eventuel overførsel til medarbejdende ægtefælle), jf. Den juridiske vejledning C.C.5.2.9.2.
 
 ## 4. Fordeling af årets resultat
 | | Kr. |
 |---|---|
 | Skattemæssigt resultat før renter | {{ felt.resultat }} |
 | ÷ Kapitalafkast (kapitalindkomst) | |
-| ± Rentekorrektion (VSL § 11 – hvis hævninger har gjort indskudskontoen negativ, eller der er negativt kapitalafkastgrundlag) | |
+| ± Rentekorrektion (VSL § 11 – hvis indskudskontoen primo eller ultimo er negativ, eller der i samme år er både hævet og indskudt på indskudskontoen; rentekorrektionssats 5 % i 2026, VSL § 9 a) | |
 | = Resterende overskud | |
 | Heraf overført til personlig indkomst (hævet) | |
 | Heraf opsparet i virksomheden (opsparet overskud inkl. virksomhedsskat) | |
@@ -107,7 +107,7 @@ Overførsler til betaling af virksomhedsskat holdes uden for hæverækkefølgen 
 - [ ] Privat andel af bil, telefon, bolig og elforbrug er korrekt opgjort.
 - [ ] Blandede aktiver (fx ejendom med privat beboelse) er korrekt opdelt.
 - [ ] Hensættelse til senere hævning er foretaget inden fristen for oplysningsskemaet.
-- [ ] Ved ophør eller udtræden af ordningen: opsparet overskud beskattes som personlig indkomst med godskrivning af virksomhedsskat (VSL § 15 b); vurdér overgang til kapitalafkastordningen eller omdannelse til selskab (skattefri virksomhedsomdannelse).
+- [ ] Ved ophør eller udtræden af ordningen: behandlingen af opsparet overskud og virksomhedsskat vurderes efter VSL (Den juridiske vejledning C.C.5.2.13); vurdér overgang til kapitalafkastordningen eller omdannelse til selskab (skattefri virksomhedsomdannelse).
 {% if branche.ejendom %}- [ ] Udlejningsejendom: kontrollér at alle udlejningsejendomme er medtaget, og at ejendomsværdier anvendes korrekt i kapitalafkastgrundlaget.
 {% endif %}{% if branche.landbrug %}- [ ] Landbrug: medregn besætning, maskiner og ejendom korrekt; vurdér konjunkturudsving og opsparing.
 {% endif %}- [ ] Simulering af hævninger kontra topskattegrænser (mellemskat 641.200 kr., topskat 777.900 kr. efter AM-bidrag i 2026) er drøftet med ejeren.

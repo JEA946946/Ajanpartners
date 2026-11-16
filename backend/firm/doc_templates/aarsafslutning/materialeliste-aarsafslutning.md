@@ -3,7 +3,7 @@
   "title": "Materialeliste til årsafslutning (PBC)",
   "description": "Liste over materiale, kunden skal levere til årsafslutning, revision eller review. Tilpasser sig branche (lager, igangværende arbejder, kontanter, ejendomme, transport, landbrug, holding) og selskabsform.",
   "kind": "tjekliste",
-  "references": ["Bogføringsloven §§ 3-12", "Årsregnskabsloven §§ 20-22", "ISA 500", "ISA 501", "ISA 505"],
+  "references": ["Bogføringsloven §§ 4-12", "Årsregnskabsloven § 22", "ISA 500", "ISA 501", "ISA 505"],
   "legal_forms": [],
   "industry_aware": true,
   "fields": [
@@ -49,8 +49,8 @@ Listen viser det materiale, vi skal bruge for at kunne udarbejde {% if kunde.er_
 - [ ] Z-rapporter (dagsafslutninger) fra kasseapparat/POS-system for hele året, inkl. oversigt over evt. huller i nummerrækken
 - [ ] Opgørelse over betalinger med kort og MobilePay pr. dag, afstemt til indbetalinger på bankkontoen (indløserens afregningsoversigt)
 - [ ] Liste over kassedifferencer og forklaring på større differencer
-- [ ] Bilag for kontante udbetalinger (betalinger på 8.000 kr. eller mere inkl. moms, der ikke er betalt via pengeinstitut, giver som udgangspunkt ikke fradrag, jf. ligningsloven § 8 Y; forhandlere må ikke modtage kontanter på 20.000 kr. eller mere efter hvidvaskloven)
-- [ ] Oplysning om kasseapparatets type og om det er et godkendt/registreret system (Skattestyrelsens krav til kasseapparater i særlige brancher)
+- [ ] Bilag for kontante udbetalinger (betalinger over 8.000 kr. inkl. moms, der ikke er betalt via pengeinstitut, giver som udgangspunkt ikke fradrag, medmindre betalingen indberettes til Skattestyrelsen senest 14 dage efter, jf. ligningsloven § 8 Y; erhvervsdrivende, der ikke er omfattet af hvidvaskloven § 1, stk. 1, må ikke modtage kontantbetalinger på 15.000 kr. eller derover, jf. hvidvaskloven § 5)
+- [ ] Oplysning om kasseapparatets/POS-systemets type og leverandør
 {% if branche.restauration %}- [ ] Opgørelse over drikkepenge og personaleforplejning samt evt. take-away/udbringning via platforme (afregningsoversigter fra fx Wolt, Just Eat)
 - [ ] Oversigt over gavekort/klippekort udstedt, men ikke indløst pr. {{ regnskab.slut }}
 {% endif %}{% endif %}
@@ -95,7 +95,7 @@ Listen viser det materiale, vi skal bruge for at kunne udarbejde {% if kunde.er_
 - [ ] Lejeliste pr. {{ regnskab.slut }} med lejer, areal, årlig leje, depositum og forudbetalt leje
 - [ ] Lejekontrakter for nye lejemål og ændringer i året; oplysning om tomgang og lejeforhøjelser
 - [ ] Driftsregnskab pr. ejendom og varmeregnskaber/forbrugsregnskaber (afregning med lejere)
-- [ ] Oversigt over forbedringer vs. vedligeholdelse (fakturaer over 15.000 kr. specificeret)
+- [ ] Oversigt over forbedringer vs. vedligeholdelse (større fakturaer specificeret)
 - [ ] Ejendomsskattebilletter og forsikringspolicer
 - [ ] Ved måling til dagsværdi (ÅRL § 38): jeres eller valuarens værdiansættelse med afkastkrav og forudsætninger
 - [ ] Køb/salg af ejendom: skøde, refusionsopgørelse og handelsdokumenter
@@ -112,9 +112,8 @@ Listen viser det materiale, vi skal bruge for at kunne udarbejde {% if kunde.er_
 - [ ] Opgørelse over besætning pr. {{ regnskab.slut }} (antal og kategori) – biologiske aktiver
 - [ ] Opgørelse over beholdninger af afgrøder, foder, gødning og planteværn
 - [ ] Opgørelse over markafgrøder på roden og forudbetalte/afholdte omkostninger til næste høst
-- [ ] Ansøgning om og afregning af EU-støtte (grundbetaling, økostøtte, projekttilskud) og evt. krav om tilbagebetaling
+- [ ] Ansøgning om og afregning af EU-støtte (arealstøtte, økostøtte, projekttilskud) og evt. krav om tilbagebetaling
 - [ ] Afregninger fra slagteri, mejeri og grovvarer (efterbetalinger og andelskapital i andelsselskaber)
-- [ ] Mælkekvote/leveringsrettigheder og betalingsrettigheder
 - [ ] Oversigt over jord (ejet/forpagtet) og forpagtningsaftaler
 {% endif %}{% if branche.holding or branche.finans %}
 ## Kapitalandele og koncernforhold
@@ -124,7 +123,7 @@ Listen viser det materiale, vi skal bruge for at kunne udarbejde {% if kunde.er_
 - [ ] Udbytte modtaget fra datterselskaber (generalforsamlingsprotokol) og indeholdt udbytteskat
 - [ ] Mellemregninger med koncernselskaber, afstemt med modparten
 - [ ] Oplysning om sambeskatning (administrationsselskab, fordeling af skat)
-- [ ] Ved koncernregnskab: oplysning om undtagelse efter ÅRL § 110-112 (størrelsesgrænser)
+- [ ] Ved koncernregnskab: oplysning om undtagelse efter ÅRL §§ 110-112
 {% endif %}
 ## Gæld og forpligtelser
 - [ ] Kreditorliste pr. {{ regnskab.slut }} afstemt til saldobalancen
@@ -139,7 +138,7 @@ Listen viser det materiale, vi skal bruge for at kunne udarbejde {% if kunde.er_
 - [ ] Feriepengeforpligtelse pr. {{ regnskab.slut }} (optjent, ikke afholdt ferie og ferietillæg) og evt. indbetaling til FerieKonto
 - [ ] Oversigt over personalegoder (fri bil, telefon, sundhedsforsikring) og indberetning heraf
 - [ ] Bonusser og andre lønforpligtelser optjent i året, men udbetalt senere
-- [ ] Gennemsnitligt antal ansatte i året (vi beregner ud fra ATP/eIndkomst, hvis I ikke har tallet)
+- [ ] Gennemsnitligt antal heltidsbeskæftigede i året (vi beregner det ud fra lønoplysningerne, hvis I ikke har tallet)
 {% if branche.vikar or branche.rengoering %}- [ ] Oversigt over udenlandske medarbejdere og evt. arbejdsudleje (skat af lønindkomst ved arbejdsudleje)
 {% endif %}
 ## Moms og afgifter

@@ -3,7 +3,7 @@
   "title": "Advokatforespørgsel (ISA 501)",
   "description": "Brev fra kunden til dennes advokat med anmodning om at oplyse revisor om verserende og truende retssager, krav og tvister. Svar direkte til revisor.",
   "kind": "brev",
-  "references": ["ISA 501, pkt. 9-12", "ISA 505", "Årsregnskabsloven §§ 33, 64 (hensatte forpligtelser og eventualforpligtelser)"],
+  "references": ["ISA 501, pkt. 9-12", "ISA 505", "Årsregnskabsloven §§ 33, 47, 64 (indregning, hensatte forpligtelser og eventualforpligtelser)"],
   "legal_forms": [],
   "industry_aware": true,
   "fields": [

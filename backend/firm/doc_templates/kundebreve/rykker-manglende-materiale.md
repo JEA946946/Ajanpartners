@@ -3,7 +3,7 @@
   "title": "Rykker for manglende materiale",
   "description": "Venlig, men tydelig rykker for materiale, med liste over manglende punkter, ny frist og konsekvenser ved fortsat manglende levering. Tre trin.",
   "kind": "brev",
-  "references": ["Årsregnskabsloven §§ 138, 150-151", "Skatteforvaltningsloven/skattekontrolloven (skønsmæssig ansættelse)"],
+  "references": ["Årsregnskabsloven §§ 138, 150-151", "Skattekontrolloven §§ 12, 73-74 (oplysningsfrist, skattetillæg og skønsmæssig ansættelse)"],
   "legal_forms": [],
   "industry_aware": false,
   "fields": [
@@ -33,9 +33,9 @@ Kære {{ kunde.navn }}
 Vi beder jer sende materialet senest **{{ felt.ny_frist }}** – helst ved upload i bogføringsprogrammet.
 
 {% if felt.trin != "1. rykker" %}## Hvad sker der, hvis fristen ikke nås?
-{% if kunde.er_kapitalselskab %}- Årsrapporten skal være modtaget i Erhvervsstyrelsen senest **{{ regnskab.frist_aarsrapport }}**. Ved overskridelse sender Erhvervsstyrelsen et påkrav, og derefter pålægges hvert ledelsesmedlem en personlig afgift. Indsendes årsrapporten fortsat ikke, kan styrelsen anmode skifteretten om tvangsopløsning af selskabet.
-- Selskabets selvangivelse skal indberettes senest 6 måneder efter regnskabsårets udløb. Ellers kan Skattestyrelsen pålægge skattetillæg og ansætte indkomsten skønsmæssigt.
-{% else %}- Den udvidede selvangivelse skal være indberettet senest 1. juli. Ved overskridelse kan Skattestyrelsen pålægge skattetillæg og ansætte indkomsten skønsmæssigt.
+{% if kunde.er_kapitalselskab %}- Årsrapporten skal være modtaget i Erhvervsstyrelsen senest **{{ regnskab.frist_aarsrapport }}**. Ved overskridelse sender Erhvervsstyrelsen et påkrav med en frist på 8 hverdage; modtages årsrapporten senere, pålægges hvert medlem af den øverste ledelse en afgift (ÅRL §§ 150-151). Er årsrapporten ikke modtaget inden 4 uger fra påkravet, kan styrelsen anmode skifteretten om at opløse selskabet (ÅRL § 150, stk. 3).
+- Selskabets selvangivelse skal indberettes senest 6 måneder efter indkomstårets udløb (for indkomstår, der udløber 1. – 31. marts, senest 1. september samme år). Ellers pålægges skattetillæg på 200 kr. pr. dag, højst 5.000 kr., og indkomsten kan ansættes skønsmæssigt (skattekontrolloven §§ 12, 73-74).
+{% else %}- Den udvidede selvangivelse skal være indberettet senest 1. juli. Ved overskridelse kan Skattestyrelsen ansætte indkomsten skønsmæssigt.
 {% endif %}- Vi kan ikke afgive vores erklæring, før vi har modtaget tilstrækkeligt materiale.
 {% endif %}{% if felt.ekstra_honorar %}
 Bemærk, at ekstraarbejde som følge af forsinket eller ufuldstændigt materiale faktureres efter medgået tid, jf. vores aftale.

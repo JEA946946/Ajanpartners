@@ -54,15 +54,15 @@ Selskabskapitalen udgør efter nedsættelsen mindst {% if kunde.selskabsform_kod
 
 ## Skattemæssige forhold
 {% if felt.formaal == "Udbetaling til kapitalejere" %}
-- Udbetaling ved kapitalnedsættelse behandles som udbytte efter ligningslovens § 16 A, medmindre betingelserne for afståelsesbeskatning efter § 16 A, stk. 3, nr. 1, litra b, er opfyldt (fx kapitalejere med under 10 % af kapitalen eller selskabsaktionærer med datterselskabsaktier).
+- Udbetaling ved kapitalnedsættelse behandles som udgangspunkt som udbytte efter ligningslovens § 16 A, stk. 1-2. Den kan behandles som afståelse efter aktieavancebeskatningsloven, hvis Skattestyrelsen giver tilladelse (ligningslovens § 16 A, stk. 3, nr. 2, litra b).
 - Behandles udbetalingen som udbytte, indeholdes udbytteskat efter kildeskatteloven, og beløbet indberettes.
-- For selskabsaktionærer med datterselskabs- eller koncernselskabsaktier er udbetalingen som udgangspunkt skattefri.
+- For selskabsaktionærer med datterselskabs- eller koncernselskabsaktier er udbetalingen som udgangspunkt skattefrit udbytte (selskabsskattelovens § 13, stk. 1, nr. 2).
 {% else %}
 - Nedsættelse til dækning af underskud eller henlæggelse til særlig reserve udløser ikke beskatning hos kapitalejerne.
 {% endif %}
 
 ## Opfølgning
-- [ ] Anmeldelse senest 2 uger efter beslutningen med opdaterede vedtægter.
+- [ ] Anmeldelse senest 2 uger efter beslutningen med opdaterede vedtægter (§ 191). Ved udbetaling/særlig reserve skal gennemførelsen registreres senest ved udløbet af indsendelsesfristen for den årsrapport, hvori beslutningstidspunktet indgår, dog senest 1 år efter beslutningen (§ 193, stk. 5).
 - [ ] Ejerbog, ejerregister og reelle ejere opdateres efter gennemførelsen.
 - [ ] Bogføring: nedsættelse/udbetaling registreres ved gennemførelse.
 

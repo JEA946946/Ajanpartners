@@ -33,7 +33,7 @@ Denne forretningsorden er fastsat af bestyrelsen i medfør af selskabslovens § 
    - kapitalberedskabet til enhver tid er forsvarligt, herunder at der er tilstrækkelig likviditet til nuværende og fremtidige forpligtelser.
 3. Bestyrelsen ansætter og afskediger direktionen, fastsætter dens vilkår og udsteder en skriftlig direktionsinstruks.
 4. Bestyrelsen godkender årligt strategi, budget og likviditetsbudget samt forsikringsforhold og it-sikkerhed.
-5. Konstaterer bestyrelsen, at egenkapitalen udgør mindre end halvdelen af selskabskapitalen, skal den sikre, at der afholdes generalforsamling senest 6 måneder efter konstateringen (selskabslovens § 119).
+5. Konstateres det, at egenkapitalen udgør mindre end halvdelen af den tegnede kapital, skal bestyrelsen sikre, at der afholdes generalforsamling senest 6 måneder efter konstateringen (selskabslovens § 119).
 6. Bestyrelsen sikrer, at selskabets reelle ejere er korrekt registreret, og at resultatet af den årlige undersøgelse fremlægges på årsregnskabsmødet (selskabslovens § 58 a, stk. 4).
 
 ## § 2 Konstituering
@@ -69,7 +69,7 @@ Følgende kræver bestyrelsens forudgående godkendelse (selskabslovens § 117, 
 - Indledning af retssager af væsentlig betydning.
 
 ## § 9 Tavshedspligt
-Bestyrelsens medlemmer har tavshedspligt om alt, hvad de erfarer i deres egenskab af bestyrelsesmedlemmer, medmindre det skal oplyses til generalforsamlingen (selskabslovens § 132). Materiale opbevares forsvarligt og tilbageleveres eller slettes ved fratræden.
+Bestyrelsens medlemmer må ikke uberettiget videregive, hvad de under udøvelsen af deres hverv har fået kendskab til (selskabslovens § 132). Materiale opbevares forsvarligt og tilbageleveres eller slettes ved fratræden.
 
 ## § 10 Evaluering og ændring
 Bestyrelsen gennemgår forretningsordenen årligt og evaluerer sit arbejde. Ændringer vedtages af bestyrelsen.

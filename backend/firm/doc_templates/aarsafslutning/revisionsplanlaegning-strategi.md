@@ -39,7 +39,7 @@
 
 ## 1. Forudsætninger for opgaven
 - [ ] Accept/fortsættelse af kundeforholdet er vurderet og dokumenteret (ISQM 1, ISA 220)
-- [ ] Uafhængighed er vurderet for alle teammedlemmer (revisorloven §§ 24-25, uafhængighedsbekendtgørelsen); ingen ikke-revisionsydelser, der truer uafhængigheden
+- [ ] Uafhængighed er vurderet for alle teammedlemmer (revisorloven § 24, uafhængighedsbekendtgørelsen); ingen ikke-revisionsydelser, der truer uafhængigheden
 - [ ] Opdragsbrev er underskrevet og dækker {{ regnskab.aar }} (ISA 210)
 - [ ] Kundekendskab efter hvidvaskloven er ajourført (risiko: {{ branche.hvidvask_risiko }})
 {% if felt.foerste_aar %}- [ ] Første års revision: kontakt til forrige revisor, gennemgang af dennes arbejdspapirer og vurdering af primobalancer (ISA 510)
@@ -61,7 +61,7 @@ Nøgletal fra bogføringen:
 | Balancesum | {{ regnskab.balancesum }} |
 | Egenkapital | {{ regnskab.egenkapital }} |
 
-Regnskabsmæssige rammer: årsregnskabsloven, klasse {{ kunde.regnskabsklasse }}. Bogføringen føres i et digitalt standardbogføringssystem (bogføringsloven § 15), og kontrolmiljøet er præget af få personer og begrænset funktionsadskillelse – det tages i betragtning ved valg af substansbaseret tilgang.
+Regnskabsmæssige rammer: årsregnskabsloven, klasse {{ kunde.regnskabsklasse }}. Bogføringen føres i et digitalt bogføringssystem (bogføringsloven § 16), og kontrolmiljøet er præget af få personer og begrænset funktionsadskillelse – det tages i betragtning ved valg af substansbaseret tilgang.
 
 ## 3. Væsentlighed (ISA 320)
 Fastlagt i særskilt arbejdspapir. Væsentlighed: {{ felt.vaesentlighed }} kr. Arbejdsvæsentlighed: {{ felt.arbejdsvaesentlighed }} kr.
@@ -83,7 +83,7 @@ Generelle betydelige risici, der altid adresseres (ISA 240):
 {% endif %}{% if branche.landbrug %}- **Landbrug:** biologiske aktiver (dagsværdi/kostpris), EU-støtte og risiko for tilbagebetaling, finansiering (høj gearing, renterisiko) og fortsat drift.
 {% endif %}{% if branche.bilhandel %}- **Bilhandel:** varelager af biler (værdiansættelse, demobiler), brugtmoms, registreringsafgift og hvidvaskrisiko ved kontanthandel.
 {% endif %}{% if branche.vikar or branche.rengoering %}- **Løn og arbejdskraft:** udenlandsk arbejdskraft, arbejdsudleje, sociale ordninger, risiko for sort løn og social dumping.
-{% endif %}{% if branche.it or branche.medier %}- **Abonnements- og licensindtægter:** periodisering af forudfakturerede indtægter, aktiverede udviklingsomkostninger og bunden reserve (ÅRL § 83).
+{% endif %}{% if branche.it or branche.medier %}- **Abonnements- og licensindtægter:** periodisering af forudfakturerede indtægter, aktiverede udviklingsomkostninger og reserve for udviklingsomkostninger under egenkapitalen.
 {% endif %}{% if branche.momsfritaget %}- **Moms:** delvis fradragsret, pro rata-beregning og lønsumsafgift.
 {% endif %}{% if branche.forening %}- **Forening/nonprofit:** tilskud og vilkår, fuldstændighed af kontingenter og indsamlinger, formålsbestemt anvendelse.
 {% endif %}- **Fortsat drift (ISA 570):** vurderes ud fra egenkapital, likviditet og budget.

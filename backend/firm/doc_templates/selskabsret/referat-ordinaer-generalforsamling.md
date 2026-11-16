@@ -78,7 +78,7 @@ Generalforsamlingen godkendte følgende resultatdisponering: {{ felt.resultatdis
 {% if felt.udbytte_beloeb %}
 Det blev vedtaget at udlodde ordinært udbytte på {{ felt.udbytte_beloeb }} kr. Ledelsen oplyste, at udlodningen efter ledelsens vurdering er forsvarlig under hensyn til selskabets økonomiske stilling og ikke overstiger de frie reserver, jf. selskabslovens §§ 179 og 180. Generalforsamlingen kan ikke vedtage et højere udbytte end foreslået eller tiltrådt af ledelsen, jf. § 180, stk. 1.
 
-Udbyttet udbetales {{ felt.udbytte_betaling }} med fradrag af udbytteskat. Udbytteskatten angives og betales senest den 10. i måneden efter vedtagelsen (for udbytte vedtaget i december senest 17. januar), jf. kildeskattelovens §§ 65 og 66.
+Udbyttet udbetales {{ felt.udbytte_betaling }} med fradrag af udbytteskat. Udbytteskatten angives og betales senest den 10. i måneden efter den måned, hvor udbyttet er vedtaget (i januar den 17.); har selskabet A-skattefrist den sidste bankdag, er fristen den sidste bankdag i måneden efter, jf. kildeskattelovens §§ 65 og 66 og skat.dk.
 {% endif %}
 {% if felt.decharge %}
 ## Decharge
@@ -87,14 +87,14 @@ Generalforsamlingen meddelte {{ kunde.ledelsesorgan }} decharge for regnskabsår
 {% if kunde.selskabsform_kode == "as" or felt.bestyrelse_valgt %}
 ## Valg af bestyrelse
 Følgende blev valgt til bestyrelsen: {{ felt.bestyrelse_valgt }}
-{% if kunde.selskabsform_kode == "as" %}Bestyrelsen består herefter af mindst 3 medlemmer, jf. selskabslovens § 120, stk. 1. Bestyrelsen konstituerer sig selv med formand og eventuel næstformand.{% endif %}
+{% if kunde.selskabsform_kode == "as" %}Bestyrelsen består herefter af mindst 3 medlemmer, jf. selskabslovens § 111, stk. 2. Bestyrelsen konstituerer sig selv med formand og eventuel næstformand.{% endif %}
 {% endif %}
 
 ## {% if felt.revisionsvalg == "Fravalg af revision" %}Fravalg af revision{% elif felt.revisionsvalg == "Revision er fravalgt (ingen ændring)" %}Revision{% else %}Valg af revisor{% endif %}
 {% if felt.revisionsvalg == "Fravalg af revision" %}
 Dirigenten oplyste, at selskabet i de to seneste på hinanden følgende regnskabsår på balancedagen ikke har overskredet to af følgende tre grænser: balancesum 4 mio. kr., nettoomsætning 8 mio. kr. og et gennemsnitligt antal heltidsbeskæftigede på 12, jf. årsregnskabslovens § 135, stk. 1, 3. pkt., at balancesummen ikke i 2 på hinanden følgende år har oversteget 50 mio. kr. (stk. 2), at holdingreglen i stk. 4 er opfyldt, og at selskabet ikke er udelukket efter § 135 a (bødeforelæg/dom, konkurskarantæne, Erhvervsstyrelsens påbud). Er selskabet i en klassificeret risikobranche med en nettoomsætning over 5 mio. kr. i 2 på hinanden følgende år, skal årsregnskabet fortsat forsynes med en opstillingserklæring eller en erklæring med sikkerhed, jf. § 135, stk. 5.
 
-Generalforsamlingen besluttede enstemmigt, at selskabets årsregnskab fremover ikke skal revideres. Fravalget har virkning fra og med regnskabsåret efter {{ regnskab.aar }}. Den hidtidige revisor fratræder. Fratrædelsen anmeldes til Erhvervsstyrelsen senest 2 uger efter generalforsamlingen.
+Generalforsamlingen besluttede enstemmigt, at selskabets årsregnskab fremover ikke skal revideres. Fravalget har virkning fra og med regnskabsåret efter {{ regnskab.aar }}. Den hidtidige revisor fratræder. Fravalget af revisor anmeldes til Erhvervsstyrelsen senest 2 uger efter beslutningen.
 
 Ledelsen sikrer, at det i ledelsespåtegningen i årsrapporten for {{ regnskab.aar }} oplyses, at revision fravælges for kommende regnskabsår, og at det i den første ureviderede årsrapport erklæres, at betingelserne for fravalg er opfyldt.
 {% elif felt.revisionsvalg == "Revision er fravalgt (ingen ændring)" %}

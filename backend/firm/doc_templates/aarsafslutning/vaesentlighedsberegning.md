@@ -31,18 +31,11 @@ Udarbejdet af: {{ medarbejder.navn }}  Dato: {{ dato.idag }}
 | Balancesum | {{ regnskab.balancesum }} |
 | Egenkapital | {{ regnskab.egenkapital }} |
 
-## 2. Vejledende benchmarks
-| Benchmark | Typisk interval | Anvendes typisk når |
-|---|---|---|
-| Resultat før skat (normaliseret) | 5 % (3–10 %) | Overskudsgivende driftsvirksomheder med stabil indtjening |
-| Omsætning | 0,5–2 % | Resultat er lavt, svingende eller negativt |
-| Bruttofortjeneste | 1–3 % | Klasse B-virksomheder, der præsenterer bruttofortjeneste (ÅRL § 32) |
-| Balancesum | 1–2 % | Ejendomsselskaber og aktivtunge virksomheder |
-| Egenkapital | 1–5 % | Holdingselskaber og investeringsselskaber |
-| Samlede omkostninger | 0,5–2 % | Foreninger, fonde og nonprofit |
+## 2. Valg af benchmark og procentsats (ISA 320, pkt. A4-A8)
+ISA 320 nævner som eksempler på benchmarks resultat før skat, omsætning, bruttofortjeneste, samlede omkostninger, egenkapital og indre værdi (pkt. A4). Resultat før skat af fortsættende aktiviteter anvendes ofte for virksomheder med overskudsformål; er det svingende, kan bruttofortjeneste eller omsætning være mere relevant (pkt. A4). Som eksempel kan 5 % af resultat før skat være passende for en produktionsvirksomhed med overskudsformål og 1 % af omsætningen eller de samlede omkostninger for en nonprofitvirksomhed; højere eller lavere procentsatser kan være passende (pkt. A7). I ejerledede virksomheder, hvor ejeren tager overskuddet ud som løn, kan resultat før vederlag og skat være mere relevant (pkt. A8). Den anvendte procentsats fastsættes efter revisionsvirksomhedens metodik og begrundes i afsnit 4.
 
 {% if branche.holding %}**Branchevurdering:** Holdingselskab – regnskabsbrugerne fokuserer på egenkapital og værdien af kapitalandele. Egenkapital eller balancesum er normalt det relevante benchmark. Overvej en lavere specifik væsentlighed for resultatopgørelsen og for transaktioner med nærtstående parter.
-{% elif branche.ejendom %}**Branchevurdering:** Ejendomsselskab – balancen (ejendommenes værdi) er det centrale. Brug balancesum (1–2 %) for værdiansættelse af ejendomme; overvej en lavere specifik væsentlighed for lejeindtægter og driftsomkostninger, fx 5 % af resultat før dagsværdireguleringer.
+{% elif branche.ejendom %}**Branchevurdering:** Ejendomsselskab – balancen (ejendommenes værdi) er det centrale. Balancesum eller egenkapital kan være relevant for værdiansættelse af ejendomme; overvej en lavere specifik væsentlighed for lejeindtægter og driftsomkostninger (ISA 320, pkt. 10).
 {% elif branche.forening %}**Branchevurdering:** Forening/nonprofit – formålet er ikke overskud. Samlede omkostninger eller indtægter (tilskud, kontingenter) er relevante benchmarks.
 {% elif branche.igangvaerende_arbejder %}**Branchevurdering:** Virksomhed med igangværende arbejder – resultatet er følsomt over for skøn over færdiggørelsesgrad. Er resultatet svingende, brug omsætning eller bruttofortjeneste.
 {% elif branche.kontantintensiv %}**Branchevurdering:** Kontantintensiv virksomhed med lave marginer – omsætning eller bruttofortjeneste giver oftest et mere stabilt benchmark end resultatet. Fuldstændighedsrisikoen på omsætningen kan begrunde en lav procentsats.
@@ -57,7 +50,7 @@ Udarbejdet af: {{ medarbejder.navn }}  Dato: {{ dato.idag }}
 | Procentsats | {{ felt.procent }} % |
 | **Væsentlighed for regnskabet som helhed** | **{{ felt.vaesentlighed }} kr.** |
 | Arbejdsvæsentlighed ({{ felt.arbejds_procent }} %) | {{ felt.arbejdsvaesentlighed }} kr. |
-| Grænse for åbenlyst ubetydelige fejl (typisk 3–5 % af væsentlighed) | {{ felt.ubetydelig }} kr. |
+| Grænse for åbenlyst ubetydelige fejl (ISA 450, pkt. 5 og A2 – fastsættes efter revisionsvirksomhedens metodik) | {{ felt.ubetydelig }} kr. |
 
 **Specifik væsentlighed for særlige poster (ISA 320, pkt. 10):** {{ felt.specifik_vaesentlighed }}
 
@@ -66,7 +59,7 @@ Typiske poster med lavere væsentlighed: vederlag til ledelse, transaktioner med
 ## 4. Begrundelse
 {{ felt.begrundelse }}
 
-Overvejelser om arbejdsvæsentlighed (lav ende 50–60 % ved: første års revision, mange fejl sidste år, svagt kontrolmiljø, høj risiko; høj ende 70–75 % ved: få fejl, stabil virksomhed, kendt kunde).
+Arbejdsvæsentlighed er ikke en mekanisk beregning; den påvirkes af revisors forståelse af virksomheden og af arten og omfanget af fejl konstateret ved tidligere revisioner (ISA 320, pkt. A12). Procentsatsen fastsættes efter revisionsvirksomhedens metodik og begrundes ovenfor.
 
 - [ ] Kvalitative forhold er overvejet (lånebetingelser/covenants, overgang fra overskud til underskud, egenkapital tæt på kapitaltab, selskabsretlig kapitalkrav)
 - [ ] Væsentligheden er revurderet ved afslutningen på grundlag af de endelige tal (ISA 320, pkt. 12-13)

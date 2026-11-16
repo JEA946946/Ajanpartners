@@ -3,7 +3,7 @@
   "title": "Regnskabsmæssige skøn (ISA 540)",
   "description": "Arbejdspapir til oversigt og vurdering af væsentlige regnskabsmæssige skøn: metode, forudsætninger, data, estimeringsusikkerhed, ledelsesbias og tilbageblik på sidste års skøn. Brancheafhængige skøn foreslås.",
   "kind": "arbejdspapir",
-  "references": ["ISA 540 (ajourført)", "ISA 315", "ISA 580", "Årsregnskabsloven § 13 og § 77 (usikkerhed ved indregning og måling)"],
+  "references": ["ISA 540 (ajourført)", "ISA 315", "ISA 580", "Årsregnskabsloven § 13, stk. 1, nr. 5 (forsigtighed og neutrale skøn), §§ 11, stk. 2, og 54"],
   "legal_forms": [],
   "industry_aware": true,
   "fields": [

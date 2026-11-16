@@ -3,7 +3,7 @@
   "title": "Påmindelse om frister (moms, A-skat, skat, årsrapport)",
   "description": "Oversigt og påmindelse om kundens kommende frister. Momsfrister tilpasses kundens momsperiode; A-skat efter virksomhedsstørrelse; selskabsskat/acontoskat eller B-skat efter selskabsform.",
   "kind": "brev",
-  "references": ["Momsloven § 57", "Opkrævningsloven", "Kildeskatteloven § 46", "Selskabsskatteloven §§ 29 A ff. (acontoskat og restskat)", "Årsregnskabsloven § 138"],
+  "references": ["Momsloven § 57", "Opkrævningsloven § 2, stk. 5-6 (A-skat og AM-bidrag)", "Selskabsskatteloven §§ 29 A ff. (acontoskat og restskat)", "Skattekontrolloven § 12 (selskabers oplysningsfrist)", "Årsregnskabsloven § 138"],
   "legal_forms": [],
   "industry_aware": false,
   "fields": [
@@ -30,7 +30,7 @@ Kære {{ kunde.navn }}
 
 {% if felt.materiale_frist %}For at vi kan nå det, skal alle bilag være uploadet og bankkonti afstemt senest **{{ felt.materiale_frist }}**.{% endif %}
 
-Betalinger sker via jeres **skattekonto** med det betalings-ID, der fremgår af TastSelv Erhverv. Beløbet skal være på skattekontoen senest på fristdagen – ellers beregnes renter, og ved gentagne overskridelser kan Skattestyrelsen flytte jer til en kortere momsperiode.
+Betalinger sker via jeres **skattekonto** med det betalings-ID, der fremgår af TastSelv Erhverv. Beløbet skal være på skattekontoen senest på fristdagen – ellers beregnes renter. En længere momsperiode forudsætter bl.a., at angivelse og betaling er sket rettidigt.
 
 ## Moms – jeres momsperiode: {{ kunde.momsperiode }}
 ({{ felt.hvem_indberetter }})
@@ -48,25 +48,25 @@ Halvårsmoms gælder virksomheder med en momspligtig omsætning under 5 mio. kr.
 | 3. kvartal (juli–september) | 1. december |
 | 4. kvartal (oktober–december) | 1. marts året efter |
 
-Kvartalsmoms gælder virksomheder med en momspligtig omsætning mellem 5 og 50 mio. kr. og nystartede virksomheder.
-{% elif kunde.momsperiode == "Måned" %}Ved månedsmoms er fristen som hovedregel den 25. i måneden efter perioden. Undtagelser: juni-perioden har frist i midten af august, og enkelte frister forskydes af helligdage (fx november → omkring 28. december, februar → omkring 30. marts).
+Kvartalsmoms gælder virksomheder med en momspligtig omsætning mellem 5 og 50 mio. kr. Nystartede virksomheder angiver kvartalsvis i mindst de første 18 måneder.
+{% elif kunde.momsperiode == "Måned" %}Ved månedsmoms er fristen som hovedregel den 25. i måneden efter perioden; enkelte frister afviger (bl.a. for juni-perioden). Se de præcise datoer på skat.dk.
 
 Månedsmoms gælder virksomheder med en momspligtig omsætning over 50 mio. kr. eller som selv har valgt det.
-{% else %}Virksomheden er ikke momsregistreret. Husk, at virksomheden skal momsregistreres, når den momspligtige omsætning forventes at overstige 50.000 kr. inden for 12 måneder.
+{% else %}Virksomheden er ikke momsregistreret. Husk, at virksomheden skal momsregistreres, når den momspligtige omsætning overstiger 50.000 kr. Fra 1. januar 2025 opgøres grænsen pr. kalenderår (småvirksomhedsordningen i momsloven § 71 e).
 {% endif %}
 Fristen flyttes til næste hverdag, hvis den falder på en weekend eller helligdag. Se de præcise datoer på skat.dk.
 
 {% if felt.a_skat_stoerrelse != "Ingen ansatte" %}## A-skat og AM-bidrag (løn)
-{% if felt.a_skat_stoerrelse == "Små og mellemstore virksomheder" %}Som lille/mellemstor virksomhed skal A-skat og AM-bidrag indberettes til eIndkomst og betales **senest den 10. i måneden efter** lønperioden (fx løn for januar senest 10. februar). For december er fristen i midten af januar.{% else %}Som stor virksomhed (fremrykket betaling) skal A-skat og AM-bidrag indberettes og betales **senest den sidste bankdag i lønmåneden**.{% endif %} Kategorien fremgår af jeres registreringsbevis i TastSelv Erhverv. Indberetning skal ske, selv om der ikke er udbetalt løn i en måned, hvis I er registreret som arbejdsgiver.
+{% if felt.a_skat_stoerrelse == "Små og mellemstore virksomheder" %}Som lille/mellemstor virksomhed skal A-skat og AM-bidrag indberettes til eIndkomst og betales **senest den 10. i måneden efter** lønmåneden (fx løn for januar senest 10. februar); fristen i januar er dog den 17. januar (opkrævningsloven § 2, stk. 5).{% else %}Som stor virksomhed (fremrykket betaling) skal A-skat og AM-bidrag indberettes og betales **senest den sidste bankdag i den måned, som lønnen vedrører** (opkrævningsloven § 2, stk. 6). Reglerne for store virksomheder gælder, når A-skatten i en forudgående 12-måneders-periode har oversteget 1 mio. kr. eller AM-bidraget 250.000 kr.{% endif %} Kategorien fremgår af jeres registreringsbevis i TastSelv Erhverv. Indberetning skal ske, selv om der ikke er udbetalt løn i en måned, hvis I er registreret som arbejdsgiver.
 {% endif %}
 {% if kunde.er_kapitalselskab %}## Selskabsskat
 | Hvad | Frist |
 |---|---|
 | Acontoskat, 1. rate (ordinær + evt. frivillig) | 20. marts |
 | Acontoskat, 2. rate (ordinær + evt. frivillig) | 20. november |
-| Frivillig 3. rate (med tillæg) | 1. februar året efter indkomståret |
-| Restskat for indkomståret (med restskattetillæg) | 20. november året efter indkomståret |
-| Selvangivelse | 6 måneder efter indkomstårets udløb (dog 1. august for indkomstår, der slutter 1. januar – 31. marts) |
+| Frivillig 3. rate | 1. februar året efter indkomståret |
+| Restskat for indkomståret med restskattetillæg | 1.–20. november året efter indkomståret |
+| Selvangivelse (oplysningsskema) | 6 måneder efter indkomstårets udløb; for indkomstår, der udløber i perioden 1. – 31. marts, senest 1. september samme år (skattekontrolloven § 12) |
 
 Acontoskatten beregnes som udgangspunkt som 50 % af gennemsnittet af de seneste tre års skat pr. rate. Går det bedre end ventet, kan frivillig indbetaling begrænse restskattetillægget – vi rådgiver gerne om beløbet.
 
@@ -76,7 +76,7 @@ Acontoskatten beregnes som udgangspunkt som 50 % af gennemsnittet af de seneste 
 | Hvad | Frist |
 |---|---|
 | B-skat (rater) | Den 20. i hver måned undtagen juni og december |
-| Frivillig indbetaling af restskat uden tillæg | Inden 1. januar året efter indkomståret |
+| Frivillig indbetaling af forventet restskat uden renter | Inden 1. januar året efter indkomståret (renten beregnes fra 1. januar) |
 | Udvidet selvangivelse (oplysningsskema) | 1. juli året efter indkomståret |
 
 Ændrer overskuddet sig væsentligt, bør forskudsopgørelsen tilrettes, så I undgår restskat. Vi hjælper gerne.

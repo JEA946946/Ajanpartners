@@ -3,7 +3,7 @@
   "title": "Velkomstbrev til ny kunde",
   "description": "Velkomst og onboarding: hvem gør hvad, adgange og fuldmagter, legitimation efter hvidvaskloven, bogføringsprogrammet og hvad vi skal bruge for at komme i gang.",
   "kind": "brev",
-  "references": ["Hvidvaskloven §§ 10-12 (kundekendskab)", "Bogføringsloven §§ 12, 15 (opbevaring, digital bogføring)", "Revisorloven § 18 (revisorskifte)"],
+  "references": ["Hvidvaskloven §§ 2, nr. 9, 10-11 (reelle ejere, kundekendskab)", "Bogføringsloven §§ 12, 16 (opbevaring, digital bogføring)", "Revisorloven § 18 (revisorskifte)"],
   "legal_forms": [],
   "industry_aware": true,
   "fields": [
@@ -36,11 +36,11 @@ Det præcise indhold af vores opgaver og ansvarsfordelingen fremgår af opdragsb
 1. **Opdragsbrev og betingelser.** I modtager opdragsbrevet til digital underskrift. Første gang I logger ind i bogføringsprogrammet, skal I også acceptere forretningsbetingelserne og databehandleraftalen.
 2. **Legitimation (hvidvaskloven).** Vi er efter hvidvaskloven forpligtet til at kende vores kunder. Vi skal derfor have oplysninger om ejere og ledelse og kopi af legitimation – se listen nedenfor.
 3. **Adgange og fuldmagter.** I giver os adgang til Skattestyrelsen, Erhvervsstyrelsen og jeres bank – se nedenfor.
-4. **Bogføringsprogrammet.** I får adgang til vores gratis bogføringsprogram, hvor I uploader bilag, og hvor vi bogfører, afstemmer og indberetter moms.{% if kunde.er_kapitalselskab %} Kapitalselskaber skal efter bogføringsloven bogføre i et digitalt bogføringssystem.{% else %} Personligt ejede virksomheder med en nettoomsætning over 300.000 kr. i to år i træk skal efter bogføringsloven bogføre i et digitalt bogføringssystem.{% endif %} Bilag og regnskabsmateriale skal opbevares i 5 år fra udgangen af det regnskabsår, materialet vedrører.
+4. **Bogføringsprogrammet.** I får adgang til vores gratis bogføringsprogram, hvor I uploader bilag, og hvor vi bogfører, afstemmer og indberetter moms.{% if kunde.er_kapitalselskab %} Kapitalselskaber skal efter bogføringsloven bogføre i et digitalt bogføringssystem (bogføringsloven § 16).{% else %} Personligt ejede virksomheder med en nettoomsætning over 300.000 kr. i 2 på hinanden følgende indkomstår skal bogføre i et digitalt bogføringssystem (bogføringsloven § 16).{% endif %} Bilag og regnskabsmateriale skal opbevares i 5 år fra udgangen af det regnskabsår, materialet vedrører (bogføringsloven § 12).
 
 ## Det skal vi bruge fra jer
 **Kundekendskab**
-- [ ] Kopi af pas eller kørekort for {% if kunde.er_kapitalselskab %}direktør og reelle ejere (personer, der direkte eller indirekte ejer eller kontrollerer mere end 25 %){% else %}indehaver(e){% endif %}
+- [ ] Kopi af pas eller kørekort for {% if kunde.er_kapitalselskab %}direktør og reelle ejere (de fysiske personer, der i sidste ende ejer eller kontrollerer selskabet, jf. hvidvaskloven § 2, nr. 9){% else %}indehaver(e){% endif %}
 - [ ] Dokumentation for adresse (fx sundhedskort), hvis den ikke fremgår af legitimationen
 - [ ] Oplysning om virksomhedens formål, forventede omsætning, væsentligste kunder/leverandører og om der er handel med udlandet
 - [ ] Oplysning om, hvorvidt nogen i ejerkreds eller ledelse er politisk eksponeret person (PEP) eller nær familie/samarbejdspartner til en PEP

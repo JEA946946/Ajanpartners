@@ -32,7 +32,7 @@ Kære {{ felt.modtager }}
 
 For at vi kan udarbejde og kontrollere din årsopgørelse for {{ felt.indkomstaar }}, beder vi dig sende følgende til os senest **{{ felt.frist_materiale }}**. Har du allerede givet os adgang til din TastSelv, henter vi selv de forhåndsudfyldte oplysninger.
 
-{% if felt.selvstaendig %}Som selvstændigt erhvervsdrivende har du **udvidet selvangivelse**. Fristen for oplysningsskemaet er **1. juli** i året efter indkomståret (skattekontrollovens § 4). Skattestyrelsen kan pålægge et dagligt tillæg ved for sen indberetning.{% else %}Er der fejl eller mangler i din forhåndsudfyldte årsopgørelse, skal de rettes senest **1. maj** i året efter indkomståret.{% endif %}
+{% if felt.selvstaendig %}Som selvstændigt erhvervsdrivende har du **udvidet selvangivelse**. Fristen for oplysningsskemaet er **1. juli** i året efter indkomståret (skattekontrollovens § 11, jf. § 5).{% else %}Er der fejl eller mangler i din forhåndsudfyldte årsopgørelse, skal de rettes senest **1. maj** i året efter indkomståret (skattekontrollovens § 10, stk. 1).{% endif %}
 
 ## 1. Generelle oplysninger
 - [ ] Ændringer i civilstand, adresse, børn eller ægtefælles indkomst i året.

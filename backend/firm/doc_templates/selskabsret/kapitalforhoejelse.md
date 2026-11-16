@@ -39,18 +39,20 @@ På generalforsamling den {{ felt.gf_dato }} under ledelse af dirigent {{ felt.d
 4. De anslåede omkostninger, som selskabet afholder, udgør {{ felt.omkostninger }} kr.
 {% else %}
 1. **Beløb:** Selskabskapitalen forhøjes fra nominelt {{ felt.nuvaerende_kapital }} kr. med mindst nominelt {{ felt.min_beloeb }} kr. og højst nominelt {{ felt.max_beloeb }} kr.
-2. **Delvis indbetaling:** {% if felt.indskudsform == "Kontant" %}Kapitalen skal indbetales fuldt ud.{% else %}Delvis indbetaling kan ikke ske, idet indskud i andre værdier end kontanter altid skal indbetales fuldt ud (selskabslovens § 33).{% endif %}
+2. **Delvis indbetaling:** {% if felt.indskudsform == "Kontant" %}Kapitalen skal indbetales fuldt ud.{% elif felt.indskudsform == "Gældskonvertering" %}Kapitalen indbetales fuldt ud ved konvertering af fordringen.{% else %}Delvis indbetaling kan ikke ske, idet selskabskapitalen og en eventuel overkurs skal indbetales fuldt ud ved indskud af andre værdier end kontanter (selskabslovens § 33).{% endif %}
 3. **Tegningskurs og størrelse:** Tegningskursen er {{ felt.kurs }}, og kapitalandelene udstedes i stykker á {{ felt.stykstoerrelse }} kr.
 4. **Rettigheder:** De nye kapitalandele giver ret til udbytte og andre rettigheder fra registreringen i Erhvervsstyrelsen.
 5. **Omkostninger:** De anslåede omkostninger, som selskabet afholder, udgør {{ felt.omkostninger }} kr.
 6. **Klasse:** De nye kapitalandele har samme rettigheder som de eksisterende og hører til samme klasse.
-7. **Fortegningsret:** {% if felt.fortegningsret == "Eksisterende kapitalejere tegner forholdsmæssigt" %}De eksisterende kapitalejere har fortegningsret i forhold til deres kapitalandele (selskabslovens § 162, stk. 1).{% elif felt.fortegningsret == "Fortegningsretten fraviges til fordel for de navngivne tegnere" %}Fortegningsretten fraviges til fordel for de nedenfor nævnte tegnere (selskabslovens § 162, stk. 2). Fravigelsen er begrundet i selskabets interesse og sker til markedskurs, således at ingen kapitalejer stilles ubegrundet ringere.{% else %}Samtlige kapitalejere har givet afkald på fortegningsret.{% endif %} Der er ingen indskrænkning i de nye kapitalejeres fortegningsret ved fremtidige forhøjelser.
+7. **Fortegningsret:** {% if felt.fortegningsret == "Eksisterende kapitalejere tegner forholdsmæssigt" %}De eksisterende kapitalejere har fortegningsret i forhold til deres kapitalandele (selskabslovens § 162, stk. 1).{% elif felt.fortegningsret == "Fortegningsretten fraviges til fordel for de navngivne tegnere" %}Fortegningsretten fraviges til fordel for de nedenfor nævnte tegnere med det flertal, der kræves til vedtægtsændring (selskabslovens § 162, stk. 2). Sker tegningen til favørkurs til andre end kapitalejerne og medarbejderne, kræves tilslutning fra mindst 9/10 (§ 107, stk. 2, nr. 1).{% else %}Samtlige kapitalejere har givet afkald på fortegningsret.{% endif %} Der er ingen indskrænkning i de nye kapitalejeres fortegningsret ved fremtidige forhøjelser.
 8. **Tegning:** Tegning sker skriftligt (selskabslovens § 163) senest {{ felt.tegningsfrist }}.{% if felt.fortegningsret == "Eksisterende kapitalejere tegner forholdsmæssigt" %} Kapitalejerne skal udnytte fortegningsretten inden for mindst 2 uger fra afsendelse af underretning.{% endif %}
 9. **Indbetaling:** {% if felt.indskudsform == "Kontant" %}Kontant senest {{ felt.indbetalingsfrist }} til selskabets bankkonto.{% elif felt.indskudsform == "Gældskonvertering" %}Ved konvertering af fordring på selskabet: {{ felt.apport_beskrivelse }}{% else %}Ved indskud af andre værdier end kontanter: {{ felt.apport_beskrivelse }}{% endif %}
 10. **Omsættelighed:** De nye kapitalandele er underlagt samme omsættelighedsbegrænsninger som efter vedtægterne. Kapitalandelene er ikke omsætningspapirer{% if kunde.selskabsform_kode == "as" %} og skal lyde på navn{% endif %}.
 11. **Tegnere:** {{ felt.tegner }}
-{% if felt.indskudsform != "Kontant" %}
-**Vurderingsberetning:** Der er udarbejdet vurderingsberetning af en uafhængig vurderingsmand dateret {{ felt.vurderingsberetning_dato }}, jf. selskabslovens §§ 36, 37 og 160. Vurderingen må ikke være foretaget mere end 4 uger før beslutningen (§ 36, stk. 2, jf. § 160). Den vedlægges anmeldelsen.{% if felt.indskudsform == "Gældskonvertering" %} Vurderingsmanden skal bekræfte, at fordringen mindst svarer til det aftalte vederlag inkl. overkurs.{% endif %}
+{% if felt.indskudsform == "Apport (andre værdier end kontanter)" %}
+**Vurderingsberetning:** Der er udarbejdet vurderingsberetning dateret {{ felt.vurderingsberetning_dato }}, jf. selskabslovens §§ 36, 37 og 160 (medmindre ledelsen har afgivet erklæring efter § 38, stk. 2). Vurderingen må ikke være foretaget mere end 4 uger før beslutningen (§ 36, stk. 2, jf. § 160). Den vedlægges anmeldelsen.
+{% elif felt.indskudsform == "Gældskonvertering" %}
+**Gældskonvertering:** Det centrale ledelsesorgan har redegjort for årsagen til og tidspunktet for gældsstiftelsen og for grundene til forslaget om konvertering (selskabslovens § 161, stk. 2; kan i enighed fraviges, stk. 4). Om der tillige skal udarbejdes vurderingsberetning (dato: {{ felt.vurderingsberetning_dato }}), kontrolleres i det konkrete tilfælde.
 {% endif %}
 {% endif %}
 
@@ -65,10 +67,10 @@ Hvis mindstebeløbet ikke er tegnet inden for tegningsfristen, bortfalder beslut
 ## Opfølgning
 - [ ] Tegningslister/tegningsblanketter underskrevet.
 - [ ] Indbetaling dokumenteret (kontoudtog) eller apportindskud overdraget.
-- [ ] Kapitalforhøjelsen anmeldes til Erhvervsstyrelsen senest 2 uger efter gennemførelsen (selskabslovens § 9), med opdaterede vedtægter{% if felt.indskudsform != "Kontant" %} og vurderingsberetning{% endif %}.
+- [ ] Kapitalforhøjelsen anmeldes/registreres i Erhvervsstyrelsen inden for fristen i selskabslovens § 9 (2 uger efter den retsstiftende beslutning), med opdaterede vedtægter{% if felt.indskudsform == "Apport (andre værdier end kontanter)" %} og vurderingsberetning{% endif %}.
 - [ ] Ejerbog og ejerregister opdateres; ejerandele, der krydser grænserne på 5, 10, 15, 20, 25, 50, 90 eller 100 % eller 1/3 og 2/3, registreres (selskabslovens §§ 55-58).
 - [ ] Reelle ejere vurderes på ny (§ 58 a).
-- [ ] Skat: anskaffelsessum og -tidspunkt for de nye kapitalandele noteres til brug for aktieavanceopgørelsen. Ved gældskonvertering vurderes de skattemæssige konsekvenser for kreditor og debitor efter kursgevinstloven (gældskonvertering kan sidestilles med eftergivelse, hvis fordringens værdi er lavere end kursen på de udstedte kapitalandele), og om selskabets fremførte underskud påvirkes (SEL § 12 B).
+- [ ] Skat: anskaffelsessum og -tidspunkt for de nye kapitalandele noteres til brug for aktieavanceopgørelsen. Ved gældskonvertering vurderes de skattemæssige konsekvenser for kreditor og debitor efter kursgevinstloven (gældskonvertering kan sidestilles med eftergivelse, hvis fordringens værdi er lavere end kursen på de udstedte kapitalandele), og om selskabets fremførte underskud påvirkes (SEL §§ 12 A-12 B).
 - [ ] Regnskab: overkurs posteres som overkurs ved emission under egenkapitalen.
 
 {{ kunde.by }}, {{ felt.gf_dato }}

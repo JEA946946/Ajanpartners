@@ -3,7 +3,7 @@
   "title": "Opgørelse af igangværende arbejder for fremmed regning",
   "description": "Arbejdspapir til opgørelse og revision af igangværende arbejder/entreprisekontrakter efter produktionsmetoden, med tabsgivende kontrakter og præsentation.",
   "kind": "arbejdspapir",
-  "references": ["Årsregnskabsloven (måling af igangværende arbejder til salgsværdi)", "ISA 540 (ajourført)", "ISA 501"],
+  "references": ["Årsregnskabsloven § 49, stk. 1 (produktionsmetoden), § 13, stk. 1 (forsigtighed og bruttoværdi)", "ISA 540 (ajourført)", "ISA 501"],
   "legal_forms": [],
   "industry_aware": true,
   "fields": [
@@ -27,10 +27,10 @@ Metode: **{{ felt.metode }}** · Færdiggørelsesgrad: {{ felt.faerdiggoerelse }
 | **I alt** | | | | | | | | | |
 
 ## 2. Regnskabsmæssige principper
-- Ved produktionsmetoden indregnes indtægt i takt med udførelsen, når det samlede resultat kan opgøres pålideligt. Salgsværdien måles ud fra færdiggørelsesgraden.
+- Klasse B-virksomheder kan undlade at indregne indtægter i takt med udførelsen efter produktionsmetoden (ÅRL § 49, stk. 1). Ved produktionsmetoden indregnes indtægt i takt med udførelsen, når det samlede resultat kan opgøres pålideligt. Salgsværdien måles ud fra færdiggørelsesgraden.
 - Kan resultatet ikke opgøres pålideligt, indregnes salgsværdien kun med de afholdte omkostninger, der sandsynligvis kan genindvindes.
 - **Forventede tab indregnes straks fuldt ud** som en hensat forpligtelse/nedskrivning, når det er sandsynligt, at de samlede omkostninger overstiger kontraktsummen.
-- Præsentation: sager med salgsværdi større end aconto vises som aktiv (tilgodehavende); sager med aconto større end salgsværdi vises som forpligtelse ("igangværende arbejder for fremmed regning" under kortfristet gæld). Modregning på tværs af sager er ikke tilladt.
+- Præsentation: sager med salgsværdi større end aconto vises som aktiv (tilgodehavende); sager med aconto større end salgsværdi vises som forpligtelse ("igangværende arbejder for fremmed regning" under kortfristet gæld). Sager vurderes hver for sig (bruttoværdiprincippet, ÅRL § 13, stk. 1, nr. 8).
 - Forudbetalinger fra kunder, der ikke vedrører udført arbejde, præsenteres som forudbetalinger.
 
 ## 3. Revisionshandlinger

@@ -3,7 +3,7 @@
   "title": "Følgebrev – årsrapport til godkendelse og underskrift",
   "description": "Fremsendelse af årsrapport, ledelseserklæring og evt. protokollat til digital underskrift, med vejledning om generalforsamling, indsendelse til Erhvervsstyrelsen og skat.",
   "kind": "brev",
-  "references": ["Årsregnskabsloven §§ 8, 9, 138", "Selskabsloven §§ 88, 90, 101", "Selskabsskatteloven/skattekontrolloven (selvangivelse)"],
+  "references": ["Årsregnskabsloven §§ 8, 9, 138", "Selskabsloven §§ 76, 88", "Skattekontrolloven § 12 (selvangivelse)", "Kildeskatteloven § 65 (udbytteskat)"],
   "legal_forms": ["aps", "as", "ivs", "holding", "fmba", "andet"],
   "industry_aware": false,
   "fields": [
@@ -43,12 +43,12 @@ Vi har nu afsluttet arbejdet med årsrapporten for regnskabsåret {{ regnskab.st
 
 ## Det skal I gøre
 1. **Læs årsrapporten igennem.** I er som ledelse ansvarlige for årsrapporten og skal kunne stå inde for indholdet. Giv os besked, hvis noget er forkert eller mangler.
-2. **Underskriv ledelsespåtegningen og ledelseserklæringen** senest **{{ felt.underskrift_frist }}** via {{ felt.underskriftsloesning }}. Ledelsespåtegningen skal underskrives af alle medlemmer af {{ kunde.ledelsesorgan }} (ÅRL § 8). Ledelseserklæringen er jeres skriftlige bekræftelse over for os af, at I har givet os alle oplysninger. Først når den er underskrevet, kan vi underskrive vores erklæring.
-3. **Afhold generalforsamling** (foreslået dato {{ felt.gf_dato }}). Den ordinære generalforsamling skal afholdes i så god tid, at den godkendte årsrapport kan nå at blive indsendt rettidigt (SL § 88). Generalforsamlingen godkender årsrapporten, beslutter anvendelse af overskud/dækning af underskud{% if felt.udbytte %} og udbytte{% endif %} og meddeler evt. decharge. {% if kunde.selskabsform_kode == "aps" or kunde.selskabsform_kode == "holding" %}I et anpartsselskab kan generalforsamlingen afholdes skriftligt, hvis alle anpartshavere er enige (SL § 101).{% endif %} Vi har vedlagt et udkast til referat.
-4. **Indsendelse.** Når årsrapporten er godkendt, indsender vi den digitalt til Erhvervsstyrelsen. Årsrapporten skal være **modtaget i Erhvervsstyrelsen senest {{ regnskab.frist_aarsrapport }}** og skal indsendes uden ugrundet ophold efter godkendelsen (ÅRL § 138). Fristen kan ikke forlænges.
+2. **Underskriv ledelsespåtegningen og ledelseserklæringen** senest **{{ felt.underskrift_frist }}** via {{ felt.underskriftsloesning }}. Ledelsespåtegningen skal underskrives og dateres af alle medlemmer af {{ kunde.ledelsesorgan }} (ÅRL § 9, stk. 1); består ledelsesorganet af ét medlem, kan ledelsespåtegningen undlades (ÅRL § 9 a). Ledelseserklæringen er jeres skriftlige bekræftelse over for os af, at I har givet os alle oplysninger. Først når den er underskrevet, kan vi underskrive vores erklæring.
+3. **Afhold generalforsamling** (foreslået dato {{ felt.gf_dato }}). Den ordinære generalforsamling skal afholdes i så god tid, at den godkendte årsrapport kan nå at blive modtaget i Erhvervsstyrelsen inden fristen (SL § 88, stk. 2). Generalforsamlingen godkender årsrapporten, beslutter anvendelse af overskud/dækning af underskud{% if felt.udbytte %} og udbytte{% endif %} og træffer de øvrige beslutninger, som efter vedtægterne hører under den ordinære generalforsamling (SL § 88, stk. 1). Er alle kapitalejere enige, kan beslutningerne konkret træffes under fravigelse af lovens og vedtægternes form- og fristkrav (SL § 76, stk. 2; gælder ikke børsnoterede og statslige aktieselskaber). Vi har vedlagt et udkast til referat.
+4. **Indsendelse.** Når årsrapporten er godkendt, indsender vi den digitalt til Erhvervsstyrelsen. Årsrapporten skal være **modtaget i Erhvervsstyrelsen senest {{ regnskab.frist_aarsrapport }}** og skal indsendes uden ugrundet ophold efter godkendelsen (ÅRL § 138, stk. 1). Der kan ikke dispenseres fra fristen.
 
 ## Skat
-Selskabets selvangivelse indberettes af os senest 6 måneder efter regnskabsårets udløb. Hvis der er restskat, skal den betales senest {{ felt.restskat_frist }} i året efter indkomståret for at undgå yderligere tillæg; vi giver jer besked om beløbet. {% if felt.udbytte %}Udbytte skal angives og udbytteskat indeholdes og betales senest den 10. i måneden efter beslutningen om udlodning (for udbytte til personer).{% endif %}
+Selskabets selvangivelse (oplysningsskema) indberettes af os senest 6 måneder efter indkomstårets udløb – for indkomstår, der udløber i perioden 1. – 31. marts, dog senest 1. september samme år (skattekontrolloven § 12). Hvis der er restskat, skal den betales senest {{ felt.restskat_frist }} i året efter indkomståret for at undgå yderligere tillæg; vi giver jer besked om beløbet. {% if felt.udbytte %}Ved udlodning af udbytte skal selskabet indeholde udbytteskat (som hovedregel 27 %), angive den og betale den senest den 10. i måneden efter den måned, hvor udbyttet er vedtaget – for udbytte vedtaget i december senest 17. januar (kildeskatteloven § 65).{% endif %}
 
 ## Vedlagt
 {{ felt.bilag }}

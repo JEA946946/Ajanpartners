@@ -1,9 +1,9 @@
 ---
 {
   "title": "Udbytte – indeholdelse og indberetning af udbytteskat (tjekliste)",
-  "description": "Tjekliste for unoterede selskabers udlodning: selskabsretlig kontrol, satser for indeholdelse (27/22/0 %), angivelse og betaling senest den 10. i måneden efter (december: 17. januar), indberetning af modtagere, udenlandske modtagere og bogføring.",
+  "description": "Tjekliste for unoterede selskabers udlodning: selskabsretlig kontrol, satser for indeholdelse (27/22/15/0 %), angivelse og betaling (som udgangspunkt den 10. i måneden efter; i januar den 17.), indberetning af modtagere, udenlandske modtagere og bogføring.",
   "kind": "tjekliste",
-  "references": ["Kildeskatteloven §§ 65 og 66", "Selskabsskatteloven §§ 2, stk. 1, litra c, og 13", "Ligningsloven § 16 A", "Personskatteloven § 8 a", "Skatteindberetningsloven", "Selskabsloven §§ 179-183"],
+  "references": ["Kildeskatteloven §§ 65, 66 og 69", "Selskabsskatteloven §§ 2, stk. 1, litra c, og 13", "Ligningsloven § 16 A", "Personskatteloven § 8 a", "Skatteindberetningsloven", "Selskabsloven §§ 179-183"],
   "legal_forms": ["aps", "as", "holding"],
   "industry_aware": false,
   "fields": [
@@ -31,23 +31,24 @@
 ## 2. Indeholdelse af udbytteskat
 | Modtager | Indeholdelse | Note |
 |---|---|---|
-| Person, fuldt skattepligtig i Danmark | 27 % | Udbyttet er aktieindkomst: 27 % op til 79.400 kr. (2026; 158.800 kr. for samlevende ægtefæller), 42 % herover. Indeholdelsen er endelig for 27 %; resten opkræves via årsopgørelsen. |
+| Person, fuldt skattepligtig i Danmark | 27 % | Udbyttet er aktieindkomst: 27 % op til 79.400 kr. (2026; 158.800 kr. for samlevende ægtefæller), 42 % herover. Den indeholdte udbytteskat modregnes i slutskatten; skat ud over 27 % opkræves via årsopgørelsen. |
 | Dansk selskab – datterselskabsaktier (≥ 10 %) eller koncernselskabsaktier | 0 % | Skattefrit udbytte (SEL § 13, stk. 1, nr. 2). Indberettes alligevel. |
-| Dansk selskab – porteføljeaktier (< 10 %) | 22 % | Unoterede porteføljeaktier: 70 % af udbyttet er skattepligtigt; kontrollér indeholdelsessatsen ved indberetningen. |
-| Udenlandsk person | 27 % | Modtager kan søge refusion af overskydende skat efter dobbeltbeskatningsoverenskomst (typisk ned til 15 %). Reduceret sats direkte kun efter særlig ordning. |
+| Dansk selskab – unoterede porteføljeaktier (skattefri porteføljeaktier, < 10 %) | 0 % | Fra og med 15. februar 2025 indeholdes som hovedregel ikke udbytteskat (skat.dk/udbytteskat). |
+| Dansk selskab – øvrige (fx noterede porteføljeaktier) | 22 % | Kildeskattelovens § 65 og skat.dk. Investeringsselskaber m.v.: 15 %. |
+| Udenlandsk person | 27 % | Modtager kan søge refusion af den del, der overstiger satsen i den relevante dobbeltbeskatningsoverenskomst. |
 | Udenlandsk selskab – datterselskabsaktier, EU/DBO-land | 0 % | Kun hvis beskatning frafaldes eller nedsættes efter moder-/datterselskabsdirektivet eller DBO, og modtageren er retmæssig ejer (beneficial owner) – vurdér misbrugsreglen (LL § 3). |
 
-{% if felt.udenlandsk %}- [ ] **Udenlandske modtagere:** retmæssig ejer dokumenteret, hjemlandets skattepligt og DBO kontrolleret; ved 0 % dokumentation for direktivets betingelser (ejerandel, ejertid ≥ 1 år, ingen kunstige arrangementer). Overvej at indhente rådgivning før udbetaling.
+{% if felt.udenlandsk %}- [ ] **Udenlandske modtagere:** retmæssig ejer dokumenteret, hjemlandets skattepligt og DBO kontrolleret; ved 0 % dokumentation for, at betingelserne efter SEL § 2, stk. 1, litra c, og direktivet/DBO er opfyldt (ejerandel, ejertid, retmæssig ejer, ingen kunstige arrangementer). Overvej at indhente rådgivning før udbetaling.
 {% endif %}
 
 Modtagere:
 {{ felt.modtagere }}
 
 ## 3. Angivelse og betaling
-- [ ] Udbytteskatten angives og betales i TastSelv Erhverv (udbytteangivelse) senest den **10. i måneden efter** vedtagelsen. For udbytte vedtaget i december er fristen **17. januar** (kildeskattelovens § 66). Frist for dette udbytte: **{{ felt.frist }}**.
+- [ ] Udbytteskatten angives og betales i TastSelv Erhverv senest den **10. i måneden efter** den måned, hvor udlodningen er vedtaget; i januar er fristen den **17.** (dvs. 17. januar for udbytte vedtaget i december). Har selskabet A-skattefrist den sidste bankdag i måneden, er fristen den sidste bankdag i måneden efter (kildeskattelovens § 66, stk. 1, og skat.dk/udbytteskat). Frist for dette udbytte: **{{ felt.frist }}**.
 - [ ] Angivelse sker, uanset om udbyttet endnu ikke er udbetalt; også 0-indeholdelse angives.
 - [ ] Indberetning af udbyttet pr. modtager (CPR/CVR, beløb, indeholdt skat) sker samtidig og senest ved samme frist.
-- [ ] Selskabet hæfter for manglende indeholdelse, medmindre det godtgør, at der ikke er udvist forsømmelighed. Skattestyrelsen fører aktiv kontrol (rykkerbreve til selskaber, der har udloddet uden angivelse).
+- [ ] Selskabet hæfter for manglende indeholdelse, medmindre det godtgør, at der ikke er udvist forsømmelighed (kildeskattelovens § 69, stk. 1).
 
 ## 4. Bogføring
 | Dato | Konto | Debet | Kredit |

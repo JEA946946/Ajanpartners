@@ -3,12 +3,12 @@
   "title": "Afstemning af løn til eIndkomst",
   "description": "Arbejdspapir til afstemning af bogført løn, A-skat, AM-bidrag, ATP, pension, feriepenge og personalegoder til indberetninger i eIndkomst og betalinger på skattekontoen.",
   "kind": "arbejdspapir",
-  "references": ["Kildeskatteloven §§ 46, 48", "Arbejdsmarkedsbidragsloven", "Lov om indkomstregistret (eIndkomst)", "Ferieloven", "Ligningsloven § 16 (personalegoder)", "Årsregnskabsloven (gennemsnitligt antal ansatte)"],
+  "references": ["Kildeskatteloven (A-skat)", "Opkrævningsloven § 2 (betalingsfrister)", "Arbejdsmarkedsbidragsloven", "Indkomstregisterloven (eIndkomst)", "Ferieloven (LBK nr. 152 af 20. februar 2024)", "Ligningsloven (personalegoder)", "Årsregnskabsloven §§ 7, stk. 3, nr. 3, og 68"],
   "legal_forms": [],
   "industry_aware": true,
   "fields": [
     {"name": "antal_ansatte", "label": "Gennemsnitligt antal heltidsansatte (beregnet)", "type": "number"},
-    {"name": "beregning_ansatte", "label": "Beregningsmetode antal ansatte", "type": "select", "options": ["ATP-bidrag", "Timer i eIndkomst / 1.924", "Månedlige opgørelser"], "default": "Timer i eIndkomst / 1.924"},
+    {"name": "beregning_ansatte", "label": "Beregningsmetode antal ansatte", "type": "select", "options": ["ATP-bidrag", "Timer i eIndkomst omregnet til heltid", "Månedlige opgørelser"], "default": "Timer i eIndkomst omregnet til heltid"},
     {"name": "bemaerkninger", "label": "Bemærkninger og forklaring af differencer", "type": "textarea"}
   ]
 }
@@ -47,11 +47,11 @@ Typiske forskelle: periodeforskydning (løn for december udbetalt i januar), fer
 | December | | | | | |
 | **I alt** | | | | | |
 
-- [ ] Skyldig A-skat og AM-bidrag pr. {{ regnskab.slut }} svarer til sidste periodes indberetning og er betalt rettidigt efter statusdagen
+- [ ] Skyldig A-skat og AM-bidrag pr. {{ regnskab.slut }} svarer til sidste periodes indberetning og er betalt rettidigt efter statusdagen (opkrævningsloven § 2, stk. 5-6)
 - [ ] Skattekontoen er gennemgået for renter og restancer
 
 ## 3. Øvrige lønrelaterede forpligtelser
-- [ ] **Feriepengeforpligtelse** pr. {{ regnskab.slut }} (samtidighedsferie: optjent, ikke afholdt ferie + ferietillæg 1 %) – timelønnede/FerieKonto; overførte feriedage
+- [ ] **Feriepengeforpligtelse** pr. {{ regnskab.slut }} (samtidighedsferie: optjent, ikke afholdt ferie + ferietillæg 1 % / feriegodtgørelse 12,5 %, ferieloven § 16) – timelønnede/FerieKonto; overførte feriedage
 - [ ] Skyldig pension og ATP er afstemt til pensionsselskabets opgørelse
 - [ ] Bonus, provision og overtid optjent, men ikke udbetalt, er hensat
 - [ ] Lønsumsafgift er opgjort og afstemt, hvis virksomheden er momsfritaget{% if branche.momsfritaget %} (relevant for denne kunde){% endif %}
@@ -65,7 +65,7 @@ Typiske forskelle: periodeforskydning (løn for december udbetalt i januar), fer
 {% endif %}
 
 ## 4. Gennemsnitligt antal ansatte
-Gennemsnitligt antal heltidsansatte: **{{ felt.antal_ansatte }}** (metode: {{ felt.beregning_ansatte }}). Tallet oplyses i noterne og bruges ved vurdering af størrelsesgrænser (regnskabsklasse, fravalg af revision).
+Gennemsnitligt antal heltidsansatte: **{{ felt.antal_ansatte }}** (metode: {{ felt.beregning_ansatte }}). Tallet oplyses i noterne (ÅRL § 68; mikrovirksomheder kan undlade, § 22 b) og bruges ved vurdering af størrelsesgrænser (regnskabsklasse, fravalg af revision). Det beregnes så vidt muligt efter reglerne fastsat i medfør af selskabslovens § 143 (ÅRL § 7, stk. 3, nr. 3).
 
 ## 5. Bemærkninger
 {{ felt.bemaerkninger }}

@@ -3,7 +3,7 @@
   "title": "Beslutning om frivillig likvidation",
   "description": "Generalforsamlingsbeslutning om solvent likvidation med valg af likvidator, proklama (3 måneder), likvidationsregnskab og tjekliste – samt sammenligning med opløsning ved betalingserklæring (SL § 216).",
   "kind": "beslutning",
-  "references": ["Selskabsloven §§ 216-224", "Selskabsloven § 106", "Aktieavancebeskatningsloven", "Ligningsloven § 16 A, stk. 3, nr. 2", "Skatteforvaltningsloven"],
+  "references": ["Selskabsloven §§ 216-224", "Selskabsloven § 106", "Aktieavancebeskatningsloven", "Ligningsloven § 16 A, stk. 3, nr. 1", "Skatteforvaltningsloven"],
   "legal_forms": ["aps", "as", "holding"],
   "industry_aware": true,
   "fields": [
@@ -43,11 +43,11 @@ Kapitalejere, der ejer mindst 25 % af kapitalen, har ret til at vælge en likvid
 | Åbningsbalance | Likvidationsbalance pr. {{ felt.likvidationsdato }} | Likvidator/{{ firma.navn }} |
 | Realisation | Aktiver realiseres, kontrakter, lejemål, ansættelser og abonnementer opsiges; gæld betales | Likvidator |
 | Skat og afgifter | Afmelding af moms, A-skat/løn, lønsumsafgift m.v.; slutopgørelse af selskabsskat (indkomståret afsluttes ved likvidationens afslutning) | {{ firma.navn }} |
-| A conto-udlodning | Tidligst efter proklamafristens udløb og når kendte kreditorer er betalt, eller der er stillet betryggende sikkerhed (§ 223) | Likvidator |
+| Udlodning af likvidationsprovenu | Tidligst når proklamafristen er udløbet og gælden til kendte kreditorer er betalt (§ 223, stk. 1). A conto-udlodning før likvidationens afslutning kræver desuden betryggende sikkerhed (§ 223, stk. 2) | Likvidator |
 | Likvidationsregnskab | Godkendes af kapitalejerne; anmeldelse skal være modtaget senest 2 uger efter godkendelsen; revideres ved revisionspligt (§ 224, stk. 2) | Likvidator |
 | Slettelse | Erhvervsstyrelsen sletter selskabet | – |
 
-Selskabets bøger og bilag skal opbevares i 5 år efter likvidationens afslutning, og ansvarlig for opbevaringen angives ved anmeldelsen.
+Regnskabsmaterialet skal fortsat opbevares i 5 år efter bogføringslovens regler; det aftales, hvem der opbevarer det efter slettelsen.
 {% else %}
 ## Erklæring om opløsning (selskabslovens § 216)
 Undertegnede, der udgør samtlige kapitalejere i selskabet, erklærer:
@@ -70,7 +70,7 @@ Erklæringen skal være modtaget i Erhvervsstyrelsen senest 2 uger efter undersk
 {% endif %}{% if branche.ejendom %}- [ ] Ejendomme afhændet eller udloddet; genvundne afskrivninger og ejendomsavance opgjort; tinglysning af ejerskifte.
 {% endif %}{% if branche.lager %}- [ ] Varelager realiseret eller udloddet til handelsværdi.
 {% endif %}- [ ] Udlodning i andre værdier end kontanter: handelsværdi dokumenteret.
-- [ ] **Skat for kapitalejerne:** Likvidationsprovenu udloddet i det kalenderår, hvor selskabet endeligt opløses, beskattes som afståelse efter aktieavancebeskatningsloven (ligningslovens § 16 A, stk. 3, nr. 2); udlodninger i tidligere år er udbytte. Personer: aktieindkomst (27/42 %). Selskaber: skattefrit ved datterselskabs-/koncernselskabsaktier.
+- [ ] **Skat for kapitalejerne:** Likvidationsprovenu udloddet i det kalenderår, hvor selskabet endeligt opløses, beskattes som afståelse efter aktieavancebeskatningsloven (ligningslovens § 16 A, stk. 3, nr. 1, med de undtagelser, der fremgår af litra a-d); udlodninger i tidligere år er som udgangspunkt udbytte, medmindre Skattestyrelsen giver tilladelse efter § 16 A, stk. 3, nr. 2, litra a. Personer: aktieindkomst (27/42 %). Selskaber: skattefrit ved datterselskabs-/koncernselskabsaktier.
 - [ ] Forventet provenu: {{ felt.forventet_provenu }} kr.; skatteberegning udarbejdet for hver kapitalejer.
 - [ ] Ejer- og ledelsesregistre og reelle ejere ajourført frem til slettelsen.
 - [ ] Afmelding af digitalt bogføringssystem først efter opbevaringspligtens tilrettelæggelse (bogføringsloven, 5 år).

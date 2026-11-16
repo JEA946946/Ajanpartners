@@ -3,7 +3,7 @@
   "title": "Kapitalafkastordningen (KAO) – opgørelse",
   "description": "Arbejdspapir for kapitalafkastordningen: kapitalafkastgrundlag, kapitalafkast (2 % i 2026), loft, konjunkturudligning og sammenligning med virksomhedsordningen.",
   "kind": "arbejdspapir",
-  "references": ["Virksomhedsskatteloven §§ 22 a-22 d", "VSL § 22 a (kapitalafkast og -grundlag)", "VSL § 22 b (konjunkturudligning)", "SKM2026.414.SKTST", "Den juridiske vejledning C.C.5.3"],
+  "references": ["Virksomhedsskatteloven §§ 22 a-22 b", "VSL § 22 a (kapitalafkast og -grundlag)", "VSL § 22 b (konjunkturudligning)", "SKM2026.414.SKTST (kapitalafkastsats 2026)", "Den juridiske vejledning C.C.5.3"],
   "legal_forms": ["enk", "is", "pmv"],
   "industry_aware": true,
   "fields": [
@@ -28,21 +28,20 @@ Kapitalafkastordningen giver mulighed for at overføre et beregnet kapitalafkast
 - [ ] Valget træffes i oplysningsskemaet for året.
 - [ ] Ved satsen på {{ felt.kapitalafkastsats }} % (2026) er effekten begrænset; vurdér om ordningen giver fordel ift. personskattelovens almindelige regler.
 
-## 2. Kapitalafkastgrundlag (VSL § 22 a, stk. 5-8)
+## 2. Kapitalafkastgrundlag (VSL § 22 a)
 | | Kr. |
 |---|---|
-| Erhvervsmæssige aktiver primo (samme værdiansættelse som i virksomhedsordningen; blandede aktiver kun med erhvervsmæssig andel, § 22 a, stk. 6) | {{ felt.aktiver_primo }} |
-| Varelager, igangværende arbejder og varedebitorer medregnes kun med det beløb, der overstiger varekreditorerne | |
-| Ikke medregnet: kontanter, likvide midler, andre tilgodehavender end varedebitorer, værdipapirer, anparter i anpartsvirksomhed og bolig udlejet til nærtstående (§ 22 a, stk. 7-8) | |
-| **Kapitalafkastgrundlag** (gæld fradrages **ikke** – i modsætning til virksomhedsordningen; noteret gæld: {{ felt.gaeld_primo }} kr.) | |
+| Erhvervsmæssige aktiver primo (opgøres efter VSL § 22 a – kontrollér mod Den juridiske vejledning C.C.5.3, hvilke aktiver der medregnes, og med hvilke værdier) | {{ felt.aktiver_primo }} |
+| Reguleringer efter VSL § 22 a (fx varelager, debitorer/kreditorer, likvider, værdipapirer, blandede aktiver – kontrollér) | |
+| **Kapitalafkastgrundlag** (kontrollér behandlingen af gæld efter VSL § 22 a; noteret erhvervsgæld: {{ felt.gaeld_primo }} kr.) | |
 | Kapitalafkast ({{ felt.kapitalafkastsats }} %) | |
 
 Kapitalafkastet er begrænset af en maksimeringsregel og kan ikke overstige virksomhedens overskud ({{ felt.overskud }} kr.) – kontrollér beregningen mod Den juridiske vejledning C.C.5.3.1.2.2. Kapitalafkastet fradrages i den personlige indkomst og lægges til kapitalindkomsten.
 
 ## 3. Konjunkturudligning (VSL § 22 b)
-- Op til 25 % af overskuddet kan henlægges, dog mindst 5.000 kr. Ønsket henlæggelse: {{ felt.konjunktur }} kr.
-- Henlæggelsen beskattes med konjunkturudligningsskat (22 %), og 78 % af det henlagte beløb skal indsættes på en bunden konto senest ved fristen for oplysningsskemaet.
-- Hævning af det henlagte beløb medregnes i den personlige indkomst med godskrivning af den betalte skat. Ophører brugen af kapitalafkastordningen, medregnes henlæggelserne i det sidste år.
+- Op til 25 % af årets overskud kan henlægges; mindste henlæggelse er 5.000 kr. (2026). Ønsket henlæggelse: {{ felt.konjunktur }} kr.
+- Henlæggelsen beskattes med konjunkturudligningsskat (22 % i 2026), og 78 % af henlæggelsen skal indsættes på en bunden konto (VSL § 22 b, stk. 1-3; Skatte- og Vækstministeriets satsoversigt 2026). Frist for indsættelse kontrolleres i VSL § 22 b.
+- Hævning af henlagte beløb og ophør med ordningen: behandles efter VSL § 22 b – kontrollér reglerne i det konkrete tilfælde.
 
 ## 4. Sammenligning
 | | Personskattelov | Kapitalafkastordning | Virksomhedsordning |

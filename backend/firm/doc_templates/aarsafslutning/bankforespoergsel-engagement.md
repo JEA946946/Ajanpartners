@@ -1,7 +1,7 @@
 ---
 {
   "title": "Engagementsforespørgsel til pengeinstitut (bankforespørgsel)",
-  "description": "Anmodning til kundens pengeinstitut om bekræftelse af hele engagementet pr. statusdagen, med kundens fuldmagt. Struktur svarer til den fælles standardblanket mellem Finans Danmark og FSR – danske revisorer.",
+  "description": "Anmodning til kundens pengeinstitut om bekræftelse af hele engagementet pr. statusdagen, med kundens fuldmagt. Mange pengeinstitutter anvender egen blanket eller portal til revisorforespørgsler – undersøg dette, før brevet sendes.",
   "kind": "brev",
   "references": ["ISA 505", "ISA 500", "Lov om finansiel virksomhed § 117 (tavshedspligt – kundens samtykke)"],
   "legal_forms": [],

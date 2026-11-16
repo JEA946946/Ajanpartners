@@ -3,7 +3,7 @@
   "title": "Nærtstående parter (ISA 550)",
   "description": "Identifikation af nærtstående parter, transaktioner og mellemværender, vurdering af markedsvilkår, kapitalejerlån og noteoplysning.",
   "kind": "arbejdspapir",
-  "references": ["ISA 550", "Årsregnskabsloven §§ 72, 98 c", "Selskabsloven §§ 115, 127, 206", "Ligningsloven §§ 2, 16 E", "Skattekontrolloven § 37"],
+  "references": ["ISA 550", "Årsregnskabsloven §§ 11, 73, 98 c", "Selskabsloven §§ 115, 127, 206", "Ligningsloven §§ 2, 16 E", "Skattekontrolloven §§ 37-38"],
   "legal_forms": [],
   "industry_aware": true,
   "fields": [
@@ -47,17 +47,17 @@ Udarbejdet af: {{ medarbejder.navn }}, {{ dato.idag }}
 {% endif %}
 ## 3. Kapitalejerlån og lån til ledelsen
 {% if kunde.er_kapitalselskab %}- [ ] Har selskabet direkte eller indirekte ydet lån eller stillet sikkerhed for {{ kunde.kapitalejere }}, ledelsen eller nærtstående til disse (herunder debetsaldo på mellemregning)?
-- [ ] Selskabsret: selskabslovens særlige regler om kapitalejerlån (§§ 210-212 og rentekravet i § 215) er ophævet med virkning fra 1. januar 2025 (lov nr. 1668 af 30. december 2024). Lånet skal dog fortsat være forsvarligt i forhold til selskabets økonomi (SL § 115), i selskabets interesse, på forretningsmæssige vilkår og må ikke give en utilbørlig fordel (SL § 127). Reglerne om selvfinansiering (SL § 206) gælder fortsat
-- [ ] Lån ydet før 1. januar 2025 i strid med de dagældende regler er ikke blevet lovlige med tilbagevirkende kraft – overvej konsekvenserne og drøft med ledelsen
-- [ ] Skat: lån til personlig kapitalejer med bestemmende indflydelse eller dennes nærtstående beskattes som udbytte eller løn (ligningsloven § 16 E). Er der ikke indeholdt udbytteskat/A-skat, vurderes, om der er tale om en skatteretlig overtrædelse, som skal omtales i erklæringen (erklæringsbekendtgørelsen – ledelsesansvar)
-- [ ] Balance: tilgodehavender hos kapitalejere og ledelse vises som særskilt post; noteoplysning om lån til ledelsesmedlemmer (ÅRL § 72): beløb, rente, vilkår, tilbagebetalinger
+- [ ] Selskabsret: selskabslovens særlige regler om kapitalejerlån (§§ 210-212) er ophævet med virkning fra 1. januar 2025 (lov nr. 1668 af 30. december 2024). Ledelsen skal dog fortsat sikre et forsvarligt kapitalberedskab (SL § 115, nr. 5) og må ikke disponere, så dispositionen er åbenbart egnet til at skaffe nogen en utilbørlig fordel på andre kapitalejeres eller selskabets bekostning (SL § 127). Reglerne om selvfinansiering (SL §§ 206-215) gælder fortsat; lovlig bistand efter § 206, stk. 2, kræver reserve for udlån og sikkerhedsstillelse (ÅRL § 35 a)
+- [ ] Lån ydet før 1. januar 2025 vurderes efter de dagældende regler i SL §§ 210-212 – overvej konsekvenserne og drøft med ledelsen
+- [ ] Skat: lån til personlig kapitalejer med bestemmende indflydelse eller dennes nærtstående beskattes som udbytte eller løn (ligningsloven § 16 E, stk. 1). For lån ydet fra 1. januar 2026 anses tilbagebetalinger som et rentefrit anfordringslån til selskabet, og selskabet skal føre en skattemæssig mellemregningskonto (§ 16 E, stk. 2-4, indsat ved lov nr. 749 af 20. juni 2025). Er der ikke indeholdt udbytteskat/A-skat, vurderes, om der er tale om en overtrædelse, som skal omtales i erklæringen (erklæringsbekendtgørelsen)
+- [ ] Note om tilgodehavender hos og sikkerhedsstillelser for ledelsesmedlemmer (ÅRL § 73): sum pr. ledelseskategori, væsentligste vilkår inkl. rentefod, tilbagebetalte beløb, nedskrivninger/afkald
 {% else %}- [ ] Ikke kapitalselskab: private hævninger og indskud er opgjort; mellemregning med ejer er afstemt
 {% endif %}
 
 ## 4. Noteoplysninger og skat
-- [ ] Oplysning om nærtstående parter (ÅRL § 98 c) er givet i det omfang, klasse B kræver – særligt transaktioner, der ikke er gennemført på normale markedsvilkår
-- [ ] Oplysning om kontrollerende part/modervirksomhed
-- [ ] Skattemæssig oplysningspligt om kontrollerede transaktioner (skattekontrolloven § 37 – blanket 05.022 ved selskabets selvangivelse) og evt. dokumentationspligt
+- [ ] Oplysning om nærtstående parter: ÅRL § 98 c gælder regnskabsklasse C (klasse C kan begrænse oplysningerne til transaktioner, der ikke er gennemført på normale markedsvilkår, § 98 c, stk. 6). For klasse B er § 98 c ikke blandt de bestemmelser, der gælder (ÅRL § 22, stk. 1) – vurder, om oplysning er nødvendig for et retvisende billede (ÅRL § 11, stk. 2). Regnskabsklasse: {{ kunde.regnskabsklasse }}
+- [ ] Navn og hjemsted for modervirksomhed, der udarbejder koncernregnskab for den mindste koncern (ÅRL § 71)
+- [ ] Skattemæssig oplysningspligt om kontrollerede transaktioner (skattekontrolloven § 37, stk. 1, nr. 6, og § 38 – afgives digitalt sammen med selskabets oplysningsskema, bilagsblanket 05.021) og evt. dokumentationspligt
 - [ ] Ledelseserklæringen bekræfter, at alle nærtstående parter og transaktioner er oplyst (ISA 550, pkt. 26)
 
 ## 5. Konklusion

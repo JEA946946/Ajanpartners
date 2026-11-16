@@ -71,8 +71,8 @@ Udbyttet fordeles forholdsmæssigt efter kapitalandele:
 Udbyttet udbetales {{ felt.betalingsdato }} med fradrag af udbytteskat.
 
 ## 3. Skattemæssig opfølgning
-- [ ] Udbytteskat (27 % til personer; til danske selskaber 22 % ved porteføljeaktier og ingen indeholdelse ved datterselskabs- eller koncernselskabsaktier, jf. kildeskattelovens § 65 og selskabsskattelovens § 13) indeholdes og angives/betales i TastSelv Erhverv senest den 10. i måneden efter beslutningen (for beslutning i december senest 17. januar), jf. kildeskattelovens §§ 65-66.
-- [ ] Udbyttemodtagerne indberettes inden samme frist.
+- [ ] Udbytteskat indeholdes (27 % til personer; 22 % til danske selskaber, medmindre 0 % gælder: datterselskabs- eller koncernselskabsaktier, og som hovedregel unoterede porteføljeaktier (skattefri porteføljeaktier) fra 15. februar 2025, jf. kildeskattelovens § 65 og skat.dk/udbytteskat). Udbytteskatten angives og betales i TastSelv Erhverv senest den 10. i måneden efter den måned, hvor udlodningen er vedtaget; i januar er fristen den 17. (dvs. 17. januar for udbytte vedtaget i december). Har selskabet A-skattefrist den sidste bankdag i måneden, er fristen den sidste bankdag i måneden efter vedtagelsen (kildeskattelovens § 66, stk. 1, og skat.dk).
+- [ ] Udbyttemodtagerne indberettes inden samme frist (kildeskattelovens § 66, stk. 2, og skatteindberetningsloven).
 - [ ] Personlige kapitalejere: udbyttet er aktieindkomst (27 % op til 79.400 kr. i 2026, 158.800 kr. for ægtefæller; 42 % herover), jf. personskattelovens § 8 a.
 - [ ] Bogføres som gæld til kapitalejere på beslutningsdagen; posteres mod overført resultat.
 - [ ] Ulovlig udlodning skal tilbagebetales med renter efter § 194; ledelsen kan ifalde erstatningsansvar.

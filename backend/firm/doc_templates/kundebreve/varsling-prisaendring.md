@@ -3,7 +3,7 @@
   "title": "Varsling af prisændring",
   "description": "Varsel til kunden om ændrede honorarer/timepriser med ikrafttræden, begrundelse, nye priser og kundens ret til at opsige efter aftalen.",
   "kind": "brev",
-  "references": ["Kundeaftalen/opdragsbrevet", "Aftaleloven", "Markedsføringsloven § 3 (god skik)"],
+  "references": ["Kundeaftalen/opdragsbrevet", "Aftaleloven", "Markedsføringsloven (god markedsføringsskik)"],
   "legal_forms": [],
   "industry_aware": false,
   "fields": [

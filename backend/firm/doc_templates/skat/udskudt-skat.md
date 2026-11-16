@@ -3,7 +3,7 @@
   "title": "Opgørelse af udskudt skat",
   "description": "Arbejdspapir for udskudt skat efter balanceorienteret gældsmetode: midlertidige forskelle pr. aktivtype, skatteaktiv af underskud og vurdering af udnyttelse, satsændringer og afstemning til resultatopgørelsen.",
   "kind": "arbejdspapir",
-  "references": ["Årsregnskabsloven § 37 og § 48", "Selskabsskatteloven §§ 12 og 17", "Afskrivningsloven", "Ejendomsavancebeskatningsloven"],
+  "references": ["Årsregnskabsloven § 33, stk. 1, § 47, stk. 1, og § 93 a", "Selskabsskatteloven §§ 12 og 17", "Afskrivningsloven", "Ejendomsavancebeskatningsloven"],
   "legal_forms": ["aps", "as", "holding", "ivs", "andet"],
   "industry_aware": true,
   "fields": [
@@ -22,7 +22,7 @@
 
 **Metode:** Udskudt skat måles efter den balanceorienterede gældsmetode af alle midlertidige forskelle mellem regnskabsmæssige og skattemæssige værdier, med den skattesats, der er vedtaget på balancedagen, og som forventes at gælde, når forskellen udlignes: **{{ felt.skattesats }} %**. {% if branche.finans %}Finansielle selskaber med forhøjet sats anvender denne. {% endif %}En nedsættelse af selskabsskatten, der er varslet men ikke vedtaget på balancedagen, indregnes ikke; vedtages en satsændring efter balancedagen, oplyses den som efterfølgende begivenhed.
 
-{% if kunde.regnskabsklasse == "B" %}*Regnskabsklasse B:* Små virksomheder kan undlade at indregne udskudt skat, men det er god skik og forudsat i de fleste anvendte regnskabspraksisser at indregne den (ÅRL § 37 og bilag). Undlades indregning, oplyses den udskudte skat i noterne.{% endif %}
+{% if kunde.regnskabsklasse == "B" %}*Regnskabsklasse B:* Udskudt skat skal også i regnskabsklasse B indregnes som hensat forpligtelse (ÅRL § 47, stk. 1). Udskudte skatteaktiver indregnes efter de almindelige indregningskriterier (ÅRL § 33, stk. 1).{% endif %}
 
 ## 1. Midlertidige forskelle
 | Post | Regnskabsmæssig værdi | Skattemæssig værdi | Midlertidig forskel | Udskudt skat ({{ felt.skattesats }} %) |
@@ -48,7 +48,7 @@ Vurdering: **{{ felt.indregn_aktiv }}**
 
 {{ felt.begrundelse }}
 
-Et skatteaktiv indregnes kun, hvis det er sandsynligt, at det kan udnyttes ved modregning i fremtidig skattepligtig indkomst inden for en overskuelig periode (typisk 3-5 år), understøttet af budgetter og historisk indtjening. Begrænsningen i SEL § 12 (fuld modregning op til grundbeløbet, derefter 60 %) indgår i vurderingen. Skatteaktiver og -forpligtelser modregnes inden for samme skattesubjekt (eller sambeskatningskreds).
+Et skatteaktiv indregnes kun, hvis det er sandsynligt, at det kan udnyttes ved modregning i fremtidig skattepligtig indkomst inden for en overskuelig fremtid, understøttet af budgetter og historisk indtjening (ÅRL § 33, stk. 1). Begrænsningen i SEL § 12 (fuld modregning op til grundbeløbet, derefter 60 %) indgår i vurderingen. Skatteaktiver og -forpligtelser modregnes inden for samme skattesubjekt (eller sambeskatningskreds).
 
 ## 3. Bevægelse
 | | Kr. |

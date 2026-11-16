@@ -3,7 +3,7 @@
   "title": "Anmodning om materiale til årsafslutning",
   "description": "Følgebrev til materialelisten med frist, tidsplan og forklaring af, hvorfor fristen er vigtig.",
   "kind": "brev",
-  "references": ["Årsregnskabsloven § 138", "Bogføringsloven"],
+  "references": ["Årsregnskabsloven §§ 138, 150-151", "Skattekontrolloven § 12", "Bogføringsloven"],
   "legal_forms": [],
   "industry_aware": true,
   "fields": [
@@ -28,7 +28,7 @@ Regnskabsåret slutter den {{ regnskab.slut }}, og vi går nu i gang med at plan
 Vedlagt er en **materialeliste**, der er tilpasset jeres virksomhed. Vi beder jer gennemgå listen og sende materialet senest **{{ felt.frist_materiale }}** – helst ved upload i bogføringsprogrammet, så det ligger samlet ved bogføringen.
 
 ## Hvorfor fristen er vigtig
-{% if kunde.er_kapitalselskab %}Årsrapporten skal godkendes på generalforsamlingen og være modtaget i Erhvervsstyrelsen senest **{{ regnskab.frist_aarsrapport }}**. Overskrides fristen, pålægges hvert medlem af ledelsen en personlig afgift, og i sidste ende kan Erhvervsstyrelsen anmode skifteretten om at tvangsopløse selskabet. Selskabets selvangivelse skal desuden være indberettet til Skattestyrelsen senest 6 måneder efter regnskabsårets udløb.{% else %}Oplysningerne skal bruges til jeres udvidede selvangivelse (oplysningsskema), der skal være indberettet senest 1. juli. Ved for sen indberetning kan Skattestyrelsen pålægge et skattetillæg og fastsætte indkomsten skønsmæssigt.{% endif %} Jo tidligere vi får materialet, jo bedre tid har vi til at rådgive jer om skat og eventuelle dispositioner.
+{% if kunde.er_kapitalselskab %}Årsrapporten skal godkendes på generalforsamlingen og være modtaget i Erhvervsstyrelsen senest **{{ regnskab.frist_aarsrapport }}**. Overskrides fristen, kan hvert medlem af den øverste ledelse blive pålagt en afgift, og i sidste ende kan Erhvervsstyrelsen anmode skifteretten om at opløse selskabet (ÅRL §§ 150-151). Selskabets selvangivelse skal desuden være indberettet til Skattestyrelsen senest 6 måneder efter indkomstårets udløb – for indkomstår, der udløber i perioden 1. – 31. marts, senest 1. september samme år (skattekontrolloven § 12).{% else %}Oplysningerne skal bruges til jeres udvidede selvangivelse (oplysningsskema), der skal være indberettet senest 1. juli. Ved for sen indberetning kan Skattestyrelsen ansætte indkomsten skønsmæssigt.{% endif %} Jo tidligere vi får materialet, jo bedre tid har vi til at rådgive jer om skat og eventuelle dispositioner.
 
 ## Tidsplan
 | | Dato |

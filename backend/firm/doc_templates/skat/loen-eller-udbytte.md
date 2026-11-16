@@ -26,13 +26,13 @@
 |---|---|
 | Selskabsskat | 22 % |
 | AM-bidrag | 8 % |
-| Bundskat | 12,01 % |
+| Bundskat | 12,01 % (PSL § 6) |
 | Kommuneskat (+ kirkeskat) | {{ felt.kommuneskat }} % |
-| Personfradrag | 54.100 kr. |
-| Mellemskat 7,5 % | over 641.200 kr. (efter AM-bidrag) |
-| Topskat 7,5 % | over 777.900 kr. (efter AM-bidrag) |
-| Toptopskat 5 % | over ca. 2,59 mio. kr. (efter AM-bidrag) |
-| Skatteloft (personlig indkomst) | 44,57 % / 52,07 % / 57,07 % |
+| Personfradrag | 54.100 kr. (PSL § 10) |
+| Mellemskat 7,5 % | over 641.200 kr. personlig indkomst efter AM-bidrag (PSL § 7) |
+| Topskat 7,5 % | over 777.900 kr. personlig indkomst efter AM-bidrag (PSL § 7 a) |
+| Toptopskat 5 % | over 2.592.700 kr. personlig indkomst efter AM-bidrag (PSL § 8) |
+| Skatteloft (personlig indkomst, PSL § 19, stk. 1) | 44,57 % |
 | Aktieindkomst | 27 % op til 79.400 kr.{% if felt.gift %} (158.800 kr. for ægtefæller){% endif %}, 42 % herover |
 | Beskæftigelsesfradrag | Indgår ved løn (ikke ved udbytte) |
 
@@ -65,6 +65,6 @@ Samlet skat på udbytte (selskabsskat + udbytteskat): 22 % + 78 % × 27 % = **43
 - [ ] **Hævninger uden beslutning:** Må ikke ske – beskattes som løn/udbytte efter LL § 16 E.
 - [ ] **Markedsløn:** Løn skal være forretningsmæssigt begrundet for fradrag; ved meget høj løn kan fradrag nægtes.
 - [ ] **Ægtefælle:** Udnyttelse af ægtefællens progressionsgrænse for aktieindkomst og ansættelse af ægtefælle til markedsløn.
-- [ ] **Varslede ændringer:** Regeringen har varslet nedsat selskabsskat (19 %) og forhøjet aktieindkomstgrænse (lovforslag ventes i februar 2027) – ikke vedtaget pr. {{ dato.idag }}. Opdatér beregningen, når lovforslaget foreligger.
+- [ ] **Varslede ændringer:** Regeringsgrundlaget (juni 2026) varsler en gradvis nedsættelse af selskabsskatten fra 22 % til 19 % (ikke for den finansielle sektor) og en forhøjet progressionsgrænse for aktieindkomst; virkningstidspunktet er ikke fastlagt, og intet er vedtaget pr. {{ dato.idag }}. Opdatér beregningen, når lovforslag foreligger.
 
 Anbefaling: \_\_\_\_\_\_

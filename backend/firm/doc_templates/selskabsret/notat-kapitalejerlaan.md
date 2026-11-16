@@ -50,22 +50,20 @@ Mellemregningen er afstemt til bogføringen, og alle posteringer er gennemgået 
 - **Regnskab:** Lån til og sikkerhedsstillelse for ledelsesmedlemmer oplyses i noterne med rente, vilkår og indfriede beløb (ÅRL § 73), og transaktioner med nærtstående oplyses efter regnskabsklassens krav.
 
 {% if felt.opstaaet == "Før 1. januar 2025 (ulovligt efter de dagældende regler)" %}
-**Ældre lån:** Lånet er ydet før 1. januar 2025 i strid med den dagældende § 210. Ophævelsen (lov nr. 1668 af 30. december 2024) gør ikke tidligere ulovlige lån lovlige. Lånet er fortsat ulovligt og skal tilbagebetales til selskabet med rente efter den dagældende § 215, stk. 1 (rente svarende til renteloven § 5 med tillæg). Erhvervsstyrelsen kan fortsat påbyde tilbagebetaling. Ifølge forarbejderne bør verserende straffesager om de særlige betingelser dog ikke videreføres. Det anbefales, at lånet indfries med rente og dokumenteres (alternativt omdannes til løn/udbytte ved lovlig beslutning, hvorved tilbagebetalingskravet modregnes). Den skattemæssige behandling efter LL § 16 E er uændret.
+**Ældre lån:** Lånet er ydet før 1. januar 2025 i strid med den dagældende § 210. Ifølge Erhvervsstyrelsens vejledning om ophævelsen skal lånet forrentes efter den dagældende § 215 frem til og med 31. december 2024, men ikke derefter, og styrelsen fører ikke længere kontrol med, om kapitalejerlån opfylder de særlige betingelser. Fra 1. januar 2025 skal ledelsen sikre, at lånet opfylder de almindelige regler (bl.a. §§ 115-118, 127 og 179). Et påbud fra Erhvervsstyrelsen om revision af årsregnskabet er efter styrelsens opfattelse fortsat gældende. Den skattemæssige behandling efter LL § 16 E er uændret.
 {% elif felt.opstaaet == "Før 1. januar 2025 (lovligt efter dagældende § 210, stk. 2)" %}
-**Ældre lån:** Lånet blev ydet lovligt efter den dagældende § 210, stk. 2 (frie reserver, markedsvilkår, beslutning). Lånet afvikles efter de aftalte vilkår. Skattemæssigt er lånet omfattet af LL § 16 E, hvis det er ydet efter 13. august 2012 til en person med kontrol.
+**Ældre lån:** Lånet blev ydet lovligt efter den dagældende § 210, stk. 2 (frie reserver, markedsvilkår, beslutning). Lånet afvikles efter de aftalte vilkår. Skattemæssigt er lånet omfattet af LL § 16 E, hvis det er ydet fra og med 14. august 2012 til en person med kontrol (Den juridiske vejledning C.B.3.5.3.3).
 {% else %}
 **Lån ydet efter 1. januar 2025:** Lånet vurderes efter de almindelige regler ovenfor. Ledelsen har dokumenteret sin vurdering af forsvarlighed og selskabets interesse.
 {% endif %}
 
 ## 3. Skattemæssig vurdering – ligningslovens § 16 E
 {% if felt.personlig %}
-Lån fra selskabet til en fysisk person, der alene eller sammen med nærtstående har **kontrol** over selskabet (jf. LL § 2: mere end 50 % af kapital eller stemmer, eller bestemmende indflydelse), eller til en nærtstående, sidestilles skattemæssigt med en hævning uden tilbagebetalingspligt. Det er uden betydning, at lånet er lovligt selskabsretligt, eller at det tilbagebetales senere (en senere indbetaling anses som et nyt indskud).
+Lån fra selskabet til en fysisk person, hvor der mellem selskab og låntager er en forbindelse omfattet af LL § 2 (kontrol), behandles efter skattelovgivningens almindelige regler om hævninger uden tilbagebetalingspligt (LL § 16 E, stk. 1). Det gælder tilsvarende sikkerhedsstillelser og midler, der stilles til rådighed. Det er uden betydning, at lånet er lovligt selskabsretligt; en senere tilbagebetaling ophæver ikke beskatningen (Den juridiske vejledning C.B.3.5.3.3), og tilbagebetalingen medregnes ikke i selskabets indkomst (§ 16 E, stk. 2).
 
-- Lån til en person, der **både er ansat/direktør og kapitalejer**, behandles som **løn** (A-skat og AM-bidrag) eller **udbytte** afhængigt af de faktiske forhold; Skattestyrelsens praksis er udbytte, medmindre lånet har sammenhæng med ansættelsen.
-- Behandles beløbet som udbytte, skal selskabet indeholde **udbytteskat 27 %** (kildeskattelovens § 65); som løn indeholdes A-skat og AM-bidrag. Selskabet hæfter for manglende indeholdelse, medmindre det har udvist fornøden agtpågivenhed.
-- Undtaget er lån som led i sædvanlige forretningsmæssige dispositioner, fx almindelig kundekredit på normale vilkår, samt lån fra pengeinstitutter på sædvanlige vilkår.
-- Låntager kan ikke fratrække renter som renteudgift, og selskabets fordring kan ikke afskrives skattemæssigt.
-- Selskabets renteindtægter af lånet er fortsat skattepligtige, og tilbagebetalinger anses som indskud.
+- Lån til en person, der **både er ansat/direktør og kapitalejer**, behandles som **løn** (A-skat og AM-bidrag) eller **udbytte**; kvalifikationen afhænger af de konkrete forhold og skal vurderes og dokumenteres.
+- Behandles beløbet som udbytte, skal selskabet indeholde **udbytteskat 27 %** (kildeskattelovens § 65); som løn indeholdes A-skat og AM-bidrag. Selskabet hæfter for manglende indeholdelse, medmindre det godtgør, at der ikke er udvist forsømmelighed (kildeskattelovens § 69, stk. 1).
+- Undtaget er lån, der ydes som led i en sædvanlig forretningsmæssig disposition, sædvanlige lån fra pengeinstitutter og lån til selvfinansiering efter selskabslovens § 206, stk. 2 (LL § 16 E, stk. 1, 2. pkt.).
 
 Bagatelagtige udlæg (fx en enkelt privat udgift afholdt ved fejl, der straks refunderes) vurderes konkret. Saldoen i året har maksimalt udgjort {{ felt.maks_saldo }} kr.
 {% else %}
@@ -85,8 +83,8 @@ Valgt håndtering: **{{ felt.haandtering }}**
 {% endif %}- [ ] Kunden er orienteret skriftligt om reglerne og om ikke at foretage private hævninger på selskabets konti.
 
 ## 5. Revisors pligter
-- Revisor skal efter revisorlovens § 22 underrette ledelsen og, hvis forholdet ikke berigtiges, Skattestyrelsen, hvis der er begrundet mistanke om væsentlige overtrædelser af skatte- og afgiftslovgivningen, der kan medføre ledelsesansvar, herunder manglende indeholdelse af kildeskat på lån til kapitalejere.
-- Revisor skal ikke længere særskilt kontrollere de ophævede betingelser i SL § 210, men manglende forsvarlighed kan udgøre en ledelsesansvarspådragende overtrædelse.
+- Indser revisor under en erklæringsopgave, at ledelsesmedlemmer begår eller har begået økonomiske forbrydelser i tilknytning til hvervet, og er der begrundet formodning om betydelige beløb eller grov karakter, skal revisor underrette hvert ledelsesmedlem og – hvis ledelsen ikke inden 14 dage har dokumenteret de fornødne skridt – National Enhed for Særlig Kriminalitet (revisorlovens § 22). Forhold omfattet af hvidvaskloven følger hvidvasklovens regler.
+- Revisor skal ifølge Erhvervsstyrelsen fremover være opmærksom på, om lånet opfylder betingelserne i selskabslovens §§ 115-118 (og § 127 og § 179); de ophævede særbetingelser i § 210 kontrolleres ikke længere.
 - Forholdet medtages i revisionsprotokollatet/ledelsesbrevet.
 
 ## 6. Konklusion

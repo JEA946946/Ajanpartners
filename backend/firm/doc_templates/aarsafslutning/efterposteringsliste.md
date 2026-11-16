@@ -3,7 +3,7 @@
   "title": "Efterposteringsliste – korrektioner og ikke-korrigerede fejl",
   "description": "Kladde til årsafslutningsposteringer (efterposteringer) med bilag og godkendelse, samt opgørelse af ikke-korrigerede fejlinformationer til ledelseserklæringen (ISA 450).",
   "kind": "arbejdspapir",
-  "references": ["ISA 450", "ISA 580", "Bogføringsloven §§ 7, 8 og 10 (registrering, dokumentation, rettelser)"],
+  "references": ["ISA 450", "ISA 580", "Bogføringsloven §§ 7-9 (registrering, transaktionsspor, kontrolspor og rettelser i bilag)"],
   "legal_forms": [],
   "industry_aware": false,
   "fields": [
@@ -18,7 +18,7 @@
 Regnskabsperiode: {{ regnskab.start }} – {{ regnskab.slut }} · Journal: {{ felt.journal }}
 Udarbejdet af: {{ medarbejder.navn }}, {{ dato.idag }}
 
-Efterposteringerne bogføres i bogføringsprogrammet med dato {{ regnskab.slut }}, bilagsnummer og forklaring, så der er et fuldstændigt kontrolspor (bogføringsloven). Bogførte og validerede posteringer ændres ikke – fejl rettes med en ny postering/tilbageføring.
+Efterposteringerne bogføres i bogføringsprogrammet med dato {{ regnskab.slut }}, bilagsnummer og forklaring, så der er transaktions- og kontrolspor (bogføringsloven §§ 8-9). Bogførte og validerede posteringer ændres ikke – fejl rettes med en ny postering/tilbageføring.
 
 ## 1. Korrektioner, der bogføres
 | Nr. | Konto (debet) | Konto (kredit) | Beløb | Tekst/begrundelse | Bilag/arbejdspapir | Resultatpåvirkning | Godkendt af kunde |

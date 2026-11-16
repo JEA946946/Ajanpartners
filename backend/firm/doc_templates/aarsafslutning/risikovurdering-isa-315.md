@@ -76,7 +76,7 @@ I mindre virksomheder er funktionsadskillelsen typisk begrænset, og den daglige
 | | Fuldstændighed af gæld og eventualforpligtelser | Gæld, noter | | | |
 
 ## 6. Hvidvask
-Kundens risikoprofil efter hvidvaskloven: **{{ branche.hvidvask_risiko }}**. Usædvanlige transaktioner, der opdages under revisionen, undersøges og noteres (hvidvaskloven § 25-26). Underretningspligt til Hvidvasksekretariatet vurderes af opgaveansvarlig.
+Kundens risikoprofil efter hvidvaskloven: **{{ branche.hvidvask_risiko }}**. Usædvanlige transaktioner, der opdages under revisionen, undersøges og noteres (hvidvaskloven § 25). Underretningspligt til Hvidvasksekretariatet (hvidvaskloven § 26) vurderes af opgaveansvarlig. Risikoprofilen ovenfor er revisionsvirksomhedens egen indikative vurdering ud fra branchen og skal efterprøves i den konkrete risikovurdering.
 
 ## 7. Konklusion
 Risikovurderingen er grundlag for revisionsplanen (ISA 330). Den ajourføres, hvis der under revisionen fremkommer nye oplysninger.

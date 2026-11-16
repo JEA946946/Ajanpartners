@@ -34,7 +34,7 @@ Til {{ kunde.kapitalejere }} i {{ kunde.navn }}
 **{{ felt.gf_dato }} {{ felt.gf_tid }}**
 **Sted: {{ felt.gf_sted }}**
 {% if felt.elektronisk %}
-Generalforsamlingen afholdes {% if kunde.selskabsform_kode == "as" %}delvis{% else %}helt eller delvis{% endif %} elektronisk, jf. selskabslovens § 77. Vejledning om tilmelding, tekniske krav, stemmeafgivning og muligheden for at stille spørgsmål sendes til alle tilmeldte kapitalejere senest 3 dage før generalforsamlingen. Vedtægterne skal indeholde hjemmel til elektronisk generalforsamling, eller alle kapitalejere skal være enige.
+Generalforsamlingen afholdes helt eller delvis elektronisk, jf. selskabslovens § 77. Oplysning om kravene til de elektroniske systemer, om tilmelding til elektronisk deltagelse, og hvor kapitalejerne kan finde oplysning om fremgangsmåden, fremgår nedenfor/af bilag (§ 77, stk. 3). Delvis elektronisk deltagelse kan besluttes af ledelsen, medmindre vedtægterne bestemmer andet (§ 77, stk. 1); en fuldstændig elektronisk generalforsamling kræver en vedtægtsbestemmelse vedtaget efter § 106 (§ 77, stk. 2).
 {% endif %}
 
 ## Dagsorden

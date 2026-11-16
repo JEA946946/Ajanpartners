@@ -40,7 +40,7 @@ Kære {{ kunde.navn }}
 | Indbetalt {% if kunde.er_kapitalselskab %}acontoskat{% else %}B-skat/forskudsskat{% endif %} | {{ felt.indbetalt }} |
 | **Restskat (+) / overskydende skat (−)** | **{{ felt.rest_eller_overskydende }}** |
 
-{% if kunde.er_kapitalselskab %}Restskat betales via skattekontoen senest **{{ felt.betalingsfrist }}** og tillægges et restskattetillæg. Overskydende skat udbetales med godtgørelse. Indgår selskabet i en sambeskatning, afregnes skatten via administrationsselskabet.{% else %}Restskat betales via jeres personlige skat. Mindre restskatter indregnes automatisk i forskudsskatten for et senere år; større restskatter opkræves i rater. Betalingsfrist: {{ felt.betalingsfrist }}.
+{% if kunde.er_kapitalselskab %}Restskat betales via skattekontoen senest **{{ felt.betalingsfrist }}** og tillægges et restskattetillæg. Overskydende skat udbetales. Indgår selskabet i en sambeskatning, afregnes skatten via administrationsselskabet.{% else %}Restskat betales via jeres personlige skat. Restskat op til den årlige indregningsgrænse indregnes med procenttillæg i skatten for et senere år, medmindre den betales senest 1. juli; beløb over grænsen opkræves i tre rater i august, september og oktober. Betalingsfrist: {{ felt.betalingsfrist }}.
 {% if felt.virksomhedsordning %}
 **Virksomhedsordningen:** Der er anvendt virksomhedsordningen. Opsparet overskud ultimo udgør {{ felt.opsparet_overskud }} kr. Husk, at hævninger følger den lovbestemte hæverækkefølge, og at private udgifter betalt af virksomhedens midler behandles som hævninger.
 {% endif %}{% endif %}
@@ -48,7 +48,7 @@ Kære {{ kunde.navn }}
 ## Det skal I gøre
 1. **Kontrollér årsopgørelsen,** når den kommer i TastSelv/e-Boks. Sammenhold den med beregningen ovenfor og giv os besked, hvis der er afvigelser.
 2. {% if kunde.er_kapitalselskab %}Kontrollér acontoskatten for det kommende år og overvej frivillig indbetaling, hvis resultatet forventes at blive højere end gennemsnittet.{% else %}Tilret forskudsopgørelsen for indeværende år, hvis jeres indkomst ændrer sig væsentligt.{% endif %}
-3. **Gem dokumentationen.** Skattestyrelsen kan som udgangspunkt genoptage en ansættelse indtil 1. maj i det 4. år efter indkomstårets udløb (for personer med enkle forhold kortere frist), og regnskabsmaterialet skal opbevares i 5 år.
+3. **Gem dokumentationen.** Skattestyrelsen kan som udgangspunkt varsle en ændret ansættelse indtil 1. maj i det 4. år efter indkomstårets udløb og skal foretage ansættelsen senest 1. august samme år (skatteforvaltningsloven § 26, stk. 1); for visse grupper gælder kortere frister. Regnskabsmaterialet skal opbevares i 5 år fra udgangen af regnskabsåret (bogføringsloven § 12).
 
 {% if felt.bemaerkninger %}## Særlige forhold
 {{ felt.bemaerkninger }}

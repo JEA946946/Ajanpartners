@@ -3,7 +3,7 @@
   "title": "Efterfølgende begivenheder (ISA 560)",
   "description": "Arbejdspapir til gennemgang af begivenheder mellem balancedagen og påtegningsdatoen: korrigerende og ikke-korrigerende begivenheder, handlinger og konklusion.",
   "kind": "arbejdspapir",
-  "references": ["ISA 560", "Årsregnskabsloven § 13, stk. 1, nr. 5 og § 77", "ISA 580"],
+  "references": ["ISA 560", "Årsregnskabsloven § 33, stk. 5, og § 11, stk. 2", "ISA 580"],
   "legal_forms": [],
   "industry_aware": true,
   "fields": [
@@ -19,7 +19,7 @@
 Balancedag: {{ regnskab.slut }}  Gennemgang udført til: {{ felt.gennemgang_til }}
 Udarbejdet af: {{ medarbejder.navn }}, {{ dato.idag }}
 
-**Korrigerende begivenheder** giver yderligere bevis for forhold, der eksisterede på balancedagen, og reguleres i regnskabet (ÅRL § 13, stk. 1, nr. 5 – fx konkurs hos debitor, afgørelse i retssag, salg af varer under kostpris). **Ikke-korrigerende begivenheder** opstår efter balancedagen og oplyses, hvis de er væsentlige (ledelsesberetning/note – fx brand, opkøb, ny finansiering, kapitalforhøjelse).
+**Korrigerende begivenheder** giver yderligere bevis for forhold, der eksisterede på balancedagen, og reguleres i regnskabet (ÅRL § 33, stk. 5 – fx konkurs hos debitor, afgørelse i retssag, salg af varer under kostpris). **Ikke-korrigerende begivenheder** opstår efter balancedagen og oplyses, hvis de er væsentlige (fx brand, opkøb, ny finansiering, kapitalforhøjelse). I klasse B følger oplysningspligten af kravet om retvisende billede (ÅRL § 11, stk. 2); i klasse C kræves særskilt beskrivelse (ÅRL § 98 d).
 
 ## 1. Handlinger (ISA 560, pkt. 6-7)
 - [ ] Forespørgsel hos {{ kunde.ledelsesorgan }} om begivenheder efter balancedagen (se spørgsmål nedenfor)
@@ -33,7 +33,7 @@ Udarbejdet af: {{ medarbejder.navn }}, {{ dato.idag }}
 {% endif %}{% if branche.ejendom %}- [ ] Nye vurderinger, salg af ejendomme, opsigelse fra væsentlige lejere
 {% endif %}{% if branche.holding %}- [ ] Datterselskabernes resultater og begivenheder efter balancedagen; udbytte, kapitaltilskud
 {% endif %}- [ ] Svar fra advokat og pengeinstitut er gennemgået for nye forhold
-- [ ] Ledelseserklæringen bekræfter, at alle efterfølgende begivenheder er reguleret eller oplyst (ISA 580)
+- [ ] Ledelseserklæringen bekræfter, at alle efterfølgende begivenheder er reguleret eller oplyst (ISA 560, pkt. 9)
 
 ## 2. Forespørgsler til ledelsen
 | Spørgsmål | Svar |
@@ -54,7 +54,7 @@ Udarbejdet af: {{ medarbejder.navn }}, {{ dato.idag }}
 |---|---|---|---|---|---|
 | | | | | | |
 
-## 4. Forhold efter påtegningsdatoen (ISA 560, pkt. 10-17)
+## 4. Forhold efter påtegningsdatoen (ISA 560, pkt. 10-17: pkt. 10-13 før og pkt. 14-17 efter offentliggørelse)
 Bliver revisor efter påtegningsdatoen, men før årsrapporten er godkendt/offentliggjort, bekendt med forhold, der kunne have medført ændring af erklæringen, drøftes forholdet med ledelsen. Ændres regnskabet, udvides handlingerne til den nye påtegningsdato, og der afgives ny erklæring.
 
 ## 5. Konklusion

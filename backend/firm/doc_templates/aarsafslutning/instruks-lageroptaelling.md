@@ -3,7 +3,7 @@
   "title": "Instruks for lageroptælling",
   "description": "Instruks til kunden for planlægning og gennemførelse af lageroptælling pr. statusdagen, med revisors observationspunkter (ISA 501).",
   "kind": "brev",
-  "references": ["ISA 501, pkt. 4-8", "Årsregnskabsloven §§ 44-46 (varebeholdninger)", "Bogføringsloven § 3"],
+  "references": ["ISA 501, pkt. 4-8", "Årsregnskabsloven §§ 44-46 (varebeholdninger)", "Bogføringsloven §§ 4 og 12 (regnskabsmateriale og opbevaring)"],
   "legal_forms": [],
   "industry_aware": true,
   "fields": [

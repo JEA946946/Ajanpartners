@@ -3,7 +3,7 @@
   "title": "Fuldmagt til rådgiver – Skattestyrelsen",
   "description": "Fuldmagt fra kunde (person eller virksomhed) til revisionsfirmaet til at repræsentere kunden over for Skattestyrelsen, med vejledning til at give rådgiveradgang i TastSelv Borger/Erhverv via MitID/MitID Erhverv.",
   "kind": "brev",
-  "references": ["Skatteforvaltningsloven", "Forvaltningsloven § 8 (partsrepræsentation)", "Databeskyttelsesforordningen art. 6", "Revisorloven § 10 (tavshedspligt)"],
+  "references": ["Skatteforvaltningsloven", "Forvaltningsloven § 8 (partsrepræsentation)", "Databeskyttelsesforordningen art. 6", "Revisorloven § 30 (tavshedspligt)"],
   "legal_forms": [],
   "industry_aware": false,
   "fields": [

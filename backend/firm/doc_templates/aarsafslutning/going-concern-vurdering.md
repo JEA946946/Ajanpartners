@@ -3,11 +3,11 @@
   "title": "Going concern-vurdering (ISA 570)",
   "description": "Arbejdspapir til vurdering af ledelsens forudsætning om fortsat drift: indikatorer, ledelsens planer, likviditetsbudget, konklusion og konsekvens for påtegningen.",
   "kind": "arbejdspapir",
-  "references": ["ISA 570 (ajourført)", "ISA 560", "ISA 580", "Årsregnskabsloven § 13, stk. 1, nr. 2", "Selskabsloven §§ 115, 119"],
+  "references": ["ISA 570 (ajourført)", "ISA 560", "ISA 580", "Årsregnskabsloven § 13, stk. 1, nr. 4", "Selskabsloven §§ 115, 119"],
   "legal_forms": [],
   "industry_aware": true,
   "fields": [
-    {"name": "vurderingsperiode_slut", "label": "Vurderingsperioden løber til (mindst 12 mdr. efter balancedagen)", "type": "date"},
+    {"name": "vurderingsperiode_slut", "label": "Vurderingsperioden løber til (mindst 12 mdr. efter regnskabets dato, ISA 570 pkt. 13)", "type": "date"},
     {"name": "selskabskapital", "label": "Selskabskapital (kr.)", "type": "number"},
     {"name": "likviditet_ultimo", "label": "Likvider og ubenyttet kredit ultimo (kr.)", "type": "number"},
     {"name": "kreditfacilitet_udloeb", "label": "Udløb af væsentlige kreditfaciliteter", "type": "text"},
@@ -21,7 +21,7 @@
 Udarbejdet af: {{ medarbejder.navn }}  Dato: {{ dato.idag }}
 Balancedag: {{ regnskab.slut }}  Vurderingsperiode til: {{ felt.vurderingsperiode_slut }}
 
-Ledelsen skal vurdere virksomhedens evne til at fortsætte driften i mindst 12 måneder fra balancedagen (ÅRL § 13, stk. 1, nr. 2). Revisor skal opnå tilstrækkeligt og egnet bevis for, at forudsætningen er passende, og konkludere, om der er en væsentlig usikkerhed (ISA 570).
+Årsrapporten udarbejdes under forudsætning af fortsat drift (going concern), medmindre driften ikke skal eller ikke antages at kunne fortsætte (ÅRL § 13, stk. 1, nr. 4). Dækker ledelsens vurdering mindre end 12 måneder fra regnskabets dato, skal revisor anmode ledelsen om at forlænge vurderingsperioden til mindst 12 måneder (ISA 570, pkt. 13). Revisor skal opnå tilstrækkeligt og egnet bevis for, at forudsætningen er passende, og konkludere, om der er en væsentlig usikkerhed (ISA 570).
 
 ## 1. Nøgletal
 | | Beløb |
@@ -40,7 +40,7 @@ Ledelsen skal vurdere virksomhedens evne til at fortsætte driften i mindst 12 m
 - [ ] Negative pengestrømme fra driften eller gentagne underskud
 - [ ] Brud på lånebetingelser (covenants), restancer til SKAT (skattekonto i minus, inddrivelse hos Gældsstyrelsen) eller til leverandører
 - [ ] Manglende evne til at betale løn, moms og A-skat rettidigt
-{% if kunde.er_kapitalselskab %}- [ ] Kapitaltab: egenkapitalen er mindre end halvdelen af selskabskapitalen (SL § 119 – ledelsen skal redegøre på generalforsamlingen senest 6 måneder efter konstateringen)
+{% if kunde.er_kapitalselskab %}- [ ] Kapitaltab: egenkapitalen udgør mindre end halvdelen af den tegnede kapital (SL § 119 – ledelsen skal sikre, at der afholdes generalforsamling senest 6 måneder efter konstateringen, hvor ledelsen redegør for den økonomiske stilling)
 {% endif %}
 **Driftsmæssige**
 - [ ] Tab af væsentlig kunde, leverandør, licens eller nøglemedarbejder
@@ -59,7 +59,7 @@ Ledelsen skal vurdere virksomhedens evne til at fortsætte driften i mindst 12 m
 ## 3. Ledelsens vurdering og planer
 **Ledelsens planer:** {{ felt.ledelsens_planer }}
 
-- [ ] Ledelsens skriftlige vurdering er modtaget og dækker mindst 12 måneder fra balancedagen
+- [ ] Ledelsens skriftlige vurdering er modtaget og dækker mindst 12 måneder fra regnskabets dato (ISA 570, pkt. 13)
 - [ ] Likviditetsbudget er gennemgået; forudsætninger (omsætning, marginer, investeringer, afdrag) er realistiske og sammenholdt med historik og efterfølgende måneders faktiske tal
 - [ ] Følsomhed er vurderet (fx 10-20 % lavere omsætning)
 - [ ] Bekræftelse af finansiering: tilsagn fra bank, kapitalejere (støtteerklæring/kapitaltilsagn) eller moderselskab – underskrevet og med tilstrækkelig økonomisk evne bag
