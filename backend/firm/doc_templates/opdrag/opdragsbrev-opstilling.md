@@ -15,7 +15,7 @@
     {"name": "honorar", "label": "Honorar (kr. ekskl. moms)", "type": "number"},
     {"name": "timepris", "label": "Timepris for ekstraarbejde (kr. ekskl. moms)", "type": "number"},
     {"name": "fakturering", "label": "Fakturering", "type": "select", "options": ["løbende", "ved afslutning", "aconto månedligt"], "default": "ved afslutning"},
-    {"name": "ansvarsbegraensning", "label": "Ansvarsbegrænsning", "type": "text", "default": "et beløb svarende til honoraret for opgaven, dog højst 1.000.000 kr."}
+    {"name": "ansvarsbegraensning", "label": "Ansvarsbegrænsning – beløb/formulering (udfyldes af revisor)", "type": "text"}
   ]
 }
 ---
@@ -45,10 +45,10 @@ Hvis vi bliver opmærksomme på, at oplysningerne er ufuldstændige, unøjagtige
 
 {% if felt.bogfoering_hos_os %}Vi fører også jeres bogføring efter særskilt aftale. Det ændrer ikke ved, at ledelsen har ansvaret for bogføringen, for de oplysninger, den bygger på, og for årsregnskabet.{% endif %}
 
-{% if branche.restauration or branche.rengoering or branche.transport or branche.it or branche.personlig_service or branche.bilhandel %}
+{% if branche.restauration or branche.rengoering or branche.transport or branche.it or branche.personlig_service or branche.udlejning_service %}
 ### Risikobranche – årsregnskabslovens § 135, stk. 5
 
-Selskabets branche ({{ kunde.branchetekst }}, {{ kunde.branchekode }}) kan være klassificeret som risikobranche efter bekendtgørelse nr. 1488 af 27. november 2025 (gældende for regnskabsår, der begynder 1. januar 2025 eller senere). Er hovedbranchekoden på balancedagen omfattet, og har nettoomsætningen oversteget 5 mio. kr. i to på hinanden følgende regnskabsår, skal årsregnskabet ledsages af enten en erklæring om assistance med opstilling eller en erklæring med sikkerhed fra en uafhængig revisor. Denne opstillingserklæring opfylder kravet. Vi kontrollerer hvert år koden og omsætningen og giver jer besked, hvis kravet gælder.
+Selskabets branche ({{ kunde.branchetekst }}, {{ kunde.branchekode }}) kan være klassificeret som risikobranche efter bekendtgørelse nr. 1488 af 27. november 2025 (gældende for regnskabsår, der begynder 1. januar 2025 eller senere). Er hovedbranchekoden i CVR på balancedagen omfattet, og har nettoomsætningen oversteget 5 mio. kr. i to på hinanden følgende regnskabsår, skal årsregnskabet ledsages af enten en erklæring om assistance med opstilling eller en erklæring med sikkerhed fra en uafhængig revisor. Denne opstillingserklæring opfylder kravet. Vi kontrollerer hvert år koden og omsætningen og giver jer besked, hvis kravet gælder.
 {% endif %}
 
 ## 2. Ledelsens ansvar
@@ -56,7 +56,7 @@ Selskabets branche ({{ kunde.branchetekst }}, {{ kunde.branchekode }}) kan være
 Opgaven udføres på det grundlag, at {{ kunde.ledelsesorgan }} anerkender at have ansvaret for:
 
 1. årsregnskabet og de oplysninger, det bygger på, herunder valg af regnskabsgrundlag og regnskabsmæssige skøn;
-2. at bogføringen er fuldstændig og korrekt og opfylder bogføringslovens krav, herunder opbevaring af bilag i 5 år;
+2. at bogføringen er fuldstændig og korrekt og opfylder bogføringslovens krav, herunder opbevaring af regnskabsmateriale i 5 år fra udgangen af regnskabsåret (bogføringslovens § 12);
 3. den interne kontrol, ledelsen finder nødvendig;
 4. at give os fuldstændige og korrekte oplysninger rettidigt, herunder om lager, igangværende arbejder, tilgodehavender, gæld, eventualforpligtelser og begivenheder efter balancedagen;
 5. at godkende det endelige årsregnskab, før det offentliggøres eller anvendes.

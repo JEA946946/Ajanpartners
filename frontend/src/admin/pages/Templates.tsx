@@ -28,7 +28,7 @@ interface Rendered {
   missing: number;
   client: null | {
     slug: string; name: string; legal_form: string; industry_code: string; industry_title: string;
-    industry_groups: string[]; industry_label: string; aml_risk: string; figures: boolean;
+    industry_groups: string[]; industry_label: string; aml_risk: string; risk_industry: boolean; figures: boolean;
   };
   years: { id: string; label: string; start: string; end: string }[];
   year: string | null;
@@ -287,6 +287,7 @@ const Templates: React.FC = () => {
                     {result.client.industry_code && <Chip size="small" color={RISK_COLOR[result.client.aml_risk] || 'default'} variant="outlined"
                       label={`Hvidvaskrisiko: ${result.client.aml_risk} (intern vurdering)`}
                       onClick={() => navigate('/admin/industry-risk')} />}
+                    {result.client.risk_industry && <Chip size="small" color="error" label="Officiel risikobranche (BEK 1488/2025)" />}
                     <Chip size="small" variant="outlined" label={result.client.figures ? 'Tal fra bogføringen' : 'Ingen tal fra bogføringen'} />
                   </Box>
                   {meta?.industry_aware && !result.client.industry_code && (

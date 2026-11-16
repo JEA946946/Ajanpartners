@@ -230,10 +230,10 @@ def annual_report_due(year_end, accounting_class):
 
 
 def company_tax_return_due(year_end):
-    """Selskabers selvangivelse: 6 måneder efter indkomstårets udløb.
-    Slutter indkomståret mellem 1. februar og 31. marts: 1. august samme år."""
-    if year_end.month in (2, 3):
-        return date(year_end.year, 8, 1)
+    """Selskabers selvangivelse (skattekontrolloven § 12): 6 måneder efter indkomstårets udløb.
+    Slutter indkomståret i perioden 1.–31. marts: senest 1. september samme år (stk. 2)."""
+    if year_end.month == 3:
+        return date(year_end.year, 9, 1)
     y, m = add_months(year_end.year, year_end.month, 6)
     return month_end(y, m)
 

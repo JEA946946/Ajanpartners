@@ -60,6 +60,16 @@ KONTANTINTENSIV = {"detail", "restauration", "personlig_service", "bilhandel", "
 MOMSFRITAGET = {"sundhed", "undervisning", "finans", "kultur_fritid", "forening", "spil"}
 LAGER = {"fremstilling", "engros", "detail", "bilhandel", "landbrug"}
 IGANGVAERENDE = {"byggeri", "liberalt_erhverv", "it"}
+# Officielle "klassificerede risikobrancher" efter årsregnskabslovens § 135, stk. 5 og 8:
+# BEK nr. 1488 af 27/11/2025 § 1 (DB25-koder, udtømmende; gælder for regnskabsår fra 1/1 2025 og i to år, § 2).
+# Hovedbranchekoden i CVR på balancedagen er afgørende. Klasse B-virksomheder i en risikobranche med
+# nettoomsætning over 5 mio. kr. i 2 på hinanden følgende år skal have mindst en opstillingserklæring.
+RISIKOBRANCHER_KILDE = "BEK nr. 1488 af 27/11/2025 om klassificerede risikobrancher, § 1"
+RISIKOBRANCHER = frozenset({
+    "494100", "494200", "561110", "561190", "562100", "562200", "563010", "563020", "639100",
+    "811000", "812100", "812210", "812290", "812300", "962200",
+})
+
 # ---------------------------------------------------------------------------------------------------------
 # Revisorhusets EGEN, indikative vurdering af brancherisiko efter hvidvaskloven.
 #
@@ -198,11 +208,13 @@ def overview():
 def context(code):
     """Flettefelterne `branche.*`."""
     found, info = groups(code)
+    norm, _ = normalize_code(code)
     risk, reasons, focus = assess(found)
     main = next((g for g in ("bilhandel", "holding", "rengoering", "vikar", "spil", *PREFIXES) if g in found), None)
     ctx = {g: g in found for g in [*PREFIXES, "kontantintensiv", "momsfritaget", "lager",
                                    "igangvaerende_arbejder", "investeringsejendomme"]}
     ctx.update({
+        "risikobranche": bool(norm and norm in RISIKOBRANCHER),
         "hvidvask_risiko": risk,
         "hvidvask_grunde": reasons,
         "hvidvask_fokus": focus,

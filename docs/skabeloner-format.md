@@ -60,7 +60,8 @@ Filen starter med en JSON-blok mellem to linjer med `---`, derefter selve tekste
 | `{{ medarbejder.navn }}`, `{{ medarbejder.titel }}` | den der danner dokumentet |
 | `{{ dato.idag }}` (16. november 2026), `{{ dato.aar }}` | |
 | `{{ branche.<gruppe> }}` | bool, se grupper nedenfor |
-| `{{ branche.hvidvask_risiko }}` | "høj", "forhøjet" eller "normal" |
+| `{{ branche.risikobranche }}` | bool: hovedbranchekoden er en officiel klassificeret risikobranche (BEK 1488/2025 § 1, ÅRL § 135, stk. 5) |
+| `{{ branche.hvidvask_risiko }}` | "høj", "forhøjet" eller "normal" – revisorhusets EGEN indikative vurdering (Admin → Brancherisiko), ikke officiel |
 | `{{ branche.navn }}` | gruppe-navn i tekst, fx "restauration" |
 
 Brug Django-syntaks: `{% if branche.byggeri %} … {% endif %}`, `{% if kunde.selskabsform_kode == "as" %}`, `{% if not kunde.er_kapitalselskab %}`. Ingen andre tags end `if/elif/else/endif`, `for` og filtre `default`. Tomme felter vises som "[…]" i dokumentet, så brugeren kan se, hvad der mangler – skriv derfor ikke selv pladsholdere som "[indsæt]" for flettefelter.

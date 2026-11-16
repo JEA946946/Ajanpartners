@@ -3,7 +3,7 @@
   "title": "Accept og fortsættelse af kundeforhold og opgave",
   "description": "Internt memo til dokumentation af beslutning om accept af ny kunde eller fortsættelse af eksisterende kundeforhold og opgave efter ISQM 1, ISA 220 (revideret) og de etiske regler. Skal godkendes af den opgaveansvarlige partner.",
   "kind": "arbejdspapir",
-  "references": ["ISQM 1 afsnit 30 og A62-A72", "ISA 220 (revideret) afsnit 22-24", "ISA 210", "Revisorloven §§ 16, 18 og 24", "FSR – danske revisorers Etiske regler for revisorer (del 3 og 4A)", "Hvidvaskloven §§ 10-18"],
+  "references": ["ISQM 1 afsnit 30", "ISA 220 (revideret) afsnit 22-24", "ISA 210", "Revisorloven §§ 16, 18 og 24", "FSR – danske revisorers Etiske regler for revisorer (del 3 og 4A)", "Hvidvaskloven §§ 10-18 og 25-26", "Selskabsloven § 146"],
   "legal_forms": [],
   "industry_aware": true,
   "fields": [
@@ -111,7 +111,7 @@ Formålet er at dokumentere, at {{ firma.navn }} kun accepterer eller fortsætte
 
 ## 7. Honorar
 
-Forventet årligt honorar: {{ felt.honorar_forventet }} kr. Er honoraret tilstrækkeligt til at udføre opgaven med den nødvendige kvalitet (ISQM 1 – honorarer må ikke kompromittere kvaliteten)? ☐ Ja ☐ Nej
+Forventet årligt honorar: {{ felt.honorar_forventet }} kr. Er honoraret tilstrækkeligt til at udføre opgaven med den nødvendige kvalitet (ISQM 1 afsnit 30 – virksomhedens økonomiske og driftsmæssige prioriteter må ikke føre til uhensigtsmæssige beslutninger om accept eller fortsættelse)? ☐ Ja ☐ Nej
 
 ## 8. Konklusion og godkendelse
 
@@ -121,7 +121,7 @@ Konklusion: **{{ felt.konklusion }}**
 
 {% if felt.betingelser %}Betingelser og særlige tiltag: {{ felt.betingelser }}{% endif %}
 
-Hvis kunden eller opgaven afvises, eller kundeforholdet afsluttes, skal det vurderes, om der er pligt til at underrette Hvidvasksekretariatet (hvidvasklovens § 26), og om der skal ske anmeldelse af fratræden til Erhvervsstyrelsen.
+Hvis kunden eller opgaven afvises, eller kundeforholdet afsluttes, skal det vurderes, om der er pligt til at underrette Hvidvasksekretariatet (hvidvasklovens § 26), og om der skal gives meddelelse om revisors fratræden til Erhvervsstyrelsen (selskabslovens § 146, stk. 2).
 
 | Rolle | Navn | Dato | Underskrift |
 |---|---|---|---|

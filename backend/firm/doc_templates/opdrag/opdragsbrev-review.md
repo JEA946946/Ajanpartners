@@ -14,7 +14,7 @@
     {"name": "honorar", "label": "Honorar (kr. ekskl. moms)", "type": "number"},
     {"name": "timepris", "label": "Timepris for ekstraarbejde (kr. ekskl. moms)", "type": "number"},
     {"name": "fakturering", "label": "Fakturering", "type": "select", "options": ["løbende", "ved afslutning"], "default": "ved afslutning"},
-    {"name": "ansvarsbegraensning", "label": "Ansvarsbegrænsning", "type": "text", "default": "et beløb svarende til tre gange honoraret for opgaven, dog højst 3.000.000 kr."}
+    {"name": "ansvarsbegraensning", "label": "Ansvarsbegrænsning – beløb/formulering (udfyldes af revisor)", "type": "text"}
   ]
 }
 ---
@@ -41,9 +41,9 @@ Et review er en opgave med begrænset sikkerhed. Vi udfører primært forespørg
 
 {% if branche.kontantintensiv %}Da virksomheden har en væsentlig kontantomsætning, vil vores forespørgsler og analyser have særligt fokus på omsætningens fuldstændighed, kasseafstemninger og bruttoavance. Hvis vi ikke kan opnå tilstrækkeligt bevis gennem forespørgsler og analyser, udfører vi yderligere handlinger efter ISRE 2400.{% endif %}
 {% if branche.lager %}Varelageret er en væsentlig post. Vi forventer at modtage lageropgørelse med kostpriser og ledelsens vurdering af ukurante varer.{% endif %}
-{% if branche.restauration or branche.rengoering or branche.transport or branche.it or branche.personlig_service or branche.bilhandel %}
+{% if branche.restauration or branche.rengoering or branche.transport or branche.it or branche.personlig_service or branche.udlejning_service %}
 
-**Risikobrancher:** Virksomheder i regnskabsklasse B med hovedbranchekode i en klassificeret risikobranche og en nettoomsætning over 5 mio. kr. i to på hinanden følgende år skal ledsage årsregnskabet af en erklæring med sikkerhed eller en erklæring om opstilling, jf. årsregnskabslovens § 135, stk. 5, og bekendtgørelse nr. 1488 af 27. november 2025. Et review opfylder kravet. Selskabets branchekode {{ kunde.branchekode }} skal kontrolleres mod bekendtgørelsens liste.{% endif %}
+**Risikobrancher:** Virksomheder i regnskabsklasse B med hovedbranchekode i en klassificeret risikobranche og en nettoomsætning over 5 mio. kr. i to på hinanden følgende år skal forsyne årsregnskabet med en revisorerklæring med sikkerhed eller en erklæring om assistance med opstilling fra en uafhængig revisor, jf. årsregnskabslovens § 135, stk. 5, og bekendtgørelse nr. 1488 af 27. november 2025. Et review opfylder kravet. Selskabets hovedbranchekode i CVR på balancedagen ({{ kunde.branchekode }}) skal kontrolleres mod bekendtgørelsens liste.{% endif %}
 
 ## 2. Ledelsens ansvar
 

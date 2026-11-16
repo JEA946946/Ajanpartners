@@ -3,7 +3,7 @@
   "title": "Kundekendskab (KYC) – fysisk person og enkeltmandsvirksomhed",
   "description": "Skema til kundekendskabsprocedurer for personer, enkeltmandsvirksomheder, I/S og personligt ejede virksomheder: identitet, kontrol, PEP, sanktioner, formål, midlernes oprindelse og privatøkonomi.",
   "kind": "tjekliste",
-  "references": ["Hvidvaskloven (LBK nr. 433 af 17/04/2026) §§ 10, 11, 14, 16, 17, 18 og 30", "Erhvervsstyrelsens vejledning om hvidvaskloven", "Erhvervsstyrelsens vejledning om vurdering af formål og tilsigtet beskaffenhed (oktober 2026)"],
+  "references": ["Hvidvaskloven (LBK nr. 433 af 17/04/2026) §§ 10, 11, 14, 16, 17, 18 og 30", "Erhvervsstyrelsens vejledning om hvidvaskloven", "Erhvervsstyrelsens vejledning om vurdering af formål og tilsigtede beskaffenhed"],
   "legal_forms": ["enk", "is", "pmv", "andet"],
   "industry_aware": true,
   "fields": [
@@ -29,17 +29,17 @@
 | Anledning / ydelser | {{ felt.type }} / {{ felt.ydelser }} |
 | Udfyldt af / dato | {{ medarbejder.navn }} / {{ dato.idag }} |
 
-Procedurerne skal være gennemført, før forretningsforbindelsen etableres (§ 14). Kunden skal informeres om behandlingen af personoplysninger efter hvidvaskloven, før forbindelsen etableres (§ 16).
+Kundens identitet skal være kontrolleret, før forretningsforbindelsen etableres (§ 14, stk. 1). Kunden skal informeres om behandlingen af personoplysninger efter hvidvaskloven, før forbindelsen etableres (§ 16).
 
 ## 1. Identitetsoplysninger og kontrol (§ 11, stk. 1, nr. 1-2)
 
 | Oplysning | Indhentet | Kontrolleret mod | ✔ |
 |---|---|---|---|
 | Fulde navn | | Legitimation: {{ felt.legitimation }} | ☐ |
-| CPR-nr. (eller fødselsdato og nationalitet ved udenlandsk kunde) | | CPR/legitimation | ☐ |
+| CPR-nr. el.lign. – har kunden ikke et sådant: fødselsdato (§ 11, stk. 1, nr. 1, litra a) | | CPR/legitimation | ☐ |
 | Adresse | | CPR-adresse, sundhedskort, offentlig post | ☐ |
 | Virksomhedens CVR-nr. og status | | CVR-registret | ☐ |
-| {% if kunde.selskabsform_kode == "is" %}Alle interessenter identificeret (hver interessent behandles som reel ejer){% else %}Ejer identisk med registreret indehaver i CVR{% endif %} | | CVR | ☐ |
+| {% if kunde.selskabsform_kode == "is" %}Alle interessenter identificeret, og de interessenter, der ejer eller kontrollerer en tilstrækkelig del, registreret som reelle ejere{% else %}Ejer identisk med registreret indehaver i CVR{% endif %} | | CVR | ☐ |
 
 Kopi af legitimation gemt sikkert (adgang begrænset): ☐  Gyldighedsdato: ________
 
@@ -52,7 +52,7 @@ Kopi af legitimation gemt sikkert (adgang begrænset): ☐  Gyldighedsdato: ____
 
 ## 2. Handler kunden på egne vegne?
 
-- [ ] Kunden handler på egne vegne. Hvis nej: identificér den person, der handles for (reel ejer), og kontrollér fuldmagt.
+- [ ] Kunden handler på egne vegne. Hvis nej: identificér den person, der handles for (reel ejer), og kontrollér identitet og fuldmagt (§ 11, stk. 2).
 - [ ] Ingen indikationer på stråmandsforhold (fx ejer uden branchekendskab, tredjemand fører samtalen, betaling fra andres konti).
 
 ## 3. PEP og sanktioner (§ 18)
@@ -91,7 +91,7 @@ Kopi af legitimation gemt sikkert (adgang begrænset): ☐  Gyldighedsdato: ____
 | Kundeforholdet kan etableres/fortsætte | ☐ Ja ☐ Ja, med betingelser ☐ Nej |
 | Forhold, der kræver undersøgelse efter § 25 | ☐ Nej ☐ Ja – se notat |
 
-Opbevares i mindst 5 år efter forretningsforbindelsens ophør (§ 30).
+Opbevares i mindst 5 år efter forretningsforbindelsens ophør (§ 30, stk. 2).
 
 | Rolle | Navn | Dato | Underskrift |
 |---|---|---|---|

@@ -3,7 +3,7 @@
   "title": "Internt notat – undersøgelse af mistanke og underretning til Hvidvasksekretariatet",
   "description": "Fortroligt internt notat om undersøgelse efter hvidvasklovens § 25 og beslutning om underretning efter § 26 til Hvidvasksekretariatet (goAML), med tavshedspligt efter § 38 – kunden må ikke advares.",
   "kind": "arbejdspapir",
-  "references": ["Hvidvaskloven (LBK nr. 433 af 17/04/2026) §§ 25, 26, 27, 30, 37 og 38", "Revisorloven § 22", "Hvidvasksekretariatets vejledning om underretning (goAML)", "Erhvervsstyrelsens vejledning om undersøgelses-, noterings- og underretningspligt"],
+  "references": ["Hvidvaskloven (LBK nr. 433 af 17/04/2026) §§ 25, 26, 27, 30, 37 og 38", "Hvidvaskloven § 3 (definition af hvidvask)", "Revisorloven § 22, stk. 1, 4. pkt.", "Hvidvasksekretariatets brugervejledning til goAML"],
   "legal_forms": [],
   "industry_aware": false,
   "fields": [
@@ -24,7 +24,7 @@
 ---
 # FORTROLIGT – internt notat om mistanke om hvidvask/terrorfinansiering
 
-> **Må ikke lægges i den almindelige kundemappe, deles med kunden eller nævnes over for kunden.** Notatet opbevares i hvidvaskmappen med adgang begrænset til hvidvaskansvarlig og partner. Det er strafbart at oplyse kunden eller tredjemand om, at der er eller overvejes underretning, eller at der er iværksat en undersøgelse (hvidvasklovens § 38).
+> **Må ikke lægges i den almindelige kundemappe, deles med kunden eller nævnes over for kunden.** Notatet opbevares i hvidvaskmappen med adgang begrænset til hvidvaskansvarlig og partner. Der er pligt til at hemmeligholde, at der er givet underretning, eller at det overvejes, eller at der er eller vil blive iværksat en undersøgelse (hvidvasklovens § 38, stk. 1).
 
 | | |
 |---|---|
@@ -47,7 +47,7 @@ Typiske indikatorer: transaktioner uden åbenbart økonomisk eller lovligt form�
 
 ## 3. Undersøgelse (§ 25)
 
-Baggrunden for og formålet med komplekse, usædvanligt store og usædvanlige transaktioner og aktiviteter, der ikke har et åbenbart økonomisk eller lovligt formål, skal undersøges, og resultatet skal noteres og opbevares (§ 25, stk. 1-3).
+Baggrunden for og formålet med alle transaktioner, der er komplekse, usædvanligt store, foretages i et usædvanligt mønster eller ikke har et åbenbart økonomisk eller lovligt formål, og alle usædvanlige aktiviteter uden åbenbart økonomisk eller lovligt formål skal undersøges. Overvågningen skal om nødvendigt udvides, og resultatet skal noteres og opbevares (§ 25, stk. 1-3).
 
 Undersøgelsen kan omfatte gennemgang af bilag, kontoudtog, kontrakter, CVR-oplysninger om modparter og offentlige kilder. Spørgsmål til kunden må stilles som en del af det almindelige arbejde, men **må ikke afsløre, at der er mistanke** eller undersøgelse.
 
@@ -55,12 +55,12 @@ Undersøgelsen kan omfatte gennemgang af bilag, kontoudtog, kontrakter, CVR-oply
 
 ## 4. Vurdering og beslutning (§ 26)
 
-Virksomheden skal **omgående** underrette Hvidvasksekretariatet, hvis den er vidende om, har mistanke om eller rimelig grund til at formode, at en transaktion, midler eller en aktivitet har eller har haft tilknytning til hvidvask eller finansiering af terrorisme (§ 26, stk. 1). Der kræves ikke vished; det er tilstrækkeligt, at mistanken ikke kan afkræftes. Hvidvask omfatter også udbytte af egne strafbare handlinger, herunder skatte- og momssvig.
+Virksomheden skal **omgående** underrette Hvidvasksekretariatet, hvis den er vidende om, har mistanke om eller rimelig grund til at formode, at en transaktion, midler eller en aktivitet har eller har haft tilknytning til hvidvask eller finansiering af terrorisme (§ 26, stk. 1). Der kræves ikke vished. Hvidvask omfatter også dispositioner foretaget af den, der selv har begået den strafbare lovovertrædelse, som udbyttet hidrører fra (§ 3, stk. 2), fx udbytte af skatte- eller momssvig.
 
 - [ ] Mistanken kan afkræftes fuldstændigt – begrundelse noteret
 - [ ] Mistanken kan ikke afkræftes – underretning skal ske
-- [ ] Forholdet vedrører rådgivning om kundens retsstilling eller en retssag, hvor undtagelsen i § 27 kan være relevant (drøftes med hvidvaskansvarlig – undtagelsen gælder ikke, hvis kunden søger bistand til hvidvask eller terrorfinansiering)
-- [ ] Forholdet kan også være omfattet af revisorlovens § 22 (ledelsens økonomiske kriminalitet) – vurderes særskilt
+- [ ] Oplysningerne er modtaget, mens vi repræsenterer kunden i Landsskatteretten (§ 27, stk. 2), eller mens vi bistår en advokat med at fastslå kundens retsstilling eller i en retssag (§ 27, stk. 3) – drøftes med hvidvaskansvarlig. Undtagelsen gælder ikke, hvis vi ved eller burde vide, at kunden søger bistand til hvidvask eller terrorfinansiering (§ 27, stk. 4)
+- [ ] Revisorlovens § 22 (ledelsens økonomiske kriminalitet) gælder ikke forhold, der er omfattet af hvidvaskloven (§ 22, stk. 1, 4. pkt.). Vurdér særskilt, om der er andre forhold hos ledelsen, der er omfattet af § 22
 
 **Beslutning:** {{ felt.beslutning }}
 
@@ -70,7 +70,7 @@ Virksomheden skal **omgående** underrette Hvidvasksekretariatet, hvis den er vi
 
 - [ ] Underretning indsendt via goAML (hvidvask.politi.dk) den {{ felt.underretning_dato }} – reference: {{ felt.goaml_ref }}
 - [ ] Underretningen indeholder: kundens identitetsoplysninger, beskrivelse af aktivitet/transaktioner, hvorfor de er mistænkelige, og relevante bilag
-- [ ] Ved transaktioner, som vi selv skal medvirke til (fx betalinger via klientkonto): transaktionen er standset, indtil underretning er sket (§ 26, stk. 3)
+- [ ] Ved transaktioner, som vi selv skal medvirke til (fx betalinger via klientkonto): transaktionen er standset, indtil underretning er sket (§ 26, stk. 3). Ved mistanke om terrorfinansiering må transaktionen ikke gennemføres, før Hvidvasksekretariatet har givet godkendelse (§ 26, stk. 6)
 - [ ] Kvittering fra goAML gemt
 - [ ] Eventuel henvendelse fra Hvidvasksekretariatet besvaret inden for fristen
 
@@ -87,7 +87,7 @@ Underretning i god tro medfører ikke ansvar for virksomheden eller medarbejdern
 
 ## 7. Opbevaring
 
-Notat, undersøgelsesmateriale og kopi af underretningen opbevares i mindst 5 år (§ 30) adskilt fra kundemappen.
+Notat, undersøgelsesmateriale og kopi af underretningen opbevares i mindst 5 år efter forretningsforbindelsens ophør (§ 30, stk. 1, nr. 3, og stk. 2) adskilt fra kundemappen.
 
 | Rolle | Navn | Dato | Underskrift |
 |---|---|---|---|

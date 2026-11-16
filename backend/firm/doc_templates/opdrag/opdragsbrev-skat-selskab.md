@@ -3,12 +3,12 @@
   "title": "Opdragsbrev – selskabsskat og skatterådgivning (selskab)",
   "description": "Aftale om udarbejdelse af skattemæssig indkomstopgørelse og selvangivelse for kapitalselskaber, herunder sambeskatning, transfer pricing-oplysninger og løbende skatterådgivning.",
   "kind": "brev",
-  "references": ["Selskabsskatteloven", "Skattekontrolloven §§ 2, 3, 37 og 46", "Skatteforvaltningsloven §§ 26-27", "Ligningsloven § 2", "Selskabsskatteloven § 31 (sambeskatning)", "Revisorloven § 24", "Hvidvaskloven"],
+  "references": ["Selskabsskatteloven", "Skattekontrolloven (LBK nr. 12 af 08/01/2024) §§ 2, 12 og 37-39", "Skatteforvaltningsloven §§ 26-27", "Ligningsloven §§ 2, 3 og 16 E", "Aktieavancebeskatningsloven §§ 4 A og 4 B", "Selskabsskatteloven §§ 12, 12 D og 29 A", "Selskabsskatteloven § 31 (sambeskatning)", "Revisorloven § 24", "Hvidvaskloven"],
   "legal_forms": ["aps", "as", "ivs", "holding", "fmba", "andet"],
   "industry_aware": true,
   "fields": [
     {"name": "indkomstaar", "label": "Indkomstår", "type": "text", "default": "{{ regnskab.aar }}"},
-    {"name": "selvangivelsesfrist", "label": "Frist for selvangivelse", "type": "text", "default": "6 måneder efter indkomstårets udløb (for indkomstår, der udløber 1. januar – 31. marts: 1. august)"},
+    {"name": "selvangivelsesfrist", "label": "Frist for selvangivelse", "type": "text", "default": "6 måneder efter indkomstårets udløb (udløber indkomståret i perioden 1.-31. marts: senest 1. september samme år), jf. skattekontrollovens § 12"},
     {"name": "sambeskatning", "label": "Selskabet indgår i national sambeskatning", "type": "checkbox", "default": false},
     {"name": "administrationsselskab", "label": "Administrationsselskab i sambeskatningen", "type": "text"},
     {"name": "kontrollerede_transaktioner", "label": "Selskabet har kontrollerede transaktioner (koncern/hovedaktionær)", "type": "checkbox", "default": false},
@@ -16,7 +16,7 @@
     {"name": "raadgivning", "label": "Særskilt aftalt rådgivning (fx omstrukturering, udbytte, generationsskifte)", "type": "textarea"},
     {"name": "honorar", "label": "Honorar for indkomstopgørelse og selvangivelse (kr. ekskl. moms)", "type": "number"},
     {"name": "timepris", "label": "Timepris for rådgivning (kr. ekskl. moms)", "type": "number"},
-    {"name": "ansvarsbegraensning", "label": "Ansvarsbegrænsning", "type": "text", "default": "et beløb svarende til tre gange honoraret for den pågældende ydelse, dog højst 2.000.000 kr."}
+    {"name": "ansvarsbegraensning", "label": "Ansvarsbegrænsning – beløb/formulering (udfyldes af revisor)", "type": "text"}
   ]
 }
 ---
@@ -40,9 +40,9 @@ Vi udfører følgende:
 1. Opgørelse af selskabets skattepligtige indkomst på grundlag af det godkendte årsregnskab og de oplysninger, ledelsen giver os, herunder skattemæssige afskrivninger, fradrag, underskudsfremførsel (selskabsskattelovens § 12) og renteloft/rentebegrænsning, hvor det er relevant.
 2. Indberetning af selvangivelse/oplysningsskema for selskabet på TastSelv Erhverv. Fristen er {{ felt.selvangivelsesfrist }}.
 3. Beregning af selskabsskat, udskudt skat til brug for årsregnskabet og afstemning af skattekontoen for selskabsskat.
-{% if felt.aconto %}4. Rådgivning om acontoskat (rater i marts og november) og frivillige indbetalinger for at undgå restskattetillæg.
+{% if felt.aconto %}4. Rådgivning om acontoskat (ordinær acontoskat i 2 rater; frivillig acontoskat senest 20. marts, 20. november og 1. februar, selskabsskattelovens § 29 A) for at begrænse restskattetillæg.
 {% endif %}{% if felt.sambeskatning %}5. Indkomstopgørelse som led i national sambeskatning (selskabsskattelovens § 31) med {{ felt.administrationsselskab }} som administrationsselskab, herunder fordeling af skat og underskud mellem de sambeskattede selskaber.
-{% endif %}{% if felt.kontrollerede_transaktioner %}6. Udfyldelse af oplysninger om kontrollerede transaktioner (skattekontrollovens § 37) i selvangivelsen. Udarbejdelse af transfer pricing-dokumentation (skattekontrollovens § 38) er ikke omfattet, medmindre det aftales særskilt. Selskabet er ansvarligt for, at transaktioner med nærtstående parter sker på armslængdevilkår (ligningslovens § 2).
+{% endif %}{% if felt.kontrollerede_transaktioner %}6. Udfyldelse af oplysninger om kontrollerede transaktioner (skattekontrollovens § 38, jf. definitionerne i § 37) i selvangivelsen. Udarbejdelse af transfer pricing-dokumentation (skattekontrollovens § 39) er ikke omfattet, medmindre det aftales særskilt. Selskabet er ansvarligt for, at transaktioner med nærtstående parter sker på armslængdevilkår (ligningslovens § 2).
 {% endif %}
 
 {% if branche.holding %}**Holdingselskab:** Vi vurderer den skattemæssige behandling af udbytter og avancer på datterselskabsaktier og koncernselskabsaktier (aktieavancebeskatningslovens §§ 4 A og 4 B), skattefrie/skattepligtige porteføljeaktier og eventuelle lån til hovedaktionærer (ligningslovens § 16 E).

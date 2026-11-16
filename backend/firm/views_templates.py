@@ -85,6 +85,7 @@ def template_render(request, template_id):
             "industry_title": str(ctx["kunde"]["branchetekst"]) if ctx["kunde"]["branchetekst"] else "",
             "industry_groups": b.get("grupper", []), "industry_label": b.get("navn") or "",
             "aml_risk": b.get("hvidvask_risiko"),
+            "risk_industry": bool(b.get("risikobranche")),
             "figures": bool(ctx["regnskab"].get("omsaetning")) if year else False,
         } if client else None,
         "firm_missing": [label for key, label in (("cvr", "CVR-nr."), ("vej", "adresse"), ("by", "postnr. og by"),
@@ -141,11 +142,15 @@ def industry_risk(request):
         if not info:
             return _err("Branchekoden findes ikke i DB25", 404)
         return _ok({"code": info["display"], "title": info["title"], "groups": ctx["grupper"],
+                    "risikobranche": ctx["risikobranche"],
                     "level": ctx["hvidvask_risiko"], "reasons": ctx["hvidvask_grunde"], "focus": ctx["hvidvask_fokus"]})
 
     rows = branche.overview()
     counts, clients_by_level = {}, {"høj": [], "forhøjet": [], "normal": [], "ukendt": []}
+    official_clients = []
     for c in _clients_for(staff_of(request.user)).filter(status__in=("active", "onboarding")):
+        if branche.context(c.industry_code)["risikobranche"]:
+            official_clients.append({"slug": c.slug, "name": c.name, "industry_code": c.industry_code})
         found, _ = branche.groups(c.industry_code)
         for g in found:
             counts[g] = counts.get(g, 0) + 1
@@ -154,5 +159,8 @@ def industry_risk(request):
                                         "groups": sorted(found)})
     for r in rows:
         r["clients"] = counts.get(r["group"], 0)
-    return _ok({"groups": rows, "kontant": {"level": branche.KONTANT_RISK[0], "reasons": branche.KONTANT_RISK[1]},
+    official = [{"code": d["display"], "title": d["title"]} for d in
+                (describe(c) for c in sorted(branche.RISIKOBRANCHER)) if d]
+    return _ok({"official": {"source": branche.RISIKOBRANCHER_KILDE, "codes": official, "clients": official_clients},
+                "groups": rows, "kontant": {"level": branche.KONTANT_RISK[0], "reasons": branche.KONTANT_RISK[1]},
                 "clients": clients_by_level})

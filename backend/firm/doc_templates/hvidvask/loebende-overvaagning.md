@@ -1,9 +1,9 @@
 ---
 {
   "title": "Løbende overvågning og opdatering af kundekendskab",
-  "description": "Tjekliste til løbende overvågning af kundeforholdet og periodisk eller hændelsesudløst opdatering af kundekendskab (hvidvasklovens § 10, nr. 2, og § 11, stk. 1, nr. 5), herunder røde flag fra bogføring og årsafslutning.",
+  "description": "Tjekliste til løbende overvågning af kundeforholdet og periodisk eller hændelsesudløst opdatering af kundekendskab (hvidvasklovens § 10, nr. 1, og § 11, stk. 1, nr. 5), herunder røde flag fra bogføring og årsafslutning.",
   "kind": "tjekliste",
-  "references": ["Hvidvaskloven (LBK nr. 433 af 17/04/2026) §§ 10, 11, stk. 1, nr. 5, 15, 25 og 30", "Erhvervsstyrelsens vejledning om hvidvaskloven", "Erhvervsstyrelsens vejledning om vurdering af formål og tilsigtet beskaffenhed (oktober 2026)"],
+  "references": ["Hvidvaskloven (LBK nr. 433 af 17/04/2026) §§ 10, nr. 1, 11, stk. 1, nr. 5, 15, 15 a, 25 og 30", "Erhvervsstyrelsens vejledning om hvidvaskloven", "Erhvervsstyrelsens vejledning om vurdering af formål og tilsigtede beskaffenhed"],
   "legal_forms": [],
   "industry_aware": true,
   "fields": [
@@ -27,12 +27,12 @@
 | Hidtidig risiko / seneste fulde KYC | {{ felt.risiko_tidligere }} / {{ felt.seneste_kyc }} |
 | Udført af / dato | {{ medarbejder.navn }} / {{ dato.idag }} |
 
-Transaktioner og aktiviteter i kundeforholdet skal overvåges for at sikre, at de stemmer med vores viden om kunden, dens forretning og risikoprofil, og dokumenter og oplysninger skal ajourføres (§ 11, stk. 1, nr. 5). Frekvensen afhænger af risikoen.
+Transaktioner og aktiviteter i kundeforholdet skal overvåges for at sikre, at de stemmer med vores viden om kunden, dens forretning og risikoprofil, og dokumenter og oplysninger skal løbende ajourføres (§ 11, stk. 1, nr. 5). Kundekendskabsprocedurer gennemføres også, når kundens relevante omstændigheder ændrer sig, og i øvrigt på passende tidspunkter (§ 10, nr. 1). Frekvensen afhænger af risikoen.
 
 ## 1. Opdatering af stamoplysninger
 
 - [ ] CVR-udskrift kontrolleret: navn, adresse, branchekode, ledelse, tegningsregel, revisor, status
-- [ ] Ændringer i ejerforhold eller reelle ejere? ☐ Nej ☐ Ja – ny erklæring indhentet
+- [ ] Ændringer i ejerforhold eller reelle ejere? ☐ Nej ☐ Ja – ny erklæring indhentet; uoverensstemmelser med CVR indberettet til Erhvervsstyrelsen (§ 15 a)
 - [ ] Ny ledelse? ☐ Nej ☐ Ja – legitimation og PEP-erklæring indhentet
 - [ ] Legitimation stadig gyldig
 - [ ] PEP-screening gentaget – resultat: ________

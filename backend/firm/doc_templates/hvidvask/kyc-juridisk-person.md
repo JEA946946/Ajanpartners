@@ -3,7 +3,7 @@
   "title": "Kundekendskab (KYC) – juridisk person",
   "description": "Skema til kundekendskabsprocedurer for selskaber, foreninger, fonde og andre juridiske personer efter hvidvasklovens §§ 10-18: identitet, kontrol, ejerstruktur, reelle ejere, ledelse, PEP, sanktionsscreening, formål og tilsigtet beskaffenhed.",
   "kind": "tjekliste",
-  "references": ["Hvidvaskloven (LBK nr. 433 af 17/04/2026) §§ 2 nr. 6-9, 10, 11, 14, 17, 18, 21 og 30", "Erhvervsstyrelsens vejledning om hvidvaskloven", "Erhvervsstyrelsens vejledning om vurdering af formål og tilsigtet beskaffenhed (oktober 2026)", "EU-forordning 2024/1624 (AMLR) – anvendes fra 10. juli 2027"],
+  "references": ["Hvidvaskloven (LBK nr. 433 af 17/04/2026) §§ 2 nr. 6-9, 10, 11, 14, 15 a, 17, 18, 21 og 30", "Erhvervsstyrelsens vejledning om hvidvaskloven", "Erhvervsstyrelsens vejledning om vurdering af formål og tilsigtede beskaffenhed", "Erhvervsstyrelsens vejledning om reelle ejere", "EU-forordning 2024/1624 (AMLR) – anvendes fra 10. juli 2027"],
   "legal_forms": ["aps", "as", "ivs", "holding", "fmba", "forening", "is", "pmv", "andet"],
   "industry_aware": true,
   "fields": [
@@ -31,12 +31,13 @@
 | Kundeansvarlig | {{ kunde.ansvarlig }} |
 | Udfyldt af / dato | {{ medarbejder.navn }} / {{ dato.idag }} |
 
-Kundekendskabsprocedurerne skal være gennemført, **før** forretningsforbindelsen etableres (hvidvasklovens § 14). Kan procedurerne ikke gennemføres, må forbindelsen ikke etableres, og en eksisterende forbindelse skal afsluttes. Det skal samtidig vurderes, om der skal ske underretning til Hvidvasksekretariatet.
+Kundens og de reelle ejeres identitet skal være kontrolleret, **før** forretningsforbindelsen etableres (hvidvasklovens § 14, stk. 1). Kan kravene i § 11, stk. 1, nr. 1-4, og stk. 2-3 ikke opfyldes, skal en etableret forretningsforbindelse afbrydes eller afvikles, og der må ikke gennemføres yderligere transaktioner. Det skal samtidig undersøges, om der skal ske underretning til Hvidvasksekretariatet (§ 14, stk. 5).
 
 ## 1. Identitetsoplysninger (§ 11, stk. 1, nr. 1)
 
 - [ ] Navn og CVR-nr. indhentet
 - [ ] Udskrift fra CVR (virk.dk/datacvr.virk.dk) gemt – dato: ________
+- [ ] Registreringsbevis eller ekstrakt af oplysningerne om reelle ejere i Erhvervsstyrelsens it-system indhentet (§ 14, stk. 1, 2. pkt.)
 - [ ] Vedtægter/stiftelsesdokument gemt (for foreninger: vedtægter og referat fra seneste generalforsamling)
 - [ ] Seneste årsrapport gennemgået (hvis eksisterende virksomhed)
 - [ ] Udenlandsk juridisk person: registreringsbevis fra hjemlandets register, oversat hvis nødvendigt
@@ -61,17 +62,17 @@ Oplysningerne kontrolleres på grundlag af dokumenter, data eller oplysninger fr
 | | | | | ☐ | ☐ Ja ☐ Nej |
 | | | | | ☐ | ☐ Ja ☐ Nej |
 
-Personen, der handler på kundens vegne (kontaktpersonen), er identificeret, og dennes fuldmagt/bemyndigelse er kontrolleret: ☐
+Personen, der handler på kundens vegne (kontaktpersonen), er identificeret og kontrolleret ved en pålidelig og uafhængig kilde, og dennes fuldmagt/bemyndigelse er kontrolleret (§ 11, stk. 2): ☐
 
 {% if not felt.fysisk_moede %}> **Kunden er ikke mødt fysisk og ikke identificeret via MitID.** Det er en risikofaktor. Anvend supplerende kontrol (fx videomøde med fremvisning af legitimation, kopi af pas med selfie, første betaling fra konto i kundens navn i et EU-pengeinstitut).{% endif %}
 
 ## 4. Ejerstruktur og reelle ejere (§ 11, stk. 1, nr. 3, og § 2, nr. 9)
 
-Reel ejer er den eller de fysiske personer, der i sidste ende direkte eller indirekte ejer eller kontrollerer kunden. Ejerskab af mere end 25 % af kapitalen eller stemmerne er en indikation af ejerskab, men kontrol kan også udøves på anden måde (aftaler, vetoret, ret til at udpege ledelse, nærtstående, der handler sammen).
+Reel ejer er den eller de fysiske personer, der i sidste ende direkte eller indirekte ejer eller kontrollerer kunden. Ejerskab af mere end 25 % af kapitalen eller stemmerne er efter Erhvervsstyrelsens vejledning om reelle ejere en indikation af reelt ejerskab, men kontrol kan også udøves på anden måde (aftaler, vetoret, ret til at udpege ledelse, nærtstående, der handler sammen).
 
 - [ ] Ejerstruktur kortlagt helt op til fysiske personer (vedlæg organisationsdiagram ved flere led)
 - [ ] Reelle ejere registreret i CVR sammenholdt med kundens egne oplysninger (erklæring om reelle ejere)
-- [ ] Uoverensstemmelser mellem CVR og vores oplysninger håndteret og indberettet til Erhvervsstyrelsen
+- [ ] Uoverensstemmelser mellem CVR og vores oplysninger indberettet til Erhvervsstyrelsen hurtigst muligt (§ 15 a)
 - [ ] Ejerbog/aktiebog eller ejerfortegnelse set (for {{ kunde.selskabsform }})
 
 | Reel ejer | Fødselsdato/land | Ejerandel/stemmer (direkte/indirekte) | Grundlag for kontrol | Identitet kontrolleret (kilde) | PEP? |
@@ -80,10 +81,10 @@ Reel ejer er den eller de fysiske personer, der i sidste ende direkte eller indi
 | | | % | | | ☐ Ja ☐ Nej |
 | | | % | | | ☐ Ja ☐ Nej |
 
-Kan der ikke identificeres en reel ejer, eller er der tvivl, registreres personerne i den daglige ledelse som reelle ejere. Det skal dokumenteres, hvilke skridt der er taget for at identificere de reelle ejere: ________________________________________
+Kan der ikke identificeres en reel ejer, efter at alle muligheder er udtømt, eller er der tvivl, anses personerne i den daglige ledelse som reelle ejere (§ 2, nr. 9, litra a, nr. ii), og deres identitet kontrolleres (§ 11, stk. 1, nr. 3). Det skal dokumenteres, hvilke skridt der er taget for at identificere de reelle ejere: ________________________________________
 
 {% if branche.holding or kunde.selskabsform_kode == "holding" %}> **Holdingstruktur:** Kortlæg alle mellemliggende selskaber. Udenlandske led, trusts, fonde eller nominee-aktionærer kræver skærpet kontrol og forklaring af strukturens formål.{% endif %}
-{% if kunde.selskabsform_kode == "forening" or branche.forening %}> **Forening/NPO:** Bestyrelsen og eventuelle personer med reel kontrol registreres som reelle ejere. Vurdér også, hvem der modtager foreningens midler (særligt indsamlinger og overførsler til udlandet – risiko for terrorfinansiering).{% endif %}
+{% if kunde.selskabsform_kode == "forening" or branche.forening %}> **Forening/NPO:** Kan ingen fysisk person identificeres, der ejer eller kontrollerer foreningen, anses den daglige ledelse som reelle ejere (§ 2, nr. 9, litra a, nr. ii). For fonde er bestyrelsen reelle ejere (§ 2, nr. 9, litra c). Vurdér også, hvem der modtager foreningens midler (særligt indsamlinger og overførsler til udlandet – risiko for terrorfinansiering).{% endif %}
 
 ## 5. PEP og sanktioner (§ 18)
 
@@ -92,7 +93,7 @@ Kan der ikke identificeres en reel ejer, eller er der tvivl, registreres persone
 - [ ] Screening mod EU's konsoliderede sanktionsliste og FN's sanktionsliste – dato: ________ – resultat: ________
 - [ ] Negativ mediesøgning (navn + "svindel", "dom", "konkurs", "hvidvask") – resultat: ________
 
-Er en person PEP, nærtstående eller nær samarbejdspartner: ledelsens/den ansvarliges godkendelse, fastlæggelse af midlernes og formuens oprindelse og skærpet løbende overvågning (§ 18).
+Er en person PEP, nærtstående eller nær samarbejdspartner: ledelsens/den ansvarliges godkendelse, fastlæggelse af midlernes og formuens oprindelse og skærpet løbende overvågning (§ 18, stk. 2-4).
 
 ## 6. Formål og tilsigtet beskaffenhed (§ 11, stk. 1, nr. 4)
 
@@ -125,7 +126,7 @@ Standardformuleringer er ikke tilstrækkelige – beskriv den konkrete kunde.
 | Kundeforholdet kan etableres/fortsætte | ☐ Ja ☐ Ja, med betingelser ☐ Nej |
 | Usædvanlige forhold, der kræver undersøgelse efter § 25 | ☐ Nej ☐ Ja – se notat |
 
-Dokumentationen opbevares i mindst 5 år efter forretningsforbindelsens ophør (§ 30).
+Dokumentationen opbevares i mindst 5 år efter forretningsforbindelsens ophør (§ 30, stk. 2).
 
 | Rolle | Navn | Dato | Underskrift |
 |---|---|---|---|

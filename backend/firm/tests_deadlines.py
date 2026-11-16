@@ -104,7 +104,8 @@ class AnnualTests(SimpleTestCase):
 
     def test_company_tax_return(self):
         self.assertEqual(dl.company_tax_return_due(date(2025, 12, 31)), date(2026, 6, 30))
-        self.assertEqual(dl.company_tax_return_due(date(2026, 3, 31)), date(2026, 8, 1))
+        self.assertEqual(dl.company_tax_return_due(date(2026, 3, 31)), date(2026, 9, 1))
+        self.assertEqual(dl.company_tax_return_due(date(2026, 2, 28)), date(2026, 8, 31))
         self.assertEqual(dl.company_tax_return_due(date(2026, 6, 30)), date(2026, 12, 31))
 
     def test_personal_business(self):

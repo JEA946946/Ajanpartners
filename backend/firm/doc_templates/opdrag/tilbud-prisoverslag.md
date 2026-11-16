@@ -38,7 +38,7 @@ Tak for en god snak om {{ kunde.navn }}. Som aftalt sender vi her vores tilbud. 
 
 {{ kunde.navn }} driver virksomhed inden for {{ kunde.branchetekst }}. Tilbuddet bygger på ca. {{ felt.antal_bilag }} bilag om året, ca. {{ felt.antal_ansatte }} ansatte og momsperiode: {{ kunde.momsperiode }}.
 
-{% if branche.restauration %}Restaurationsbranchen har særlige krav til kassesystem, dagsopgørelser, drikkepenge og løn til timelønnede. Vi kender kravene og hjælper jer med at få styr på dem fra start.{% elif branche.byggeri %}I byggebranchen er der særlige regler om omvendt betalingspligt for moms, kontrol af underleverandører og opgørelse af igangværende arbejder. Vi har erfaring med branchen og hjælper jer med de faste rutiner.{% elif branche.ejendom %}Ved udlejning af fast ejendom har vi fokus på lejeregnskab, deposita, moms ved erhvervsudlejning og skattemæssige afskrivninger.{% elif branche.holding %}For holdingselskaber har vi fokus på kapitalandele, udbytter, sambeskatning og eventuelle mellemregninger med ejeren.{% elif branche.kontantintensiv %}Da I har kontantomsætning, sætter vi rutiner op for kasseafstemning og dagsopgørelser.{% endif %}
+{% if branche.restauration %}Restaurationsbranchen har særlige krav til kassesystem, dagsopgørelser, drikkepenge og løn til timelønnede. Vi kender kravene og hjælper jer med at få styr på dem fra start.{% elif branche.byggeri %}I byggebranchen er der særligt fokus på kontrol af underleverandører og opgørelse af igangværende arbejder. Vi har erfaring med branchen og hjælper jer med de faste rutiner.{% elif branche.ejendom %}Ved udlejning af fast ejendom har vi fokus på lejeregnskab, deposita, moms ved erhvervsudlejning og skattemæssige afskrivninger.{% elif branche.holding %}For holdingselskaber har vi fokus på kapitalandele, udbytter, sambeskatning og eventuelle mellemregninger med ejeren.{% elif branche.kontantintensiv %}Da I har kontantomsætning, sætter vi rutiner op for kasseafstemning og dagsopgørelser.{% endif %}
 
 ## 2. Ydelser og pris
 
@@ -54,7 +54,7 @@ Tak for en god snak om {{ kunde.navn }}. Som aftalt sender vi her vores tilbud. 
 
 Ydelser med pris 0 er ikke omfattet af tilbuddet.
 
-{% if branche.restauration or branche.rengoering or branche.transport or branche.it or branche.personlig_service or branche.bilhandel %}**Bemærk:** Jeres branche kan være en klassificeret risikobranche (årsregnskabslovens § 135, stk. 5). Har I en nettoomsætning over 5 mio. kr. i to år i træk, skal årsregnskabet mindst have en opstillingserklæring fra en uafhængig revisor. Det er indregnet i tilbuddet, hvis erklæringstypen ovenfor er opstilling eller derover.{% endif %}
+{% if branche.risikobranche %}**Bemærk:** Jeres hovedbranchekode ({{ kunde.branchekode }}) er en klassificeret risikobranche (årsregnskabslovens § 135, stk. 5, og bekendtgørelse nr. 1488 af 27. november 2025). Er det fortsat jeres hovedbranchekode i CVR på balancedagen, og har I en nettoomsætning over 5 mio. kr. i to år i træk, skal årsregnskabet mindst have en erklæring om assistance med opstilling fra en uafhængig revisor eller en revisorerklæring med sikkerhed. Det er indregnet i tilbuddet, hvis erklæringstypen ovenfor er opstilling eller derover.{% endif %}
 
 ## 3. Forudsætninger
 
@@ -67,7 +67,7 @@ Ydelser med pris 0 er ikke omfattet af tilbuddet.
 
 ## 4. Næste skridt
 
-Hvis I vil tage imod tilbuddet, skal vi efter hvidvaskloven have legitimation og oplysninger om ejere og ledelse, før vi kan gå i gang. Vi sender et oplysningsskema og derefter et opdragsbrev/en aftale med de endelige vilkår til underskrift. Endelig accept forudsætter, at vores sædvanlige procedurer for kundeaccept og uafhængighed er gennemført{% if felt.erklaeringstype != "Ingen erklæring" and felt.erklaeringstype != "Opstilling" %}, og at vi har været i kontakt med jeres nuværende revisor, som vi efter revisorloven har pligt til at kontakte{% endif %}.
+Hvis I vil tage imod tilbuddet, skal vi efter hvidvaskloven have legitimation og oplysninger om ejere og ledelse, før vi kan gå i gang. Vi sender et oplysningsskema og derefter et opdragsbrev/en aftale med de endelige vilkår til underskrift. Endelig accept forudsætter, at vores sædvanlige procedurer for kundeaccept og uafhængighed er gennemført{% if felt.erklaeringstype != "Ingen erklæring" and felt.erklaeringstype != "Opstilling" %}, og at vi har været i kontakt med jeres nuværende revisor, som vi efter revisorlovens § 18, stk. 2, har pligt til at kontakte{% endif %}.
 
 Tilbuddet gælder til {{ felt.gyldighed }}.
 

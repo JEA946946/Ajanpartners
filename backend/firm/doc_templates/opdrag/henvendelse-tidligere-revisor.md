@@ -28,7 +28,7 @@ Att.: {{ felt.tidligere_revisor }}
 
 {{ firma.navn }} er {% if felt.valgt_dato %}den {{ felt.valgt_dato }} {% endif %}valgt som ny revisor for {{ kunde.navn }}, hvor I har været revisor og senest har afgivet erklæring på årsregnskabet for {{ felt.seneste_aar }}.
 
-I henhold til revisorlovens § 18, stk. 2, retter vi henvendelse til jer som fratrædende revisor og beder jer oplyse grundene til jeres fratræden. Vi beder jer samtidig oplyse, om I er bekendt med forhold, som efter jeres opfattelse bør indgå i vores overvejelser om at acceptere hvervet, fx:
+I henhold til revisorlovens § 18, stk. 2, retter vi henvendelse til jer som fratrædende revisor og beder jer oplyse grundene til jeres fratræden, som I efter bestemmelsen har pligt til at oplyse. Vi beder jer samtidig oplyse, om I er bekendt med forhold, som efter jeres opfattelse bør indgå i vores overvejelser om at acceptere hvervet, fx:
 
 1. uenighed med ledelsen om regnskabsmæssig behandling, revisionsprocedurer eller erklæringens indhold;
 2. forhold, der har ført til modifikation af konklusionen, fremhævelse af forhold eller supplerende oplysninger i erklæringer, herunder om ledelsens ansvar;
@@ -39,14 +39,14 @@ I henhold til revisorlovens § 18, stk. 2, retter vi henvendelse til jer som fra
 
 Vi er opmærksomme på, at I efter hvidvasklovens § 38 ikke må oplyse, om der er sket underretning til Hvidvasksekretariatet. Vi beder alene om de oplysninger, I lovligt kan give os.
 
-Endvidere beder vi om adgang til relevante oplysninger om virksomheden, jf. revisorlovens § 18, stk. 2, sidste pkt., herunder:
+Endvidere beder vi om adgang til relevante oplysninger om virksomheden, jf. revisorlovens § 18, stk. 2, 4. pkt., herunder:
 
 - seneste årsrapport, revisionsprotokol/ledelsesbreve og ledelseserklæring;
 - arbejdspapirer vedrørende åbningsbalancen pr. {{ regnskab.start }} (ISA 510), herunder specifikationer af væsentlige balanceposter, lager, igangværende arbejder, tilgodehavender, hensatte forpligtelser og eventualforpligtelser;
 - skatteopgørelser og opgørelse af udskudt skat;
 - oplysninger om væsentlige kontrakter, tvister og sikkerhedsstillelser, som I er bekendt med.
 
-{% if felt.seneste_erklaering %}Da den seneste erklæring er afgivet af {{ felt.seneste_erklaering }}, retter vi tillige henvendelse dertil, jf. revisorlovens § 18, stk. 2, 4. pkt.{% endif %}
+{% if felt.seneste_erklaering %}Da den seneste erklæring er afgivet af {{ felt.seneste_erklaering }}, retter vi tillige henvendelse dertil, jf. revisorlovens § 18, stk. 2, 3. pkt.{% endif %}
 
 {{ kunde.ledelsesorgan }} har givet samtykke til, at I udtaler jer til os og udleverer materialet, jf. vedlagte fuldmagt.
 

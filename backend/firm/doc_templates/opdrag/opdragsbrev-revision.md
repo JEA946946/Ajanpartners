@@ -3,7 +3,7 @@
   "title": "Opdragsbrev – revision af årsregnskab",
   "description": "Opdragsbrev for lovpligtig eller frivillig revision af årsregnskab efter ISA 210. Omfatter ledelsens og revisors ansvar, revisionsprotokol, hvidvask, databeskyttelse, honorar og ansvarsbegrænsning.",
   "kind": "brev",
-  "references": ["ISA 210", "ISA 200", "ISA 580", "ISA 260", "ISA 265", "Revisorloven §§ 16, 18, 20, 22 og 24 (LBK nr. 206 af 20/02/2025)", "Årsregnskabsloven § 135", "Selskabsloven §§ 144-146", "Hvidvaskloven"],
+  "references": ["ISA 210", "ISA 200", "ISA 580", "ISA 260", "ISA 265", "Revisorloven §§ 16, 18, 20, 22 og 24 (LBK nr. 206 af 20/02/2025)", "Årsregnskabsloven § 135", "Selskabsloven §§ 129 og 144-146", "Hvidvaskloven"],
   "legal_forms": ["aps", "as", "ivs", "holding", "fmba", "pmv", "andet"],
   "industry_aware": true,
   "fields": [
@@ -19,7 +19,7 @@
     {"name": "timepris", "label": "Timepris for ekstraarbejde (kr. ekskl. moms)", "type": "number"},
     {"name": "fakturering", "label": "Fakturering", "type": "select", "options": ["løbende", "ved afslutning", "aconto månedligt", "aconto kvartalsvis"], "default": "løbende"},
     {"name": "betalingsfrist", "label": "Betalingsfrist (dage)", "type": "number", "default": "14"},
-    {"name": "ansvarsbegraensning", "label": "Ansvarsbegrænsning (beløb eller formulering)", "type": "text", "default": "et beløb svarende til tre gange det honorar, der er faktureret for opgaven, dog højst 5.000.000 kr."},
+    {"name": "ansvarsbegraensning", "label": "Ansvarsbegrænsning – beløb/formulering (udfyldes af revisor)", "type": "text"},
     {"name": "andre_ydelser", "label": "Andre aftalte ydelser (fx skattebistand, opstilling)", "type": "textarea"}
   ]
 }
@@ -55,7 +55,7 @@ Revisionen omfatter bl.a.:
 - konklusion på, om ledelsens udarbejdelse af årsregnskabet på grundlag af regnskabsprincippet om fortsat drift er passende;
 - vurdering af den samlede præsentation, struktur og indhold af årsregnskabet, herunder noteoplysningerne.
 
-Revisionen omfatter ikke ledelsesberetningen, men vi læser ledelsesberetningen og afgiver en udtalelse om, hvorvidt den er i overensstemmelse med årsregnskabet og er udarbejdet i overensstemmelse med årsregnskabslovens krav, jf. årsregnskabslovens § 135.
+Revisionen omfatter ikke ledelsesberetningen, men vi læser ledelsesberetningen og afgiver en udtalelse om, hvorvidt den er i overensstemmelse med årsregnskabet og er udarbejdet i overensstemmelse med årsregnskabslovens krav, jf. årsregnskabslovens § 135, stk. 7.
 
 På grund af de iboende begrænsninger ved en revision og ved intern kontrol er der en uundgåelig risiko for, at visse væsentlige fejlinformationer ikke opdages, selv om revisionen er planlagt og udført korrekt. Revisionen tilrettelægges ikke med henblik på at afdække uvæsentlige fejl eller alle besvigelser, og den kan ikke erstatte ledelsens eget tilsyn.
 
@@ -80,14 +80,14 @@ Revisionen udføres på det grundlag, at {{ kunde.ledelsesorgan }} anerkender og
 
 1. at udarbejde et årsregnskab, der giver et retvisende billede i overensstemmelse med årsregnskabsloven, samt en ledelsesberetning, der opfylder lovens krav;
 2. den interne kontrol, som ledelsen anser for nødvendig for at udarbejde et årsregnskab uden væsentlig fejlinformation, uanset om denne skyldes besvigelser eller fejl;
-3. at bogføringen sker i overensstemmelse med bogføringsloven, herunder at transaktioner registreres løbende, at bilag og regnskabsmateriale opbevares i 5 år, og at der anvendes et digitalt bogføringssystem, når loven kræver det;
+3. at bogføringen sker i overensstemmelse med bogføringsloven, herunder at transaktioner registreres løbende, at regnskabsmateriale opbevares i 5 år fra udgangen af regnskabsåret (bogføringslovens § 12), og at der anvendes et digitalt bogføringssystem, når loven kræver det;
 4. at vurdere selskabets evne til at fortsætte driften og oplyse om forhold herom;
 5. at give os:
    - adgang til alle oplysninger, som ledelsen er bekendt med, og som er relevante for udarbejdelsen af årsregnskabet, fx bogføring, bilag, kontrakter, protokoller og korrespondance;
    - de yderligere oplysninger, som vi måtte anmode om til brug for revisionen;
    - ubegrænset adgang til personer i selskabet, som vi finder det nødvendigt at indhente revisionsbevis fra.
 
-Som en del af revisionen vil vi bede {{ kunde.ledelsesorgan }} om en skriftlig bekræftelse (ledelseserklæring) af de oplysninger, der er givet til os, jf. ISA 580. Uden en ledelseserklæring kan vi ikke afgive en revisionspåtegning med en konklusion uden modifikation.
+Som en del af revisionen vil vi bede {{ kunde.ledelsesorgan }} om en skriftlig bekræftelse (ledelseserklæring) af de oplysninger, der er givet til os, jf. ISA 580. Ledelseserklæringen er et nødvendigt revisionsbevis.
 
 Ledelsen skal oplyse os om alle kendte eller formodede besvigelser, overtrædelser af love og regler, transaktioner med nærtstående parter og begivenheder efter balancedagen, der kan have betydning for årsregnskabet.
 
@@ -95,21 +95,21 @@ Ledelsen skal oplyse os om alle kendte eller formodede besvigelser, overtrædels
 
 Vi afgiver en revisionspåtegning på årsregnskabet. Formen og indholdet af påtegningen kan blive ændret, hvis vi under revisionen finder forhold, der giver anledning til det, fx forbehold, supplerende oplysninger eller fremhævelse af forhold.
 
-{% if kunde.selskabsform_kode == "as" or felt.har_bestyrelse %}Vi fører en revisionsprotokol til bestyrelsen, jf. revisorlovens § 20, hvori vi redegør for den udførte revision, vores konklusioner og væsentlige forhold konstateret under revisionen. Protokollen skal fremlægges på hvert bestyrelsesmøde, og hvert bestyrelsesmedlem skal underskrive den som bevis for, at medlemmet er gjort bekendt med indholdet.{% else %}Væsentlige forhold konstateret under revisionen, herunder betydelige mangler i den interne kontrol (ISA 265), meddeler vi skriftligt til {{ kunde.ledelsesorgan }}.{% endif %}
+{% if kunde.selskabsform_kode == "as" or felt.har_bestyrelse %}Vi rapporterer skriftligt til bestyrelsen om den udførte revision, vores konklusioner og væsentlige forhold konstateret under revisionen, herunder betydelige mangler i den interne kontrol (ISA 260 og ISA 265). Fører vi revisionsprotokol, skal den underskrives af medlemmerne af det øverste ledelsesorgan, jf. selskabslovens § 129. For virksomheder af interesse for offentligheden forelægges revisionsprotokollatet efter forordning (EU) nr. 537/2014, artikel 11, også for bestyrelsen, jf. revisorlovens § 20.{% else %}Væsentlige forhold konstateret under revisionen, herunder betydelige mangler i den interne kontrol (ISA 265), meddeler vi skriftligt til {{ kunde.ledelsesorgan }}.{% endif %}
 
 Vi kommunikerer med den øverste ledelse om planlagt omfang og tidsplan for revisionen samt betydelige revisionsmæssige forhold, jf. ISA 260.
 
 ## 4. Revisors særlige pligter
 
-Hvis vi under revisionen bliver opmærksomme på, at et eller flere medlemmer af ledelsen begår eller har begået økonomiske forbrydelser af grovere karakter i forbindelse med udøvelsen af deres hverv, har vi pligt til straks at underrette de pågældende ledelsesmedlemmer og den samlede ledelse og – hvis ledelsen ikke inden 14 dage har truffet passende foranstaltninger – at underrette politiet (National enhed for Særlig Kriminalitet), jf. revisorlovens § 22.
+Indser vi under revisionen, at et eller flere medlemmer af ledelsen begår eller har begået økonomiske forbrydelser i tilknytning til udførelsen af deres hverv, og har vi en begrundet formodning om, at forbrydelsen vedrører betydelige beløb eller i øvrigt er af grov karakter, skal vi straks underrette hvert enkelt medlem af ledelsen. Har ledelsen ikke senest 14 dage herefter over for os dokumenteret at have taget de fornødne skridt til at standse igangværende kriminalitet og rette op på skaderne, skal vi straks underrette National Enhed for Særlig Kriminalitet, jf. revisorlovens § 22. Bestemmelsen gælder ikke forhold, der er omfattet af hvidvaskloven.
 
 Vi er omfattet af hvidvaskloven og skal derfor gennemføre kundekendskabsprocedurer og løbende overvåge kundeforholdet. Vi vil derfor bede om legitimation og oplysninger om selskabets ejere, reelle ejere, ledelse og forretningsforbindelsens formål. Hvis vi får mistanke om hvidvask eller finansiering af terrorisme, har vi pligt til at underrette Hvidvasksekretariatet, og vi må ikke oplyse om underretningen.
 
-Vores arbejdspapirer tilhører {{ firma.navn }} og kan indgå i Erhvervsstyrelsens kvalitetskontrol og tilsyn med revisorer. Personer, der udfører kvalitetskontrol, har tavshedspligt.
+Vores arbejdspapirer tilhører {{ firma.navn }}, opbevares i 5 år (revisorlovens § 23) og kan indgå i den kvalitetskontrol, som revisionsvirksomheden har pligt til at underkaste sig (revisorlovens § 29), og i Erhvervsstyrelsens tilsyn med revisorer.
 
 ## 5. Revisors hverv og fratræden
 
-Revisors hverv består, indtil en ny revisor er tiltrådt, jf. revisorlovens § 18, stk. 1. Vi kan fratræde hvervet, hvis fratræden ikke strider mod god revisorskik, jf. revisorlovens § 18, stk. 2. Fratræder vi før valgperiodens udløb, giver vi meddelelse herom til Erhvervsstyrelsen med begrundelse, jf. selskabslovens § 146. Ved revisorskifte har en ny revisor pligt til at rette henvendelse til os, og vi har pligt til at give adgang til alle relevante oplysninger.
+Revisors hverv består, indtil en ny revisor er tiltrådt, jf. revisorlovens § 18, stk. 1. Vi kan fratræde hvervet, hvis fratræden ikke strider mod god revisorskik, jf. revisorlovens § 18, stk. 2. Fratræder vi før valgperiodens udløb, giver vi meddelelse herom til Erhvervsstyrelsen med en fyldestgørende forklaring, jf. selskabslovens § 146, stk. 2. Ved revisorskifte har en ny revisor pligt til at rette henvendelse til os, og vi har pligt til at oplyse grundene til vores fratræden og give adgang til alle relevante oplysninger, jf. revisorlovens § 18, stk. 2.
 
 ## 6. Tidsplan og materiale
 
@@ -129,13 +129,13 @@ Vi har vurderet, at ydelserne kan leveres uden at true vores uafhængighed, jf. 
 
 ## 8. Ansvar og øvrige vilkår
 
-Vores ansvar er begrænset til {{ felt.ansvarsbegraensning }} pr. opgave. Ansvarsbegrænsningen gælder ikke ved forsæt eller grov uagtsomhed. Vi er ikke ansvarlige for indirekte tab, herunder driftstab, tab af data, avance eller goodwill. {{ firma.navn }} har tegnet lovpligtig ansvarsforsikring og garantiordning efter revisorloven.
+Vores ansvar er begrænset til {{ felt.ansvarsbegraensning }} pr. opgave. Ansvarsbegrænsningen gælder ikke ved forsæt eller grov uagtsomhed. Vi er ikke ansvarlige for indirekte tab, herunder driftstab, tab af data, avance eller goodwill. Revisorerne i {{ firma.navn }} er forsikret mod økonomiske krav i forbindelse med erklæringsopgaver, som revisorloven kræver (revisorlovens § 3, stk. 1, nr. 7).
 
 Krav mod {{ firma.navn }} kan alene rettes mod revisionsvirksomheden og ikke mod den enkelte medarbejder eller revisor personligt, i det omfang lovgivningen tillader det.
 
 Vi behandler personoplysninger som selvstændig dataansvarlig til brug for revisionen og for at opfylde vores lovpligtige forpligtelser (revisorloven, hvidvaskloven, bogføringsloven). Læs mere i vores privatlivspolitik.
 
-Klager over revisors arbejde kan indgives til Revisornævnet. Tvister afgøres efter dansk ret ved de almindelige domstole med vores hjemting som værneting.
+Klager over, at revisor har tilsidesat sine pligter ved erklæringsopgaver, kan indbringes for Revisornævnet (revisorlovens § 43, stk. 3). Tvister afgøres efter dansk ret ved de almindelige domstole med vores hjemting som værneting.
 
 Opgaven udføres i øvrigt efter vores almindelige forretningsbetingelser, som er vedlagt. Ved uoverensstemmelse går dette opdragsbrev forud.
 

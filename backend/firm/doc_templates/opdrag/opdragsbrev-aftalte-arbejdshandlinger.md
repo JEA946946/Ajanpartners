@@ -3,7 +3,7 @@
   "title": "Opdragsbrev – aftalte arbejdshandlinger (ISRS 4400)",
   "description": "Opdragsbrev for erklæring om aftalte arbejdshandlinger efter ISRS 4400 (revideret), fx til tilskudsgiver, franchisegiver, bank eller udlejer (omsætningsopgørelse).",
   "kind": "brev",
-  "references": ["ISRS 4400 (revideret)", "Erklæringsbekendtgørelsen", "Revisorloven §§ 16 og 24", "FSR – danske revisorers Etiske regler for revisorer", "Hvidvaskloven"],
+  "references": ["ISRS 4400 (revideret)", "Erklæringsbekendtgørelsen", "Revisorloven §§ 1, stk. 3, 16, stk. 4, og 24", "FSR – danske revisorers Etiske regler for revisorer", "Hvidvaskloven"],
   "legal_forms": [],
   "industry_aware": false,
   "fields": [
@@ -19,7 +19,7 @@
     {"name": "frist", "label": "Frist for erklæring", "type": "date"},
     {"name": "honorar", "label": "Honorar (kr. ekskl. moms)", "type": "number"},
     {"name": "timepris", "label": "Timepris for ekstraarbejde (kr. ekskl. moms)", "type": "number"},
-    {"name": "ansvarsbegraensning", "label": "Ansvarsbegrænsning", "type": "text", "default": "et beløb svarende til tre gange honoraret for opgaven"}
+    {"name": "ansvarsbegraensning", "label": "Ansvarsbegrænsning – beløb/formulering (udfyldes af revisor)", "type": "text"}
   ]
 }
 ---
@@ -46,7 +46,7 @@ Vi udfører opgaven efter ISRS 4400 (revideret), Opgaver om aftalte arbejdshandl
 
 Handlingerne er hverken revision eller review. Havde vi udført yderligere handlinger, kunne andre forhold være kommet til vores kendskab, som ville være blevet rapporteret.
 
-Vi overholder de etiske krav i FSR – danske revisorers Etiske regler for revisorer. Om uafhængighed gælder: {{ felt.uafhaengighed }}. Dette oplyses i erklæringen.
+Vi overholder de etiske krav i FSR – danske revisorers Etiske regler for revisorer. Om uafhængighed gælder: {{ felt.uafhaengighed }}. Dette oplyses i erklæringen; er vi ikke uafhængige, skal det oplyses i erklæringen, jf. revisorlovens § 16, stk. 4.
 
 ## 3. Aftalte handlinger
 

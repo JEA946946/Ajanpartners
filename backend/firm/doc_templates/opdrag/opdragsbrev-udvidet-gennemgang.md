@@ -3,7 +3,7 @@
   "title": "Opdragsbrev – udvidet gennemgang (klasse B)",
   "description": "Opdragsbrev for udvidet gennemgang af årsregnskab efter Erhvervsstyrelsens erklæringsstandard for små virksomheder (årsregnskabslovens § 135, stk. 1, 2. pkt.). Kun regnskabsklasse B.",
   "kind": "brev",
-  "references": ["Erklæringsstandard for udvidet gennemgang (Erhvervsstyrelsen)", "Årsregnskabsloven § 135, stk. 1, 2. pkt., og stk. 4", "Revisorloven § 18, stk. 1, 2. pkt.", "Revisorloven §§ 16, 22 og 24", "ISRE 2400 (principper)", "Hvidvaskloven"],
+  "references": ["Erhvervsstyrelsens erklæringsstandard for små virksomheder (Udvidet gennemgang af årsregnskaber), bilag 1 til erklæringsbekendtgørelsen (BEK nr. 518 af 24/05/2024)", "Årsregnskabsloven § 135, stk. 1, 2. pkt., og stk. 4", "Revisorloven § 18, stk. 1, 2. pkt.", "Revisorloven §§ 16, 22 og 24", "ISRE 2400 (principper)", "Hvidvaskloven"],
   "legal_forms": ["aps", "as", "ivs", "holding", "pmv", "andet"],
   "industry_aware": true,
   "fields": [
@@ -14,7 +14,7 @@
     {"name": "honorar_type", "label": "Honorarform", "type": "select", "options": ["fast honorar", "overslag", "medgået tid"], "default": "overslag"},
     {"name": "timepris", "label": "Timepris for ekstraarbejde (kr. ekskl. moms)", "type": "number"},
     {"name": "fakturering", "label": "Fakturering", "type": "select", "options": ["løbende", "ved afslutning", "aconto månedligt", "aconto kvartalsvis"], "default": "ved afslutning"},
-    {"name": "ansvarsbegraensning", "label": "Ansvarsbegrænsning", "type": "text", "default": "et beløb svarende til tre gange det honorar, der er faktureret for opgaven, dog højst 3.000.000 kr."},
+    {"name": "ansvarsbegraensning", "label": "Ansvarsbegrænsning – beløb/formulering (udfyldes af revisor)", "type": "text"},
     {"name": "opstilling_ogsaa", "label": "Vi opstiller også årsregnskabet", "type": "checkbox", "default": true}
   ]
 }
@@ -34,11 +34,11 @@ CVR-nr. {{ kunde.cvr }}
 
 ## 1. Baggrund – hvorfor udvidet gennemgang
 
-Virksomheder i regnskabsklasse B, som er revisionspligtige, kan i stedet for revision vælge at lade årsregnskabet gennemgå efter Erhvervsstyrelsens erklæringsstandard for udvidet gennemgang, jf. årsregnskabslovens § 135, stk. 1, 2. pkt. Muligheden gælder ikke, hvis virksomheden i to på hinanden følgende regnskabsår sammen med de virksomheder, den har kapitalinteresser i og betydelig indflydelse over, overskrider to af størrelsesgrænserne for regnskabsklasse B i årsregnskabslovens § 7, stk. 2, nr. 1 (§ 135, stk. 4), eller hvis virksomheden overgår til regnskabsklasse C. Vi vurderer hvert år, om betingelserne fortsat er opfyldt, og giver jer besked, hvis selskabet bliver omfattet af krav om revision.
+Virksomheder i regnskabsklasse B, som er revisionspligtige, kan i stedet for revision vælge at lade årsregnskabet gennemgå efter Erhvervsstyrelsens erklæringsstandard for små virksomheder (Udvidet gennemgang af årsregnskaber), jf. årsregnskabslovens § 135, stk. 1, 2. pkt. Muligheden gælder ikke, hvis virksomheden i to på hinanden følgende regnskabsår sammen med de virksomheder, den har kapitalinteresser i og betydelig indflydelse over, overskrider to af størrelsesgrænserne for regnskabsklasse B i årsregnskabslovens § 7, stk. 2, nr. 1 (§ 135, stk. 4), hvis Erhvervsstyrelsen har truffet afgørelse efter § 135 a, stk. 3, eller hvis virksomheden overgår til regnskabsklasse C. Vi vurderer hvert år, om betingelserne fortsat er opfyldt, og giver jer besked, hvis selskabet bliver omfattet af krav om revision.
 
 ## 2. Opgavens formål og omfang
 
-Vi udfører en udvidet gennemgang af årsregnskabet for {{ kunde.navn }} for regnskabsåret {{ regnskab.start }} – {{ regnskab.slut }}. Formålet er at opnå begrænset sikkerhed for, at årsregnskabet giver et retvisende billede i overensstemmelse med årsregnskabsloven, og at afgive en erklæring med en konklusion i positiv form ("Baseret på det udførte arbejde er det vores opfattelse, at årsregnskabet giver et retvisende billede …"), jf. Erhvervsstyrelsens erklæringsstandard for udvidet gennemgang.
+Vi udfører en udvidet gennemgang af årsregnskabet for {{ kunde.navn }} for regnskabsåret {{ regnskab.start }} – {{ regnskab.slut }}. Formålet er at opnå begrænset sikkerhed og – gennem de supplerende handlinger – yderligere sikkerhed for vores konklusion om, hvorvidt årsregnskabet giver et retvisende billede i overensstemmelse med årsregnskabsloven, og at afgive en erklæring med en konklusion i positiv form ("Baseret på det udførte arbejde er det vores opfattelse, at årsregnskabet giver et retvisende billede …"), jf. Erhvervsstyrelsens erklæringsstandard for udvidet gennemgang.
 
 En udvidet gennemgang består af:
 
@@ -81,7 +81,7 @@ Vi er underlagt revisorlovens § 22 om underretning ved ledelsens økonomiske kr
 
 ## 5. Revisors hverv
 
-Ved udvidet gennemgang ophører vores hverv, når erklæringen på årsregnskabet er afgivet, jf. revisorlovens § 18, stk. 1, 2. pkt. Selskabet skal derfor vælge revisor på hver ordinær generalforsamling og anmelde valget til Erhvervsstyrelsen. Vi kan fratræde hvervet, hvis fratræden ikke strider mod god revisorskik (§ 18, stk. 2).
+Reglen om, at revisors hverv består, indtil en ny revisor er tiltrådt, gælder ikke, når revisor har afgivet en erklæring om udvidet gennemgang (revisorlovens § 18, stk. 1, 2. pkt.). Selskabet skal derfor vælge revisor på ny, hvis der fortsat skal afgives erklæring, og anmelde valget til Erhvervsstyrelsen. Vi kan fratræde hvervet, hvis fratræden ikke strider mod god revisorskik (§ 18, stk. 2).
 
 ## 6. Tidsplan, honorar og øvrige vilkår
 
@@ -89,7 +89,7 @@ Vi forventer at modtage regnskabsmaterialet senest {{ felt.materiale_dato }}. Å
 
 Honoraret udgør {{ felt.honorar }} kr. ekskl. moms ({{ felt.honorar_type }}). Ekstraarbejde som følge af mangelfuldt materiale eller ændrede forhold afregnes med {{ felt.timepris }} kr. pr. time ekskl. moms efter forudgående orientering. Fakturering sker {{ felt.fakturering }}.
 
-Vores ansvar er begrænset til {{ felt.ansvarsbegraensning }}. Begrænsningen gælder ikke ved forsæt eller grov uagtsomhed. Vi hæfter ikke for indirekte tab. Vores arbejdspapirer kan indgå i Erhvervsstyrelsens kvalitetskontrol. Vi behandler personoplysninger som selvstændig dataansvarlig. Klager kan indgives til Revisornævnet. Opgaven udføres i øvrigt efter vores almindelige forretningsbetingelser.
+Vores ansvar er begrænset til {{ felt.ansvarsbegraensning }}. Begrænsningen gælder ikke ved forsæt eller grov uagtsomhed. Vi hæfter ikke for indirekte tab. Vores arbejdspapirer kan indgå i den lovpligtige kvalitetskontrol (revisorlovens § 29). Vi behandler personoplysninger som selvstændig dataansvarlig. Klager kan indbringes for Revisornævnet (revisorlovens § 43, stk. 3). Opgaven udføres i øvrigt efter vores almindelige forretningsbetingelser.
 
 Vi beder jer bekræfte opdragsbrevet ved at underskrive og returnere en kopi.
 

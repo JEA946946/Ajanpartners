@@ -235,3 +235,14 @@ class IndustryRiskTests(SimpleTestCase):
         self.assertTrue(any("kontant" in r.lower() for r in ctx["hvidvask_grunde"]))
         self.assertEqual(branche.context("473000")["hvidvask_risiko"], "forhøjet")  # tankstation: kontantintensiv
         self.assertEqual(branche.context("")["hvidvask_risiko"], "normal")
+
+
+class OfficialRiskIndustryTests(SimpleTestCase):
+    def test_official_list(self):
+        from integrations.industry import describe
+        self.assertEqual(len(branche.RISIKOBRANCHER), 15)
+        for c in branche.RISIKOBRANCHER:
+            self.assertIsNotNone(describe(c), c)
+        self.assertTrue(branche.context("494100")["risikobranche"])   # vejgodstransport
+        self.assertTrue(branche.context("561010")["risikobranche"])   # DB07 → DB25 561110
+        self.assertFalse(branche.context("478100")["risikobranche"])  # bilhandel er ikke med

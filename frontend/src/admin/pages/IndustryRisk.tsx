@@ -13,7 +13,8 @@ interface Group {
   prefixes: string[]; clients: number;
 }
 interface ClientRow { slug: string; name: string; industry_code: string; groups: string[] }
-interface Check { code: string; title: string; groups: string[]; level: string; reasons: string[]; focus: string[] }
+interface Check { code: string; title: string; groups: string[]; level: string; reasons: string[]; focus: string[]; risikobranche: boolean }
+interface Official { source: string; codes: { code: string; title: string }[]; clients: { slug: string; name: string; industry_code: string }[] }
 
 const COLOR: Record<string, 'error' | 'warning' | 'success' | 'default'> = {
   høj: 'error', forhøjet: 'warning', normal: 'success', ukendt: 'default',
@@ -28,6 +29,7 @@ const IndustryRisk: React.FC = () => {
   const navigate = useNavigate();
   const [groups, setGroups] = useState<Group[]>([]);
   const [clients, setClients] = useState<Record<string, ClientRow[]>>({});
+  const [official, setOfficial] = useState<Official | null>(null);
   const [error, setError] = useState('');
   const [code, setCode] = useState('');
   const [check, setCheck] = useState<Check | null>(null);
@@ -37,6 +39,7 @@ const IndustryRisk: React.FC = () => {
     firmApi.get('/industry-risk').then((r) => {
       setGroups(r.data.data.groups);
       setClients(r.data.data.clients);
+      setOfficial(r.data.data.official);
     }).catch((e) => setError(errorText(e, 'Vurderingen kunne ikke hentes')));
   }, []);
 
@@ -81,6 +84,7 @@ const IndustryRisk: React.FC = () => {
                 <Typography variant="body2"><b>{check.code}</b> {check.title}</Typography>
                 <Chip size="small" color={COLOR[check.level]} label={`Risiko: ${LEVEL_TEXT[check.level]}`} />
                 {check.groups.map((g) => <Chip key={g} size="small" variant="outlined" label={label(g)} />)}
+                {check.risikobranche && <Chip size="small" color="error" variant="outlined" label="Officiel risikobranche (BEK 1488/2025)" />}
               </Box>
               <Box component="ul" sx={{ my: 1, pl: 3 }}>
                 {check.reasons.map((r) => <li key={r}><Typography variant="body2">{r}</Typography></li>)}
@@ -90,7 +94,34 @@ const IndustryRisk: React.FC = () => {
         </CardContent>
       </Card>
 
-      <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1 }}>Brancher og begrundelser</Typography>
+      {official && (
+        <Card variant="outlined" sx={{ mb: 2, borderColor: 'error.light' }}>
+          <CardContent>
+            <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>Officielle risikobrancher (årsregnskabslovens § 135, stk. 5)</Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+              {official.source}. Gælder for regnskabsår fra 1. januar 2025 og i to år. Hovedbranchekoden i CVR på
+              balancedagen er afgørende. Klasse B-virksomheder i disse brancher med en nettoomsætning over 5 mio. kr.
+              i to år i træk kan ikke fravælge revisorerklæring – de skal mindst have en opstillingserklæring.
+              Listen er en del af lovgivningen og er adskilt fra vores egen vurdering nedenfor.
+            </Typography>
+            <Box sx={{ display: 'flex', gap: 0.75, flexWrap: 'wrap' }}>
+              {official.codes.map((c) => <Chip key={c.code} size="small" variant="outlined" label={`${c.code} ${c.title}`} />)}
+            </Box>
+            {official.clients.length > 0 && (
+              <Box sx={{ mt: 1.5 }}>
+                <Typography variant="body2" sx={{ fontWeight: 600, mb: 0.5 }}>Vores kunder i en officiel risikobranche</Typography>
+                <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                  {official.clients.map((c) => (
+                    <Chip key={c.slug} size="small" color="error" onClick={() => navigate(`/admin/clients/${c.slug}`)} label={c.name} />
+                  ))}
+                </Box>
+              </Box>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1 }}>Vores egen vurdering – brancher og begrundelser</Typography>
       {groups.map((g) => (
         <Accordion key={g.group} disableGutters variant="outlined" defaultExpanded={g.level === 'høj'}>
           <AccordionSummary expandIcon={<ExpandMore />}>

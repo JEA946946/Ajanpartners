@@ -3,7 +3,7 @@
   "title": "Opdragsbrev – personlig skat og selvangivelse",
   "description": "Aftale om udarbejdelse af selvangivelse (oplysningsskema) for personer med selvstændig virksomhed, interessentskaber og hovedaktionærer, herunder virksomhedsordningen og fuldmagt til TastSelv.",
   "kind": "brev",
-  "references": ["Skattekontrolloven §§ 2-5 og 11", "Personskatteloven", "Virksomhedsskatteloven", "Ejendomsavancebeskatningsloven", "Aktieavancebeskatningsloven", "Skatteforvaltningsloven § 26", "Hvidvaskloven"],
+  "references": ["Skattekontrolloven (LBK nr. 12 af 08/01/2024) §§ 2, 5, 10, 11, 73 og 74", "Personskatteloven", "Virksomhedsskatteloven", "Ejendomsavancebeskatningsloven", "Aktieavancebeskatningsloven", "Skatteforvaltningsloven § 26", "Hvidvaskloven"],
   "legal_forms": ["enk", "is", "pmv", "holding", "andet"],
   "industry_aware": true,
   "fields": [
@@ -17,7 +17,7 @@
     {"name": "forskud", "label": "Tilpasning af forskudsopgørelse", "type": "checkbox", "default": true},
     {"name": "honorar", "label": "Honorar (kr. ekskl. moms)", "type": "number"},
     {"name": "timepris", "label": "Timepris for rådgivning (kr. ekskl. moms)", "type": "number"},
-    {"name": "ansvarsbegraensning", "label": "Ansvarsbegrænsning", "type": "text", "default": "et beløb svarende til tre gange honoraret for den pågældende ydelse, dog højst 1.000.000 kr."}
+    {"name": "ansvarsbegraensning", "label": "Ansvarsbegrænsning – beløb/formulering (udfyldes af revisor)", "type": "text"}
   ]
 }
 ---
@@ -44,7 +44,7 @@ Tak for jeres henvendelse. Med dette brev bekræfter vi vilkårene for vores bis
 {% endif %}{% if felt.forskud %}8. Tilpasning af forskudsopgørelsen for det kommende år.
 {% endif %}
 
-Fristen for oplysningsskemaet er **1. juli** året efter indkomståret for personer med selvstændig virksomhed og personer, der har indkomst, som ikke er forudfyldt. Overskrides fristen, kan Skattestyrelsen pålægge skattetillæg og foretage skønsmæssig ansættelse.
+Fristen for oplysningsskemaet er **1. juli** året efter indkomståret for personer med selvstændig virksomhed og andre, der skal indgive oplysningsskema (skattekontrollovens §§ 10, stk. 2, og 11). Overskrides fristen, kan Skattestyrelsen pålægge skattetillæg (§ 73) og foretage skønsmæssig ansættelse (§ 74).
 
 {% if branche.landbrug %}Landbrugsejendomme kræver særlig opgørelse af blandt andet stuehusets lejeværdi, besætninger og produktionstilskud.{% endif %}
 {% if branche.ejendom %}Ved erhvervsmæssig udlejning af fast ejendom opgør vi også genvundne afskrivninger og ejendomsavance, og vi vurderer momsforhold ved frivillig registrering.{% endif %}

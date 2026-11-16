@@ -3,7 +3,7 @@
   "title": "Uafhængighedsvurdering – erklæringsopgave",
   "description": "Internt arbejdspapir til vurdering og dokumentation af revisors uafhængighed efter revisorlovens § 24 og de etiske regler: trusler, sikkerhedsforanstaltninger, ikke-revisionsydelser, honorarafhængighed og teamets bekræftelser.",
   "kind": "arbejdspapir",
-  "references": ["Revisorloven § 24 (LBK nr. 206 af 20/02/2025)", "FSR – danske revisorers Etiske regler for revisorer (IESBA), del 4A og afsnit 600", "ISQM 1", "ISA 220 (revideret) afsnit 16-21"],
+  "references": ["Revisorloven §§ 16, stk. 4, 24 og 25 (LBK nr. 206 af 20/02/2025)", "Bekendtgørelse nr. 520 af 24/05/2024 om godkendte revisorers og revisionsvirksomheders uafhængighed", "EU-forordning 537/2014 art. 4", "FSR – danske revisorers Etiske regler for revisorer (IESBA), del 4A og afsnit 600", "ISQM 1", "ISA 220 (revideret) afsnit 16-21"],
   "legal_forms": [],
   "industry_aware": false,
   "fields": [
@@ -14,7 +14,8 @@
     {"name": "honorar_erklaering", "label": "Honorar for erklæringsopgaven (kr.)", "type": "number"},
     {"name": "honorar_andet", "label": "Honorar for andre ydelser (kr.)", "type": "number"},
     {"name": "honorarandel", "label": "Kundens andel af firmaets samlede honorar (%)", "type": "number"},
-    {"name": "pie", "label": "Kunden er en virksomhed af interesse for offentligheden (PIE)", "type": "checkbox", "default": false}
+    {"name": "pie", "label": "Kunden er en virksomhed af interesse for offentligheden (PIE)", "type": "checkbox", "default": false},
+    {"name": "honorargraense", "label": "Grænse for honorarafhængighed i firmaets politik (udfyldes af revisor)", "type": "text"}
   ]
 }
 ---
@@ -30,12 +31,12 @@
 
 ## 1. Retsgrundlag
 
-Revisorlovens § 24, stk. 1, kræver, at en revisor, der udfører opgaver efter § 1, stk. 2 (erklæringsopgaver med sikkerhed), er uafhængig af virksomheden. Revisor må ikke udføre opgaven, hvis der foreligger forhold, som kan vække tvivl hos en velinformeret tredjemand om revisors uafhængighed. Det skal vurderes, om der er trusler mod uafhængigheden, og om de kan reduceres til et acceptabelt niveau ved sikkerhedsforanstaltninger. Kan de ikke det, må opgaven ikke udføres. Vurderingen skal dokumenteres.
+Revisorlovens § 24, stk. 1, kræver, at revisor, revisionsvirksomheden og andre personer, der er knyttet til opgaven eller kontrollerer den, ved opgaver efter § 1, stk. 2 (revisionspåtegninger og andre erklæringer med sikkerhed), er uafhængige af virksomheden og ikke involveret i dens beslutningstagning – både i opgaveperioden og i den periode, erklæringen dækker. Revisor er ikke uafhængig, hvis der foreligger en økonomisk interesse eller et forretnings-, ansættelsesmæssigt eller andet forhold, som for en velinformeret tredjemand kan vække tvivl om uafhængigheden (§ 24, stk. 2). Ved trusler skal der træffes sikkerhedsforanstaltninger; er uafhængigheden bragt i fare, skal revisor afstå fra opgaven (§ 24, stk. 3). Væsentlige trusler og sikkerhedsforanstaltninger dokumenteres i arbejdspapirerne (§ 24, stk. 5).
 
 De etiske regler (IESBA Code som udgivet af FSR – danske revisorer) anvender den begrebsmæssige ramme: identificere trusler, vurdere dem og håndtere dem ved at fjerne omstændighederne, anvende sikkerhedsforanstaltninger eller afslå/afslutte opgaven.
 
-{% if felt.pie %}> **PIE:** Kunden er en virksomhed af interesse for offentligheden. EU-forordning 537/2014 (forbudte ikke-revisionsydelser, honorarloft på 70 %), revisorlovens §§ 24 a ff. om rotation og de skærpede etiske regler for PIE gælder. Inddrag kvalitetsafdelingen.{% endif %}
-{% if felt.opgave == "Opstilling (uafhængighed ikke krav)" %}> Ved opstilling efter ISRS 4410 er der ikke krav om uafhængighed, men de øvrige etiske principper (integritet, objektivitet, kompetence, fortrolighed) skal overholdes. Udfyld alligevel punkt 2-3, hvis opstillingen skal opfylde kravet om uafhængig revisor i årsregnskabslovens § 135, stk. 5.{% endif %}
+{% if felt.pie %}> **PIE:** Kunden er en virksomhed af interesse for offentligheden. EU-forordning 537/2014 (forbudte ikke-revisionsydelser, art. 5; honorarloft for ikke-revisionsydelser på 70 % af gennemsnittet af de seneste 3 års revisionshonorarer, art. 4, stk. 2; rotation, art. 17), revisorlovens § 24 a om tilladte skatte- og vurderingsydelser og de skærpede etiske regler for PIE gælder. Inddrag kvalitetsafdelingen.{% endif %}
+{% if felt.opgave == "Opstilling (uafhængighed ikke krav)" %}> Ved opstilling efter ISRS 4410 er der ikke krav om uafhængighed, men er revisor ikke uafhængig, skal det oplyses i erklæringen (revisorlovens § 16, stk. 4), og de øvrige etiske principper (integritet, objektivitet, kompetence, fortrolighed) skal overholdes. Udfyld alligevel punkt 2-3, hvis opstillingen skal opfylde kravet om uafhængig revisor i årsregnskabslovens § 135, stk. 5.{% endif %}
 
 ## 2. Trusler mod uafhængigheden
 
@@ -55,18 +56,18 @@ De etiske regler (IESBA Code som udgivet af FSR – danske revisorer) anvender d
 | Lønadministration | | Selvrevision | Kunden godkender lønnen før udbetaling; vi har ikke adgang til at gennemføre betalinger |
 | Opstilling af årsregnskab | | Selvrevision | Ledelsen træffer alle skøn og godkender regnskabet; opstilling adskilt fra revisionsarbejdet |
 | Skatteberegning og selvangivelse | | Selvrevision | Beregninger ikke væsentlige for regnskabet eller ikke baseret på væsentlige skøn; ledelsen godkender |
-| Skatterådgivning/skatteplanlægning | | Selvrevision, partiskhed | Ikke tilladt, hvis effekten er væsentlig for regnskabet og bygger på tvivlsom fortolkning |
-| Værdiansættelser | | Selvrevision | Ikke tilladt, hvis væsentlig og med betydelig subjektivitet |
+| Skatterådgivning/skatteplanlægning | | Selvrevision, partiskhed | Vurderes efter de etiske regler (afsnit 604) og uafhængighedsbekendtgørelsen |
+| Værdiansættelser | | Selvrevision | Vurderes efter de etiske regler (afsnit 603) og uafhængighedsbekendtgørelsen |
 | Juridisk/selskabsretlig bistand (GF-referat, ejerbog) | | Partiskhed | Rent administrativ bistand; beslutninger træffes af kunden |
 | Rekruttering, IT-systemer, intern revision | | Selvrevision, egeninteresse | Vurderes konkret |
-| Ledelsesopgaver (beslutninger, godkendelse af transaktioner, bankfuldmagter, opbevaring af kundens aktiver) | | | **Ikke tilladt** – kan ikke afhjælpes |
+| Ledelsesopgaver (beslutninger, godkendelse af transaktioner, bankfuldmagter, opbevaring af kundens aktiver) | | | **Ikke tilladt** – revisor må ikke være involveret i virksomhedens beslutningstagning (revisorlovens § 24, stk. 1) |
 
 Honorar for erklæringsopgaven: {{ felt.honorar_erklaering }} kr. · Andre ydelser: {{ felt.honorar_andet }} kr.
 
 ## 4. Honorarafhængighed og varighed
 
-- Kundens andel af firmaets samlede honorar: {{ felt.honorarandel }} %. Overstiger andelen 15 % (eller udgør den en væsentlig andel for den enkelte partner/kontor), skal truslen vurderes og håndteres, fx ved opgavekvalitetsgennemgang før afgivelse af erklæringen.
-- Underskriveren har været på opgaven i {{ felt.aar_paa_opgaven }} år. Vurdér trusler om fortrolighed ved langvarig tilknytning, og om der skal ske rotation eller ekstra gennemgang (rotation er lovkrav for PIE).
+- Kundens andel af firmaets samlede honorar: {{ felt.honorarandel }} %. Vurdér truslen om egeninteresse og intimidering efter de etiske regler om honorarafhængighed (afsnit 410), herunder de grænser og krav om sikkerhedsforanstaltninger og oplysning, der gælder for henholdsvis PIE og andre virksomheder. Grænse anvendt i firmaets politik: {{ felt.honorargraense }}.
+- Underskriveren har været på opgaven i {{ felt.aar_paa_opgaven }} år. Vurdér trusler om fortrolighed ved langvarig tilknytning, og om der skal ske rotation eller ekstra gennemgang (rotation af underskrivende revisor efter senest 7 år er lovkrav for PIE og for virksomheder omfattet af revisorlovens § 25, stk. 2).
 
 ## 5. Bekræftelser fra teamet
 

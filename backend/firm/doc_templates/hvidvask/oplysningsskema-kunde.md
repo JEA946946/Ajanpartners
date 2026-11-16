@@ -80,9 +80,9 @@ Vi beder om dokumentation for, hvor midlerne til virksomheden kommer fra, fx:
 
 ## Sådan behandler vi jeres oplysninger
 
-{{ firma.navn }} er dataansvarlig for de oplysninger, vi indsamler efter hvidvaskloven. Oplysningerne bruges kun til at forebygge hvidvask og finansiering af terrorisme og til at overholde vores lovpligtige forpligtelser (databeskyttelsesforordningens art. 6, stk. 1, litra c, og hvidvasklovens § 16). Vi opbevarer oplysningerne i 5 år efter kundeforholdets ophør og sletter dem derefter, medmindre anden lovgivning kræver længere opbevaring (§ 30). Oplysningerne kan efter loven videregives til Hvidvasksekretariatet og Erhvervsstyrelsen. I har ret til indsigt, berigtigelse og til at klage til Datatilsynet; retten til indsigt kan være begrænset efter hvidvaskloven. Læs mere i vores privatlivspolitik.
+{{ firma.navn }} er dataansvarlig for de oplysninger, vi indsamler efter hvidvaskloven. Oplysningerne bruges kun til at forebygge hvidvask og finansiering af terrorisme og til at overholde vores lovpligtige forpligtelser (databeskyttelsesforordningens art. 6, stk. 1, litra c, og hvidvasklovens § 16). Vi opbevarer oplysningerne i 5 år efter kundeforholdets ophør og sletter dem derefter, medmindre andet er fastsat i anden lovgivning (§ 30, stk. 2). Oplysningerne kan efter loven videregives til Hvidvasksekretariatet og Erhvervsstyrelsen. I har ret til indsigt, berigtigelse og til at klage til Datatilsynet; retten til indsigt er begrænset for oplysninger om undersøgelser og underretninger efter hvidvaskloven (§ 25, stk. 4, og § 26, stk. 7). Læs mere i vores privatlivspolitik.
 
-Hvis vi ikke modtager oplysningerne, kan vi efter hvidvaskloven ikke påbegynde eller fortsætte samarbejdet (§ 14).
+Hvis vi ikke modtager oplysningerne, kan vi efter hvidvaskloven ikke påbegynde eller fortsætte samarbejdet (§ 14, stk. 5).
 
 Kontakt os gerne, hvis I har spørgsmål.
 
