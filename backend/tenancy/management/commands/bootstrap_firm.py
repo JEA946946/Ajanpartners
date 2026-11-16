@@ -1,7 +1,7 @@
 """Opret public-tenant, pakker, revisorhusets stamdata og (valgfrit) den første partner.
 
     python manage.py bootstrap_firm --firm-name "Ajan Partners" --cvr 46922514 \
-        --address "Vej 1, 1000 København K" --email info@ajanpartners.dk --phone "+45 12 34 56 78" \
+        --address "Vej 1" --zip-code 1000 --city "København K" --email info@ajanpartners.dk --phone "+45 12 34 56 78" \
         --partner-email jamal@ajanpartners.dk --partner-password ...
 
 Kan køres igen: kun de stamdata, der angives, opdateres.
@@ -15,7 +15,8 @@ from integrations.base import IntegrationError
 from tenancy.models import Firm, FirmStaff
 from tenancy.services import ensure_public_tenant
 
-FIRM_FIELDS = {"firm_name": "name", "cvr": "cvr", "address": "address", "email": "email", "phone": "phone"}
+FIRM_FIELDS = {"firm_name": "name", "cvr": "cvr", "address": "address", "zip_code": "zip_code", "city": "city",
+               "email": "email", "phone": "phone", "website": "website"}
 
 
 class Command(BaseCommand):
@@ -25,7 +26,10 @@ class Command(BaseCommand):
         parser.add_argument("--domain", default="localhost")
         parser.add_argument("--firm-name", help="Revisorhusets navn")
         parser.add_argument("--cvr", help="Revisorhusets CVR-nummer (8 cifre)")
-        parser.add_argument("--address", help="Revisorhusets adresse")
+        parser.add_argument("--address", help="Vej og nr.")
+        parser.add_argument("--zip-code", help="Postnr.")
+        parser.add_argument("--city", help="By")
+        parser.add_argument("--website", help="Hjemmeside")
         parser.add_argument("--email", help="Revisorhusets e-mail")
         parser.add_argument("--phone", help="Revisorhusets telefon")
         parser.add_argument("--partner-email")

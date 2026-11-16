@@ -22,7 +22,8 @@ from .mfa import has_mfa, mfa_required_for
 
 
 def firm_dict(firm):
-    return {"name": firm.name, "cvr": firm.cvr, "email": firm.email, "phone": firm.phone,
+    return {"name": firm.name, "cvr": firm.cvr, "address": firm.address, "zip_code": firm.zip_code,
+            "city": firm.city, "email": firm.email, "phone": firm.phone, "website": firm.website,
             "logo": firm.logo, "primary_color": firm.primary_color}
 
 

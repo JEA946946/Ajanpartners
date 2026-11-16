@@ -491,9 +491,29 @@ def firm_settings(request):
     if request.method == "PUT":
         if not staff_of(request.user).is_partner:
             return _err("Kun partnere kan ændre firmaoplysninger.", 403)
-        for f in ("name", "cvr", "address", "email", "phone", "logo", "primary_color"):
-            if f in request.data:
-                setattr(firm, f, request.data[f])
+        data = {f: request.data[f] for f in ("name", "cvr", "address", "zip_code", "city", "email", "phone",
+                                             "website", "logo", "primary_color") if f in request.data}
+        for f, v in data.items():
+            if isinstance(v, str) and f != "logo":
+                data[f] = v.strip()
+        if not data.get("name", firm.name):
+            return _err("Revisorhuset skal have et navn.")
+        if data.get("cvr"):
+            from integrations.base import IntegrationError
+            from integrations.cvr import normalize_cvr
+            try:
+                data["cvr"] = normalize_cvr(data["cvr"])
+            except IntegrationError as e:
+                return _err(str(e))
+        if data.get("email"):
+            from django.core.exceptions import ValidationError
+            from django.core.validators import validate_email
+            try:
+                validate_email(data["email"])
+            except ValidationError:
+                return _err("E-mailadressen er ikke gyldig.")
+        for f, v in data.items():
+            setattr(firm, f, v)
         firm.save()
         _log(request, "firm_updated")
     return _ok({"firm": firm_dict(firm)})

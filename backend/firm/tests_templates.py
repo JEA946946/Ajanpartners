@@ -191,3 +191,32 @@ class TemplateEndpointTests(TransactionTestCase):
         self.assertEqual(self.call("post", "/api/firm/templates/findes-ikke/render", self.partner, {}).status_code, 404)
         owner = User.objects.get(email="a@a.dk")
         self.assertEqual(self.call("get", "/api/firm/templates", owner).status_code, 403)
+
+
+@override_settings(FIRM_MFA_REQUIRED=False)
+class FirmSettingsTests(TransactionTestCase):
+    def setUp(self):
+        ensure_public_tenant("testserver")
+        self.partner = User.objects.create_user("p2@x.dk", "p2@x.dk", PW)
+        FirmStaff.objects.create(user=self.partner, firm=Firm.current(), role="partner")
+        self.http = Client()
+
+    def put(self, data):
+        from rest_framework_simplejwt.tokens import RefreshToken
+        return self.http.put("/api/firm/settings", data=json.dumps(data), content_type="application/json",
+                             HTTP_AUTHORIZATION=f"Bearer {RefreshToken.for_user(self.partner).access_token}")
+
+    def test_address_fields_saved_and_merged(self):
+        r = self.put({"name": "Ajan Partners", "cvr": "DK 46 92 25 14", "address": " Vej 1 ", "zip_code": "1000",
+                      "city": "København K", "website": "www.ajanpartners.dk"})
+        self.assertEqual(r.status_code, 200, r.content)
+        f = r.json()["data"]["firm"]
+        self.assertEqual((f["cvr"], f["address"], f["zip_code"], f["city"]), ("46922514", "Vej 1", "1000", "København K"))
+        ctx = templating.build_context(Firm.current())
+        self.assertEqual(ctx["firma"]["adresse"], "Vej 1, 1000 København K")
+        self.assertEqual(ctx["firma"]["hjemmeside"], "www.ajanpartners.dk")
+
+    def test_validation(self):
+        self.assertEqual(self.put({"cvr": "123"}).status_code, 400)
+        self.assertEqual(self.put({"email": "ikke-en-mail"}).status_code, 400)
+        self.assertEqual(self.put({"name": " "}).status_code, 400)

@@ -47,7 +47,7 @@ Filen starter med en JSON-blok mellem to linjer med `---`, derefter selve tekste
 ## Flettefelter (indsættes automatisk når brugeren vælger en kunde)
 | Felt | Eksempel |
 |---|---|
-| `{{ firma.navn }}`, `{{ firma.cvr }}`, `{{ firma.adresse }}`, `{{ firma.email }}`, `{{ firma.telefon }}` | Ajan Partners, 12345678 … |
+| `{{ firma.navn }}`, `{{ firma.cvr }}`, `{{ firma.adresse }}` (samlet: vej, postnr. og by), `{{ firma.vej }}`, `{{ firma.postnr }}`, `{{ firma.by }}`, `{{ firma.email }}`, `{{ firma.telefon }}`, `{{ firma.hjemmeside }}` | Ajan Partners, 46922514 … |
 | `{{ kunde.navn }}`, `{{ kunde.cvr }}`, `{{ kunde.adresse }}`, `{{ kunde.postnr }}`, `{{ kunde.by }}`, `{{ kunde.email }}`, `{{ kunde.telefon }}` | |
 | `{{ kunde.selskabsform }}` (tekst, fx "ApS"), `{{ kunde.selskabsform_kode }}` (fx `aps`) | |
 | `{{ kunde.er_kapitalselskab }}` (ApS, A/S, IVS, holding), `{{ kunde.er_personlig }}` (enk, I/S, pmv) | bool |

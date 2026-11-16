@@ -18,9 +18,12 @@ class Firm(models.Model):
 
     name = models.CharField(max_length=200)
     cvr = models.CharField(max_length=8, blank=True, default="")
-    address = models.TextField(blank=True, default="")
+    address = models.TextField(blank=True, default="")  # vej og nr.
+    zip_code = models.CharField(max_length=10, blank=True, default="")
+    city = models.CharField(max_length=100, blank=True, default="")
     email = models.EmailField(blank=True, default="")
     phone = models.CharField(max_length=50, blank=True, default="")
+    website = models.CharField(max_length=200, blank=True, default="")
     logo = models.TextField(blank=True, default="")  # base64 data-URL
     primary_color = models.CharField(max_length=20, default="#0B3D5C")
 

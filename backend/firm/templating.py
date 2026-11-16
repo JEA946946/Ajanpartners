@@ -215,8 +215,11 @@ def _owners(form):
 def build_context(firm, client=None, user=None, staff=None, year=None, with_figures=False, fields=None):
     today = date.today()
     ctx = {
-        "firma": {"navn": firm.name, "cvr": firm.cvr, "adresse": firm.address, "email": firm.email,
-                  "telefon": firm.phone},
+        "firma": {"navn": firm.name, "cvr": firm.cvr,
+                  # adresse = samlet linje (vej, postnr. og by), som skabelonerne bruger i brevhoved og underskrift
+                  "adresse": ", ".join(p for p in (firm.address, f"{firm.zip_code} {firm.city}".strip()) if p),
+                  "vej": firm.address, "postnr": firm.zip_code, "by": firm.city, "email": firm.email,
+                  "telefon": firm.phone, "hjemmeside": firm.website},
         "medarbejder": {"navn": (user.get_full_name() or user.username) if user else "",
                         "titel": (staff.title if staff and staff.title else staff.get_role_display()) if staff else ""},
         "dato": {"idag": da_date(today), "aar": str(today.year)},

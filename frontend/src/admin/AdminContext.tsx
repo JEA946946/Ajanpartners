@@ -6,8 +6,12 @@ import { Package, Staff } from './api';
 export interface FirmSettings {
   name: string;
   cvr: string;
+  address: string;
+  zip_code: string;
+  city: string;
   email: string;
   phone: string;
+  website: string;
   logo: string;
   primary_color: string;
 }
