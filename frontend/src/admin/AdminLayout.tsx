@@ -7,7 +7,7 @@ import {
   Business as ClientsIcon, Event as DeadlineIcon, Forum as TaskIcon, Group as StaffIcon,
   Inventory2 as PackageIcon, History as AuditIcon, Settings as SettingsIcon, SwapHoriz as SwapIcon,
   Logout as LogoutIcon, PersonAdd as NewIcon,
-  Gavel as TermsIcon,
+  Gavel as TermsIcon, Article as TemplateIcon,
 } from '@mui/icons-material';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
@@ -22,6 +22,7 @@ const ITEMS = [
   { text: 'Opret kunde', icon: <NewIcon fontSize="small" />, path: '/admin/clients/new' },
   { text: 'Fristkalender', icon: <DeadlineIcon fontSize="small" />, path: '/admin/deadlines' },
   { text: 'Opgaver og forespørgsler', icon: <TaskIcon fontSize="small" />, path: '/admin/tasks' },
+  { text: 'Skabeloner', icon: <TemplateIcon fontSize="small" />, path: '/admin/templates' },
   { text: 'Medarbejdere', icon: <StaffIcon fontSize="small" />, path: '/admin/staff' },
   { text: 'Pakker', icon: <PackageIcon fontSize="small" />, path: '/admin/packages' },
   { text: 'Betingelser', icon: <TermsIcon fontSize="small" />, path: '/admin/terms' },

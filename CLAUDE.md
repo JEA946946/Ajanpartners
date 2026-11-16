@@ -24,6 +24,7 @@ Django 5.2 + DRF backend (`backend/`), React 18 + MUI 5 + Vite frontend (`fronte
 ## Admin-portalen
 - Backend: `firm/` → `/api/firm/...` (public). Frontend: `frontend/src/admin/` (route `/admin/*`), API-klient `firmApi` i `services/api.ts`.
 - Tal fra en kundes bøger kræver aktiv grant (`active_grant`). Stamdata gør ikke.
+- **Skabeloner** (`/admin/templates`): filer i `backend/firm/doc_templates/<kategori>/<id>.md` (JSON-front-matter + Django-skabelonsprog, format i `docs/skabeloner-format.md`). Fletning i `firm/templating.py` (kunde, revisorhus, regnskabsår, nøgletal), branchegrupper ud fra DB25 i `firm/branche.py`, Word-eksport i `firm/docx_export.py`. Kun tags `if/for/comment` er tilladt. `firm.tests_templates.AllTemplatesTests` fletter hver skabelon for flere selskabsformer og brancher – kør den efter nye skabeloner.
 
 ## Frontend
 - `hooks/useClient.tsx`: `/me` (kunder, revisorrolle, manglende accept af betingelser) og den valgte kunde (`features`, `access`). `useFeature('payroll')`, `RequireFeature`.

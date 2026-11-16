@@ -135,7 +135,10 @@ const ClientDetail: React.FC = () => {
         <Typography color="text.secondary">{client.cvr ? `CVR ${client.cvr}` : 'Uden CVR'} · {client.package_name}</Typography>
         <Chip size="small" label={CLIENT_STATUS[client.status]} color={archived ? 'default' : client.status === 'active' ? 'success' : 'warning'} />
         <AccessChip access={client.access} />
-        <Button sx={{ ml: 'auto' }} variant="outlined" disabled={!canExport} onClick={doExport}
+        <Button sx={{ ml: 'auto' }} variant="outlined" onClick={() => navigate(`/admin/templates?client=${slug}`)}>
+          Dokumenter
+        </Button>
+        <Button variant="outlined" disabled={!canExport} onClick={doExport}
           title="SAF-T pr. regnskabsår, saldobalancer, alle bilag og audit-log (ved ophør eller udlevering)">
           Eksportér alt
         </Button>

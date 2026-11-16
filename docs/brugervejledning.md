@@ -37,6 +37,7 @@ Bogføringsloven kræver, at regnskabsmaterialet gemmes i 5 år. Vi tager backup
 - Admin-portalen ligger under **/admin**. Du skal have to-faktor-login, før du kommer ind.
 - **Kunder**: oversigt med adgangsstatus, næste frist og åbne opgaver. "Arbejd i kunden" åbner kundens bøger efter kundeaftalen, og alt logges. Et gult banner viser, at du arbejder hos en kunde.
 - **Opret kunde**: CVR-opslag udfylder stamdata. Vælg pakke, momsperiode og kontoplan, og angiv eventuelt en reference til opdragsbrevet. I har adgang med det samme. Kunden accepterer betingelserne ved første login.
+- **Skabeloner**: opdragsbreve, erklæringer, ledelseserklæringer, generalforsamlings- og selskabsdokumenter, hvidvask/kundekendskab, årsafslutning, skat og kundebreve. Vælg skabelon og kunde, så flettes stamdata, regnskabsår, frister, nøgletal fra bogføringen og branchespecifikke afsnit ind (ud fra branchekoden). Udfyld de felter, der mangler (markeret […]), ret evt. i teksten, og hent den som Word eller PDF. Fra kundedetaljen åbner **Dokumenter** skabelonerne med kunden valgt. Skabelonerne er et udgangspunkt; den underskrivende revisor tilpasser til opgaven.
 - **Betingelser**: partnere publicerer nye versioner af forretningsbetingelser, databehandleraftale og privatlivspolitik. En ny version skal accepteres igen af kunderne.
 - **Fristkalender**: moms, A-skat og AM-bidrag, årsrapport og selvangivelse, beregnet ud fra kundens stamdata. Tjek altid mod Skats kalender ved tvivl.
 - **Opgaver**: bilagsforespørgsler og spørgsmål til kunden. Interne opgaver kan kunden ikke se.
