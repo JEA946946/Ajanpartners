@@ -3,7 +3,7 @@
   "title": "Revisionspåtegning – afkræftende eller manglende konklusion (ISA 705)",
   "description": "Revisionspåtegning på årsregnskab (klasse B), når virkningen af et forhold er både væsentlig og gennemgribende: afkræftende konklusion ved væsentlig fejlinformation, manglende konklusion når tilstrækkeligt revisionsbevis ikke kan opnås. Drøft altid med kvalitetssikringsansvarlig før afgivelse.",
   "kind": "erklaering",
-  "references": ["ISA 705 (DK), afsnit 8-10 og 26-28", "ISA 700 (DK)", "ISA 720", "Erklæringsbekendtgørelsen § 5, stk. 2 og 4, og § 6", "Revisorloven § 16 (LBK nr. 206 af 20/02/2025)"],
+  "references": ["ISA 705 (DK), afsnit 8-10 og 26-28", "ISA 700 (DK)", "ISA 720", "Erklæringsbekendtgørelsen (BEK nr. 518 af 24/05/2024) § 5 og § 6, stk. 1-3 og 5-8", "Revisorloven § 16 (LBK nr. 206 af 20/02/2025)"],
   "legal_forms": ["aps", "as", "ivs", "holding", "pmv", "andet"],
   "industry_aware": false,
   "fields": [

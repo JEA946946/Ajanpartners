@@ -3,7 +3,7 @@
   "title": "Brev til ledelsen efter revision (ApS uden bestyrelse)",
   "description": "Afsluttende revisionsbrev til direktionen i selskaber uden bestyrelse, hvor der ikke føres revisionsprotokol. Opfylder kommunikationskravene i ISA 260 og ISA 265: påtegning, væsentlighed, risici, fejl, intern kontrol, uafhængighed og ledelsens ansvar.",
   "kind": "brev",
-  "references": ["ISA 260", "ISA 265", "ISA 450", "Revisorloven §§ 16 og 24 (LBK nr. 206 af 20/02/2025)", "Selskabsloven §§ 115-118 og 127", "Ligningsloven § 16 E"],
+  "references": ["ISA 260", "ISA 265", "ISA 450", "Revisorloven §§ 16 og 24 (LBK nr. 206 af 20/02/2025)", "Selskabsloven §§ 117-118 og 127", "Ligningsloven § 16 E"],
   "legal_forms": ["aps", "ivs", "holding", "pmv", "andet"],
   "industry_aware": true,
   "fields": [
@@ -26,7 +26,7 @@ Att.: {{ kunde.ledelsesorgan }}
 
 # Afslutning af revisionen af årsrapporten for {{ regnskab.aar }}
 
-Vi har afsluttet revisionen af årsrapporten for {{ kunde.navn }} for regnskabsåret {{ regnskab.start }} – {{ regnskab.slut }}. Da selskabet ikke har en bestyrelse, føres der ikke revisionsprotokol, og vi giver i stedet med dette brev direktionen vores rapportering om revisionen.
+Vi har afsluttet revisionen af årsrapporten for {{ kunde.navn }} for regnskabsåret {{ regnskab.start }} – {{ regnskab.slut }}. Med dette brev giver vi direktionen vores rapportering om revisionen, jf. ISA 260 og ISA 265.
 
 ## Revisionens resultat
 
@@ -50,7 +50,7 @@ Revisionen har særligt været rettet mod indregning af omsætning, ledelsens ti
 
 ## Direktionens ansvar
 
-Vi minder om, at direktionen efter selskabslovens § 117 forestår den daglige ledelse og skal sørge for, at bogføringen sker i overensstemmelse med lovgivningen, og at formueforvaltningen foregår forsvarligt. Direktionen skal desuden løbende sikre, at selskabets kapitalberedskab og likviditet er forsvarligt, og at eventuelle lån til kapitalejere og ledelse er i selskabets interesse og forsvarlige. Vi gør opmærksom på, at sådanne lån til personlige kapitalejere beskattes efter ligningslovens § 16 E.
+Vi minder om, at direktionen i et selskab uden bestyrelse efter selskabslovens § 117, stk. 2, varetager både den overordnede og strategiske ledelse og den daglige ledelse, og efter § 118 skal sikre, at bogføringen sker under iagttagelse af lovgivningens regler, at formueforvaltningen foregår på betryggende måde, og at kapitalberedskabet til enhver tid er forsvarligt, herunder at der er tilstrækkelig likviditet. Eventuelle lån til kapitalejere og ledelse bør være i selskabets interesse og forsvarlige. Vi gør opmærksom på, at lån til personlige kapitalejere kan blive beskattet efter ligningslovens § 16 E.
 
 ## Uafhængighed
 

@@ -1,9 +1,9 @@
 ---
 {
   "title": "Erklæring om opstilling af årsregnskab (ISRS 4410)",
-  "description": "Revisors erklæring om opstilling af årsregnskab efter ISRS 4410 (Revideret). Ingen sikkerhed. Til selskaber, der har fravalgt revision, og til personligt ejede virksomheder. Mulighed for at fremhæve særligt regnskabsgrundlag eller kendte fejl.",
+  "description": "Revisors erklæring om opstilling af årsregnskab efter ISRS 4410 (Revideret). Ingen sikkerhed. Til selskaber, der har fravalgt revision, og til personligt ejede virksomheder. Mulighed for at fremhæve særligt regnskabsgrundlag eller kendte fejl. Klasse B-virksomheder i en klassificeret risikobranche med nettoomsætning over 5 mio. kr. i 2 på hinanden følgende år skal have erklæringen fra en uafhængig revisor (ÅRL § 135, stk. 5).",
   "kind": "erklaering",
-  "references": ["ISRS 4410 (Revideret), afsnit 40-41", "Erklæringsbekendtgørelsen (bestemmelser om erklæringer uden sikkerhed)", "Årsregnskabsloven § 135, stk. 1, 3. pkt.", "FSR – danske revisorers Etiske regler"],
+  "references": ["ISRS 4410 (Revideret), afsnit 40-41", "Revisorloven § 1, stk. 3, og § 16, stk. 4 (LBK nr. 206 af 20/02/2025)", "Årsregnskabsloven § 135, stk. 1, 3. pkt., og stk. 5", "IESBA Code"],
   "legal_forms": [],
   "industry_aware": false,
   "fields": [
@@ -11,6 +11,7 @@
     {"name": "formaal_begraenset", "label": "Regnskabet har et særligt formål (fx kun til brug for skatteansættelse eller långiver)", "type": "checkbox", "default": false},
     {"name": "formaal_tekst", "label": "Særligt formål og brugere", "type": "text", "default": "til brug for ejerens og Skattestyrelsens opgørelse af den skattepligtige indkomst"},
     {"name": "fremhaevelse", "label": "Fremhævelse af forhold, ledelsen er gjort bekendt med (valgfrit)", "type": "textarea"},
+    {"name": "ikke_uafhaengig", "label": "Revisor er ikke uafhængig af virksomheden (skal oplyses, revisorloven § 16, stk. 4 – ikke muligt ved erklæring efter ÅRL § 135, stk. 5, for risikobrancher)", "type": "checkbox", "default": false},
     {"name": "revisor_titel", "label": "Revisors titel", "type": "select", "options": ["statsautoriseret revisor", "registreret revisor", "revisor"], "default": "registreret revisor"},
     {"name": "mne_nr", "label": "Revisors MNE-nr. (kun hvis godkendt revisor)", "type": "text"},
     {"name": "sted", "label": "Sted for underskrift (by)", "type": "text"},
@@ -28,7 +29,9 @@ Vi har opstillet årsregnskabet for {{ kunde.navn }} for regnskabsåret {{ regns
 
 Vi har udført opgaven i overensstemmelse med ISRS 4410 (Revideret) om opgaver med opstilling af finansielle oplysninger.
 
-Vi har anvendt vores faglige ekspertise til at bistå ledelsen med udarbejdelsen og præsentationen af årsregnskabet i overensstemmelse med {{ felt.regnskabsgrundlag }}. Vi har overholdt relevante bestemmelser i revisorloven og FSR – danske revisorers Etiske regler for revisorer, herunder principper vedrørende integritet, objektivitet, faglig kompetence og fornøden omhu.
+{% if felt.ikke_uafhaengig %}Vi skal oplyse, at vi ikke er uafhængige af {% if kunde.er_kapitalselskab %}selskabet{% else %}virksomheden{% endif %}, jf. revisorlovens § 16, stk. 4.
+
+{% endif %}Vi har anvendt vores faglige ekspertise til at bistå ledelsen med udarbejdelsen og præsentationen af årsregnskabet i overensstemmelse med {{ felt.regnskabsgrundlag }}. Vi har overholdt relevante bestemmelser i revisorloven og International Ethics Standards Board for Accountants' internationale retningslinjer for revisorers etiske adfærd (IESBA Code), herunder principper vedrørende integritet, objektivitet, faglig kompetence og fornøden omhu.
 
 Årsregnskabet og nøjagtigheden og fuldstændigheden af de oplysninger, der er anvendt ved opstillingen heraf, er ledelsens ansvar.
 

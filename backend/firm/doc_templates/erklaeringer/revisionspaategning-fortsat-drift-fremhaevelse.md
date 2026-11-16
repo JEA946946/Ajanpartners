@@ -3,7 +3,7 @@
   "title": "Revisionspåtegning – væsentlig usikkerhed om fortsat drift / fremhævelse af forhold",
   "description": "Revisionspåtegning (klasse B) med konklusion uden modifikation og et særskilt afsnit om væsentlig usikkerhed vedrørende fortsat drift (ISA 570), fremhævelse af forhold i regnskabet (ISA 706) og/eller andre forhold. Forudsætter, at forholdet er tilstrækkeligt oplyst i årsregnskabet – ellers bruges skabelonen med forbehold.",
   "kind": "erklaering",
-  "references": ["ISA 570 (DK), afsnit 22", "ISA 706 (DK)", "ISA 700 (DK)", "Erklæringsbekendtgørelsen § 5, stk. 3 og 4", "Selskabsloven § 119 (kapitaltab)"],
+  "references": ["ISA 570 (DK), afsnit 22", "ISA 706 (DK)", "ISA 700 (DK)", "Erklæringsbekendtgørelsen (BEK nr. 518 af 24/05/2024) § 5, stk. 1, nr. 3, og stk. 5, samt § 7, stk. 1, 3 og 4", "Selskabsloven § 119 (kapitaltab)"],
   "legal_forms": ["aps", "as", "ivs", "holding", "pmv", "andet"],
   "industry_aware": false,
   "fields": [
@@ -11,7 +11,6 @@
     {"name": "fortsat_drift_note", "label": "Note i årsregnskabet, hvor usikkerheden er oplyst (fx note 1)", "type": "text"},
     {"name": "fortsat_drift_forhold", "label": "Kort beskrivelse af begivenheder/forhold (fx negativ egenkapital, likviditetsbehov, afhængighed af kredittilsagn)", "type": "textarea"},
     {"name": "fremhaevelse", "label": "Fremhævelse af forhold i regnskabet (ISA 706)", "type": "checkbox", "default": false},
-    {"name": "fremhaevelse_overskrift", "label": "Overskrift for fremhævelsen (fx Usikkerhed ved indregning og måling)", "type": "text", "default": "Fremhævelse af forhold i regnskabet"},
     {"name": "fremhaevelse_tekst", "label": "Fremhævelse: hvad og hvilken note", "type": "textarea"},
     {"name": "andre_forhold", "label": "Andre forhold (ISA 706, fx sammenligningstal ikke revideret)", "type": "textarea"},
     {"name": "ledelsesberetning", "label": "Årsrapporten indeholder en ledelsesberetning", "type": "checkbox", "default": true},
@@ -41,7 +40,7 @@ Vi har udført vores revision i overensstemmelse med internationale standarder o
 
 Vi henleder opmærksomheden på {{ felt.fortsat_drift_note }} i årsregnskabet, hvoraf det fremgår, at {{ felt.fortsat_drift_forhold }} Som anført i noten indikerer disse begivenheder eller forhold, at der er en væsentlig usikkerhed, som kan rejse betydelig tvivl om selskabets evne til at fortsætte driften. Vores konklusion er ikke modificeret som følge af dette forhold.
 
-{% endif %}{% if felt.fremhaevelse %}## {{ felt.fremhaevelse_overskrift }}
+{% endif %}{% if felt.fremhaevelse %}## Fremhævelse af forhold i regnskabet
 
 {{ felt.fremhaevelse_tekst }}
 

@@ -1,12 +1,13 @@
 ---
 {
   "title": "Vurderingsberetning ved konvertering af gæld (SL §§ 160-161)",
-  "description": "Vurderingsberetning med høj grad af sikkerhed (ISAE 3000) ved kapitalforhøjelse, hvor indskuddet sker ved konvertering af gæld (fordring på selskabet). Fordringen værdiansættes til dagsværdi under hensyn til selskabets betalingsevne – ikke automatisk til pålydende. Henviser til ledelsens redegørelse efter § 161.",
+  "description": "Vurderingsberetning med høj grad af sikkerhed (ISAE 3000) ved kapitalforhøjelse, hvor indskuddet sker ved konvertering af gæld (fordring på selskabet). Fordringen værdiansættes under hensyn til selskabets betalingsevne – ikke automatisk til pålydende. Henviser til ledelsens redegørelse efter § 161, stk. 2. Bemærk: Selskabsloven § 161 kræver en redegørelse fra det centrale ledelsesorgan; om der tillige kræves vurderingsberetning efter § 160, jf. §§ 36-37, skal revisor afklare i den konkrete sag (feltet Retsgrundlag).",
   "kind": "erklaering",
-  "references": ["Selskabsloven §§ 36-37, 160 og 161 (LBK nr. 331 af 20/03/2025)", "Erhvervsstyrelsens vejledning om anvendelse af vurderingsberetninger ved registreringer", "ISAE 3000 (Revideret)", "ISQM 1"],
+  "references": ["Selskabsloven §§ 36-37, 160 og 161 (LBK nr. 331 af 20/03/2025)", "Erhvervsstyrelsens vejledning om anvendelse af vurderingsberetninger ved registreringer", "ISAE 3000 (Revideret)", "ISQM 1", "Erklæringsbekendtgørelsen (BEK nr. 518 af 24/05/2024) §§ 18-21"],
   "legal_forms": ["aps", "as", "holding"],
   "industry_aware": false,
   "fields": [
+    {"name": "retsgrundlag", "label": "Retsgrundlag for beretningen (udfyldes af revisor – afklar, om selskabslovens § 160, jf. §§ 36-37, finder anvendelse, eller om beretningen afgives efter aftale)", "type": "text"},
     {"name": "kreditor", "label": "Kreditor/indskyder", "type": "text"},
     {"name": "fordring_beskrivelse", "label": "Beskrivelse af fordringen (grundlag, stiftelsestidspunkt, rente, forfald, evt. efterstillelse)", "type": "textarea"},
     {"name": "fordring_paalydende", "label": "Fordringens pålydende inkl. påløbne renter (kr.)", "type": "number"},
@@ -17,7 +18,7 @@
     {"name": "nominel_kapital", "label": "Nominel værdi af nye kapitalandele (kr.)", "type": "number"},
     {"name": "overkurs", "label": "Overkurs (kr., tom = kurs pari)", "type": "number"},
     {"name": "vederlag_i_alt", "label": "Vederlag i alt (kr.)", "type": "number"},
-    {"name": "redegoerelse_161", "label": "Ledelsens redegørelse efter § 161 foreligger (ellers: kapitalejerne har enstemmigt fravalgt den)", "type": "checkbox", "default": true},
+    {"name": "redegoerelse_161", "label": "Ledelsens redegørelse efter § 161, stk. 2, foreligger (ellers: kapitalejerne har i enighed fravalgt den, § 161, stk. 4)", "type": "checkbox", "default": true},
     {"name": "revisor_titel", "label": "Revisors titel", "type": "select", "options": ["statsautoriseret revisor", "registreret revisor"], "default": "statsautoriseret revisor"},
     {"name": "mne_nr", "label": "Revisors MNE-nr.", "type": "text"},
     {"name": "sted", "label": "Sted for underskrift (by)", "type": "text"},
@@ -29,7 +30,7 @@
 
 Til {{ kunde.ledelsesorgan }} og {{ kunde.kapitalejere }} i {{ kunde.navn }}, CVR-nr. {{ kunde.cvr }}
 
-Som uvildig og sagkyndig vurderingsmand, jf. selskabslovens § 37, stk. 1, afgiver vi vurderingsberetning efter selskabslovens § 160, jf. § 36, i forbindelse med forhøjelse af selskabskapitalen ved konvertering af en fordring på selskabet tilhørende {{ felt.kreditor }}.
+Som uvildig og sagkyndig vurderingsmand, jf. selskabslovens § 37, stk. 1, afgiver vi vurderingsberetning efter {{ felt.retsgrundlag }} i forbindelse med forhøjelse af selskabskapitalen ved konvertering af en fordring på selskabet tilhørende {{ felt.kreditor }}.
 
 ## Konklusion
 
@@ -45,7 +46,7 @@ Fordringen bortfalder ved konverteringen, og selskabets gæld nedbringes tilsvar
 
 ## Anvendt vurderingsmetode
 
-En fordring på selskabet kan alene indgå i kapitalforhøjelsen med den værdi, den har for selskabet og dets kreditorer, dvs. fordringens dagsværdi. Dagsværdien afhænger af selskabets evne til at indfri fordringen. Vi har vurderet betalingsevnen på grundlag af {{ felt.vurderingsgrundlag }}.
+Fordringen er værdiansat under hensyn til selskabets evne til at indfri den. Vi har vurderet betalingsevnen på grundlag af {{ felt.vurderingsgrundlag }}.
 
 {{ felt.solvens }}
 
@@ -53,7 +54,7 @@ En fordring på selskabet kan alene indgå i kapitalforhøjelsen med den værdi,
 
 Som vederlag udstedes kapitalandele med en nominel værdi på {{ felt.nominel_kapital }} kr. til kurs {% if felt.overkurs %}over pari med en overkurs på {{ felt.overkurs }} kr{% else %}pari{% endif %}, i alt {{ felt.vederlag_i_alt }} kr.
 
-{% if felt.redegoerelse_161 %}Det centrale ledelsesorgan har i en redegørelse efter selskabslovens § 161, stk. 1, redegjort for årsagen til og tidspunktet for gældens stiftelse og for begrundelsen for forslaget om konvertering. Vi har gennemgået redegørelsen, og den er i overensstemmelse med de oplysninger, vi har modtaget.{% else %}Kapitalejerne har i enighed besluttet, at der ikke skal udarbejdes en redegørelse efter selskabslovens § 161, stk. 1, jf. stk. 2.{% endif %}
+{% if felt.redegoerelse_161 %}Det centrale ledelsesorgan har i en redegørelse efter selskabslovens § 161, stk. 2, redegjort for årsagen til og tidspunktet for gældens stiftelse og for begrundelsen for forslaget om konvertering. Vi har gennemgået redegørelsen, og den er i overensstemmelse med de oplysninger, vi har modtaget.{% else %}Kapitalejerne har i enighed besluttet, at der ikke skal udarbejdes en redegørelse efter selskabslovens § 161, stk. 2, jf. stk. 4.{% endif %}
 
 ## Grundlag for konklusion
 
@@ -69,7 +70,7 @@ Vores ansvar er at udtrykke en konklusion om, hvorvidt den ansatte økonomiske v
 
 ## Begrænsning i anvendelse
 
-Beretningen er udarbejdet til opfyldelse af selskabslovens § 160, jf. § 36, og skal indgå i registreringen hos Erhvervsstyrelsen. Den må ikke være udarbejdet tidligere end 4 uger før beslutningen om kapitalforhøjelsen og er ikke egnet til andre formål.
+Beretningen er udarbejdet til brug for kapitalforhøjelsen og er ikke egnet til andre formål. Afgives den efter selskabslovens § 160, jf. §§ 36 og 37, må vurderingen ikke være foretaget mere end 4 uger før beslutningen om kapitalforhøjelsen, jf. § 36, stk. 2.
 
 {{ felt.sted }}, den {{ felt.erklaeringsdato }}
 

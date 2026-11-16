@@ -1,9 +1,9 @@
 ---
 {
-  "title": "Erklæring om opgørelse af omsætning (ISA 805 / ISAE 3000)",
+  "title": "Erklæring om opgørelse af omsætning (ISA 805 / ISRE 2400)",
   "description": "Revisors erklæring med høj eller begrænset grad af sikkerhed om en særskilt opgørelse af omsætning, fx til udlejer ved omsætningsbaseret leje, franchisegiver, licensgiver eller långiver. Indeholder afsnit om regnskabsgrundlag og begrænsning i distribution. Ved kontantintensive virksomheder fremhæves ledelsens ansvar for fuldstændig registrering af kontantsalg.",
   "kind": "erklaering",
-  "references": ["ISA 805 (DK) – revision af særskilte regnskabsopgørelser", "ISA 800 (DK) – regnskaber med særligt formål", "ISAE 3000 (Revideret)", "ISRE 2400 (ved begrænset sikkerhed)", "Erklæringsbekendtgørelsen §§ 1-5"],
+  "references": ["ISA 805 (DK) – revision af særskilte regnskabsopgørelser", "ISA 800 (DK) – regnskaber med særligt formål", "ISRE 2400 (Revideret), afsnit 3 (ved begrænset sikkerhed)", "Erklæringsbekendtgørelsen (BEK nr. 518 af 24/05/2024) §§ 18-21"],
   "legal_forms": [],
   "industry_aware": true,
   "fields": [
@@ -13,7 +13,6 @@
     {"name": "lokation", "label": "Afgrænsning (fx butik/lejemål, adresse)", "type": "text"},
     {"name": "beloeb", "label": "Opgjort omsætning (kr. ekskl. moms)", "type": "number"},
     {"name": "sikkerhed", "label": "Sikkerhedsgrad", "type": "select", "options": ["Høj grad af sikkerhed (revision)", "Begrænset grad af sikkerhed (review)"], "default": "Høj grad af sikkerhed (revision)"},
-    {"name": "standard", "label": "Standard", "type": "select", "options": ["ISA 805", "ISAE 3000"], "default": "ISA 805"},
     {"name": "revisor_titel", "label": "Revisors titel", "type": "select", "options": ["statsautoriseret revisor", "registreret revisor"], "default": "statsautoriseret revisor"},
     {"name": "mne_nr", "label": "Revisors MNE-nr.", "type": "text"},
     {"name": "sted", "label": "Sted for underskrift (by)", "type": "text"},
@@ -33,7 +32,7 @@ Vi har {% if felt.sikkerhed == "Høj grad af sikkerhed (revision)" %}revideret{%
 
 ## Grundlag for konklusion
 
-{% if felt.standard == "ISA 805" %}Vi har udført vores {% if felt.sikkerhed == "Høj grad af sikkerhed (revision)" %}revision i overensstemmelse med internationale standarder om revision, herunder ISA 805 om revision af særskilte regnskabsopgørelser{% else %}review i overensstemmelse med ISRE 2400 (Revideret){% endif %}, og de yderligere krav, der er gældende i Danmark.{% else %}Vi har udført vores arbejde i overensstemmelse med ISAE 3000 (Revideret), Andre erklæringsopgaver med sikkerhed end revision eller review af historiske finansielle oplysninger, og de yderligere krav, der er gældende i Danmark, med henblik på at opnå {% if felt.sikkerhed == "Høj grad af sikkerhed (revision)" %}høj{% else %}begrænset{% endif %} grad af sikkerhed for vores konklusion.{% endif %} Vores ansvar ifølge disse standarder og krav er nærmere beskrevet i afsnittet „Revisors ansvar“. Vi er uafhængige af selskabet i overensstemmelse med International Ethics Standards Board for Accountants' internationale retningslinjer for revisorers etiske adfærd (IESBA Code) og de yderligere etiske krav, der er gældende i Danmark, ligesom vi har opfyldt vores øvrige etiske forpligtelser i henhold til disse krav og IESBA Code. Revisionsvirksomheden anvender ISQM 1. Det er vores opfattelse, at det opnåede bevis er tilstrækkeligt og egnet som grundlag for vores konklusion.
+Vi har udført vores {% if felt.sikkerhed == "Høj grad af sikkerhed (revision)" %}revision i overensstemmelse med internationale standarder om revision, herunder ISA 805 om revision af særskilte regnskabsopgørelser{% else %}review i overensstemmelse med ISRE 2400 (Revideret){% endif %}, og de yderligere krav, der er gældende i Danmark. Vores ansvar ifølge disse standarder og krav er nærmere beskrevet i afsnittet „Revisors ansvar“. Vi er uafhængige af selskabet i overensstemmelse med International Ethics Standards Board for Accountants' internationale retningslinjer for revisorers etiske adfærd (IESBA Code) og de yderligere etiske krav, der er gældende i Danmark, ligesom vi har opfyldt vores øvrige etiske forpligtelser i henhold til disse krav og IESBA Code. Revisionsvirksomheden anvender ISQM 1. Det er vores opfattelse, at det opnåede bevis er tilstrækkeligt og egnet som grundlag for vores konklusion.
 
 ## Fremhævelse af forhold – regnskabsgrundlag og begrænsning i distribution og anvendelse
 

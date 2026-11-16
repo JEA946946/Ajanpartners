@@ -3,7 +3,7 @@
   "title": "Erklæring om aftalte arbejdshandlinger – tilskudsregnskab (ISRS 4400)",
   "description": "Erklæring om faktiske resultater efter ISRS 4400 (Revideret) vedrørende et tilskudsregnskab/projektregnskab. Indeholder standardhandlinger (afstemning, stikprøver, løn, moms, egenfinansiering), som tilpasses tilskudsgiverens krav. Ingen konklusion og ingen sikkerhed.",
   "kind": "erklaering",
-  "references": ["ISRS 4400 (Revideret) – aftalte arbejdshandlinger", "ISQM 1", "Erklæringsbekendtgørelsen", "FSR – danske revisorers Etiske regler", "Tilskudsgiverens vilkår/revisionsinstruks"],
+  "references": ["ISRS 4400 (Revideret) – aftalte arbejdshandlinger", "ISQM 1", "Revisorloven § 1, stk. 3, og § 16, stk. 4 (LBK nr. 206 af 20/02/2025)", "IESBA Code", "Tilskudsgiverens vilkår/revisionsinstruks"],
   "legal_forms": [],
   "industry_aware": false,
   "fields": [
@@ -12,7 +12,7 @@
     {"name": "periode", "label": "Projektperiode/regnskabsperiode", "type": "text", "default": "{{ regnskab.start }} – {{ regnskab.slut }}"},
     {"name": "tilsagnsbeloeb", "label": "Tilsagnsbeløb (kr.)", "type": "number"},
     {"name": "regnskabsopgoerelse", "label": "Betegnelse og dato for opgørelsen, handlingerne vedrører", "type": "text", "default": "tilskudsregnskabet for perioden, dateret og underskrevet af ledelsen"},
-    {"name": "uafhaengighed", "label": "Uafhængighed", "type": "select", "options": ["Vi er uafhængige af virksomheden i overensstemmelse med IESBA Code og de yderligere etiske krav, der er gældende i Danmark.", "Vi er ikke forpligtet til at være uafhængige ved denne opgave og har ikke vurderet vores uafhængighed. De aftalte arbejdshandlinger kunne være udført af en ikke-uafhængig revisor."], "default": "Vi er uafhængige af virksomheden i overensstemmelse med IESBA Code og de yderligere etiske krav, der er gældende i Danmark."},
+    {"name": "uafhaengighed", "label": "Uafhængighed", "type": "select", "options": ["Vi er uafhængige af virksomheden i overensstemmelse med IESBA Code og de yderligere etiske krav, der er gældende i Danmark.", "Der gælder ikke uafhængighedskrav for denne opgave. Vi oplyser, at vi ikke er uafhængige af virksomheden, jf. revisorlovens § 16, stk. 4."], "default": "Vi er uafhængige af virksomheden i overensstemmelse med IESBA Code og de yderligere etiske krav, der er gældende i Danmark."},
     {"name": "r1", "label": "Resultat 1 – afstemning til bogføring", "type": "textarea", "default": "Vi har ikke konstateret afvigelser."},
     {"name": "r2", "label": "Resultat 2 – stikprøver på udgifter", "type": "textarea", "default": "Vi har ikke konstateret undtagelser."},
     {"name": "r3", "label": "Resultat 3 – lønomkostninger og timer", "type": "textarea", "default": "Vi har ikke konstateret undtagelser."},
@@ -49,7 +49,7 @@ Opgaven er ikke en erklæringsopgave med sikkerhed. Vi udtrykker derfor ikke en 
 
 ## Faglig etik og uafhængighed
 
-Vi har overholdt de etiske krav i revisorloven og FSR – danske revisorers Etiske regler for revisorer, som bygger på International Ethics Standards Board for Accountants' internationale retningslinjer for revisorers etiske adfærd (IESBA Code). {{ felt.uafhaengighed }}
+Vi har overholdt de etiske krav i revisorloven og International Ethics Standards Board for Accountants' internationale retningslinjer for revisorers etiske adfærd (IESBA Code). {{ felt.uafhaengighed }}
 
 ## Kvalitetsstyring
 

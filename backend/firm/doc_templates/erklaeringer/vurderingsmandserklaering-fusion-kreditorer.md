@@ -1,9 +1,9 @@
 ---
 {
   "title": "Vurderingsmandens erklæringer ved fusion (kreditorerklæring m.v., SL §§ 240-242)",
-  "description": "Uvildig vurderingsmands erklæringer ved fusion af kapitalselskaber: erklæring om kreditorernes stilling (§ 242), udtalelse om fusionsplanen og vederlaget (§ 241) og vurderingsberetning ved kapitalforhøjelse i det fortsættende selskab (§ 240). Hver erklæring kan til- og fravælges, fx når kapitalejerne i enighed har fravalgt § 241- og § 242-erklæringerne. Kan tilpasses spaltning, hvor selskabsloven henviser til de tilsvarende regler.",
+  "description": "Uvildig vurderingsmands erklæringer ved fusion af kapitalselskaber: erklæring om kreditorernes stilling (§ 242), udtalelse om fusionsplanen og vederlaget (§ 241) og vurderingsberetning ved kapitalforhøjelse i det fortsættende selskab (§ 240). Hver erklæring kan til- og fravælges, fx når kapitalejerne i enighed har fravalgt § 241- og § 242-erklæringerne. Vurderingsberetningen efter § 240 kræves kun, når det fortsættende eller nye selskab er et aktieselskab, og kan undlades, hvis der udarbejdes erklæring efter § 241 eller § 242. Ved spaltning gælder de tilsvarende regler i §§ 258-261.",
   "kind": "erklaering",
-  "references": ["Selskabsloven §§ 237-242 og 249 (LBK nr. 331 af 20/03/2025)", "Selskabsloven § 37, stk. 1 (vurderingsmand)", "ISAE 3000 (Revideret)", "ISQM 1", "Erhvervsstyrelsens vejledning om fusion og om vurderingsberetninger"],
+  "references": ["Selskabsloven §§ 237-245 og 249 (fusion) og §§ 258-262 (spaltning) (LBK nr. 331 af 20/03/2025)", "Erklæringsbekendtgørelsen (BEK nr. 518 af 24/05/2024) §§ 18-21", "Selskabsloven § 37, stk. 1 (vurderingsmand)", "ISAE 3000 (Revideret)", "ISQM 1", "Erhvervsstyrelsens vejledning om fusion og om vurderingsberetninger"],
   "legal_forms": ["aps", "as", "holding"],
   "industry_aware": false,
   "fields": [
@@ -18,12 +18,12 @@
     {"name": "vederlagserklaering", "label": "Udtalelse om fusionsplanen og vederlaget (§ 241)", "type": "checkbox", "default": false},
     {"name": "vederlag", "label": "Vederlag/ombytningsforhold", "type": "text"},
     {"name": "vederlag_metoder", "label": "Metoder til fastsættelse af vederlaget, værdier og vægtning, særlige vanskeligheder", "type": "textarea"},
-    {"name": "vurderingsberetning", "label": "Vurderingsberetning ved kapitalforhøjelse/nyt selskab (§ 240)", "type": "checkbox", "default": false},
+    {"name": "vurderingsberetning", "label": "Vurderingsberetning ved kapitalforhøjelse/nyt selskab (§ 240 / spaltning § 258 – kun når det fortsættende/nye selskab er et aktieselskab)", "type": "checkbox", "default": false},
     {"name": "kapitalforhoejelse", "label": "Kapitalforhøjelse i det fortsættende selskab: nominelt beløb og overkurs", "type": "text"},
     {"name": "revisor_titel", "label": "Revisors titel", "type": "select", "options": ["statsautoriseret revisor", "registreret revisor"], "default": "statsautoriseret revisor"},
     {"name": "mne_nr", "label": "Revisors MNE-nr.", "type": "text"},
     {"name": "sted", "label": "Sted for underskrift (by)", "type": "text"},
-    {"name": "erklaeringsdato", "label": "Erklæringens dato (højst 3 måneder før vedtagelsen)", "type": "text", "default": "{{ dato.idag }}"}
+    {"name": "erklaeringsdato", "label": "Erklæringens dato (en vurderingsberetning efter § 240/§ 258 må højst være udarbejdet 3 måneder før vedtagelsen)", "type": "text", "default": "{{ dato.idag }}"}
   ]
 }
 ---
@@ -33,7 +33,7 @@ Til kapitalejerne og kreditorerne i de deltagende selskaber
 
 Vi er udpeget som uvildig og sagkyndig vurderingsmand, jf. selskabslovens § 37, stk. 1, i forbindelse med den påtænkte {{ felt.transaktion }} mellem {{ felt.fortsaettende }} som fortsættende/modtagende selskab og {{ felt.ophoerende }} som ophørende/indskydende selskab i henhold til {{ felt.transaktion }}splanen dateret {{ felt.fusionsplan_dato }}, med regnskabsmæssig virkning fra {{ felt.virkningstidspunkt }}. Erklæringerne er afgivet på grundlag af {{ felt.regnskabsgrundlag }}.
 
-{% if felt.kreditorerklaering %}## Erklæring om kreditorernes stilling (selskabslovens § 242)
+{% if felt.kreditorerklaering %}## Erklæring om kreditorernes stilling (selskabslovens {% if felt.transaktion == "fusion" %}§ 242{% else %}§ 260{% endif %})
 
 ### Konklusion
 
@@ -45,7 +45,7 @@ Det er vores opfattelse, at kreditorerne i hvert af de deltagende selskaber efte
 
 Vi har ved vurderingen taget hensyn til de deltagende selskabers egenkapital, likviditet, indtjeningsevne, eventualforpligtelser og stillede sikkerheder samt til de koncerninterne mellemværender, der bortfalder eller overtages ved {{ felt.transaktion }}en.
 
-{% endif %}{% if felt.vederlagserklaering %}## Udtalelse om {{ felt.transaktion }}splanen og vederlaget (selskabslovens § 241)
+{% endif %}{% if felt.vederlagserklaering %}## Udtalelse om {{ felt.transaktion }}splanen og vederlaget (selskabslovens {% if felt.transaktion == "fusion" %}§ 241{% else %}§ 259{% endif %})
 
 ### Konklusion
 
@@ -57,7 +57,7 @@ Det er vores opfattelse, at vederlaget for kapitalandelene i det ophørende sels
 
 Efter vores vurdering er de anvendte metoder passende, og den indbyrdes vægtning af metoderne er rimelig.
 
-{% endif %}{% if felt.vurderingsberetning %}## Vurderingsberetning (selskabslovens § 240, jf. § 36)
+{% endif %}{% if felt.vurderingsberetning %}## Vurderingsberetning (selskabslovens {% if felt.transaktion == "fusion" %}§ 240{% else %}§ 258{% endif %})
 
 ### Konklusion
 
@@ -83,7 +83,7 @@ Vores ansvar er på grundlag af vores handlinger at udtrykke de konklusioner, de
 
 ## Begrænsning i anvendelse
 
-Erklæringerne er udarbejdet til brug for vedtagelse og registrering af {{ felt.transaktion }}en og skal offentliggøres via Erhvervsstyrelsen. De må ikke være mere end 3 måneder gamle på tidspunktet for vedtagelsen.{% if felt.kreditorerklaering %} Konkluderer en vurderingsmand, at kreditorerne ikke er tilstrækkeligt sikrede, har kreditorerne ret til at anmelde deres krav og kræve sikkerhed efter selskabslovens regler herom.{% endif %}
+Erklæringerne er udarbejdet til brug for vedtagelse og registrering af {{ felt.transaktion }}en og er ikke egnet til andre formål.{% if felt.kreditorerklaering %} Erklæringen om kreditorernes stilling skal indsendes til Erhvervsstyrelsen, jf. selskabslovens {% if felt.transaktion == "fusion" %}§ 244, stk. 3{% else %}§ 262{% endif %}. Finder vurderingsmanden, at kreditorerne ikke er tilstrækkeligt sikrede, kan kreditorerne anmelde deres fordringer og kræve forfaldne fordringer indfriet og betryggende sikkerhed for uforfaldne, jf. {% if felt.transaktion == "fusion" %}§ 243{% else %}§ 261{% endif %}.{% endif %}{% if felt.vurderingsberetning %} Vurderingsberetningen må ikke være udarbejdet mere end 3 måneder før vedtagelsen, jf. {% if felt.transaktion == "fusion" %}§ 240, stk. 4{% else %}§ 258{% endif %}.{% endif %}
 
 {{ felt.sted }}, den {{ felt.erklaeringsdato }}
 

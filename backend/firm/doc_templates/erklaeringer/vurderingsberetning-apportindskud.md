@@ -3,7 +3,7 @@
   "title": "Vurderingsberetning ved apportindskud (SL §§ 36-37 og 160)",
   "description": "Vurderingsberetning med høj grad af sikkerhed (ISAE 3000) ved stiftelse eller kapitalforhøjelse med indskud af andre værdier end kontanter (fx aktiver, kapitalandele). Indeholder de fire lovpligtige elementer i SL § 36, stk. 1, og Erhvervsstyrelsens krævede konklusionsformulering. Ved indskud af en bestående virksomhed bruges skabelonen om åbningsbalance.",
   "kind": "erklaering",
-  "references": ["Selskabsloven §§ 35-38 og 160 (LBK nr. 331 af 20/03/2025)", "Erhvervsstyrelsens vejledning om anvendelse af vurderingsberetninger ved registreringer", "ISAE 3000 (Revideret)", "ISQM 1", "Erklæringsbekendtgørelsen"],
+  "references": ["Selskabsloven §§ 35-38 og 160 (LBK nr. 331 af 20/03/2025)", "Erhvervsstyrelsens vejledning om anvendelse af vurderingsberetninger ved registreringer", "ISAE 3000 (Revideret)", "ISQM 1", "Erklæringsbekendtgørelsen (BEK nr. 518 af 24/05/2024) §§ 18-21"],
   "legal_forms": ["aps", "as", "holding"],
   "industry_aware": false,
   "fields": [
@@ -72,7 +72,7 @@ Vores ansvar er på grundlag af vores handlinger at udtrykke en konklusion om, h
 
 ## Begrænsning i anvendelse
 
-Vurderingsberetningen er udarbejdet til opfyldelse af selskabslovens § 36{% if felt.situation == "Kapitalforhøjelse" %}, jf. § 160{% endif %}, og skal indgå i registreringen hos Erhvervsstyrelsen og være tilgængelig for {{ kunde.kapitalejere }}. Beretningen må ikke være udarbejdet tidligere end 4 uger før {% if felt.situation == "Stiftelse" %}underskrivelsen af stiftelsesdokumentet{% else %}beslutningen om kapitalforhøjelsen{% endif %}, jf. selskabslovens § 36, stk. 2{% if felt.situation == "Kapitalforhøjelse" %}, jf. § 160{% endif %}. Beretningen er ikke egnet til andre formål.
+Vurderingsberetningen er udarbejdet til opfyldelse af selskabslovens § 36{% if felt.situation == "Kapitalforhøjelse" %}, jf. § 160{% endif %}{% if felt.situation == "Stiftelse" %} og skal vedhæftes stiftelsesdokumentet{% endif %}. Vurderingen må ikke være foretaget mere end 4 uger før {% if felt.situation == "Stiftelse" %}underskrivelsen af stiftelsesdokumentet{% else %}beslutningen om kapitalforhøjelsen{% endif %}, jf. selskabslovens § 36, stk. 2{% if felt.situation == "Kapitalforhøjelse" %}, jf. § 160{% endif %}. Beretningen er ikke egnet til andre formål.
 
 {{ felt.sted }}, den {{ felt.erklaeringsdato }}
 

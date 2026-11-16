@@ -1,9 +1,9 @@
 ---
 {
   "title": "Supplerende oplysninger – ansvarspådragende forhold (afsnit til påtegning)",
-  "description": "Afsnit til indsættelse i revisionspåtegning eller erklæring om udvidet gennemgang, når der er begrundet formodning om, at ledelsen kan ifalde erstatnings- eller strafansvar: lån til kapitalejere/ledelse (ulovlige lån ydet før 2025 efter de ophævede SL §§ 210 og 215; nyere lån vurderes efter SL §§ 115-118 og 127), moms/A-skat ikke rettidigt afregnet, kapitaltab (SL § 119), bogføringsloven, ulovlig udlodning m.v. Kopiér det flettede afsnit ind i feltet Supplerende oplysninger i påtegningsskabelonen.",
+  "description": "Afsnit til indsættelse i revisionspåtegning eller erklæring om udvidet gennemgang, når der er begrundet formodning om, at ledelsen kan ifalde erstatnings- eller strafansvar: lån til kapitalejere/ledelse (ulovlige lån ydet før 2025 efter den ophævede SL § 210 og den dagældende § 215; nyere lån vurderes efter SL §§ 115-118 og 127), moms/A-skat ikke rettidigt afregnet, kapitaltab (SL § 119), bogføringsloven, ulovlig udlodning m.v. Kopiér det flettede afsnit ind i feltet Supplerende oplysninger i påtegningsskabelonen. Ved begrundet formodning om økonomiske forbrydelser gælder desuden underretningspligten i revisorlovens § 22 (særskilt fra erklæringen).",
   "kind": "erklaering",
-  "references": ["Erklæringsbekendtgørelsen § 7, stk. 2 og 4", "Erhvervsstyrelsens vejledning om erklæringsbekendtgørelsen (opdateret 26/03/2026)", "Revisorloven § 16 og § 22 (LBK nr. 206 af 20/02/2025)", "Selskabsloven §§ 115-119, 127 og 179-182", "Selskabsloven §§ 210-215 (ophævet pr. 1/1 2025 ved lov nr. 1668 af 30/12/2024; gælder fortsat for ældre lån)", "Opkrævningsloven og momsloven (rettidig angivelse/betaling)", "Bogføringsloven (lov nr. 700 af 24/05/2022)"],
+  "references": ["Erklæringsbekendtgørelsen (BEK nr. 518 af 24/05/2024) § 7, stk. 2-4", "Erhvervsstyrelsens vejledning om erklæringsbekendtgørelsen (opdateret 26/03/2026)", "Revisorloven § 16 (LBK nr. 206 af 20/02/2025)", "Selskabsloven §§ 115-119, 127 og 179-182", "Selskabsloven §§ 210-212 (ophævet pr. 1/1 2025 ved lov nr. 1668 af 30/12/2024) og § 215 i den dagældende affattelse (ældre lån)", "Opkrævningsloven og momsloven (rettidig angivelse/betaling)", "Bogføringsloven (lov nr. 700 af 24/05/2022)"],
   "legal_forms": ["aps", "as", "ivs", "holding", "andet"],
   "industry_aware": false,
   "fields": [
@@ -27,7 +27,7 @@
 
 {% if felt.kapitalejerlaan %}{% if felt.kapitalejerlaan_regel == "Lån ydet før 1. januar 2025 i strid med de dagældende regler" %}### Ulovligt kapitalejerlån ydet før 1. januar 2025
 
-Selskabet har før 1. januar 2025 {{ felt.kapitalejerlaan_art }} {{ felt.kapitalejerlaan_modtager }}, i strid med de dagældende regler i selskabslovens § 210. Et sådant lån skal tilbagebetales med renter, jf. selskabslovens § 215, stk. 1. {{ felt.kapitalejerlaan_status }} Ledelsen kan derved have ifaldt ansvar.{% else %}### Lån til kapitalejer eller ledelse, der ikke er i selskabets interesse
+Selskabet har før 1. januar 2025 {{ felt.kapitalejerlaan_art }} {{ felt.kapitalejerlaan_modtager }}, i strid med de dagældende regler i selskabslovens § 210. Lånet er omfattet af pligten til tilbagebetaling med renter efter den dagældende § 215, stk. 1, i selskabsloven. {{ felt.kapitalejerlaan_status }} Ledelsen kan derved have ifaldt ansvar.{% else %}### Lån til kapitalejer eller ledelse, der ikke er i selskabets interesse
 
 Selskabet har i regnskabsåret {{ felt.kapitalejerlaan_art }} {{ felt.kapitalejerlaan_modtager }}, på vilkår, som efter vores vurdering ikke er i selskabets interesse eller ikke er forsvarlige under hensyn til selskabets økonomiske stilling, jf. selskabslovens §§ 115-118 og 127. {{ felt.kapitalejerlaan_status }} Ledelsen kan derved have ifaldt ansvar.{% endif %}
 

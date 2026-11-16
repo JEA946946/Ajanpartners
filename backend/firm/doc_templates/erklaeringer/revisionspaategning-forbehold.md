@@ -3,7 +3,7 @@
   "title": "Revisionspåtegning – konklusion med forbehold (ISA 705)",
   "description": "Revisionspåtegning på årsregnskab (klasse B) med konklusion med forbehold, enten pga. væsentlig fejlinformation (uenighed) eller manglende mulighed for at opnå tilstrækkeligt og egnet revisionsbevis. Virkningen er væsentlig, men ikke gennemgribende.",
   "kind": "erklaering",
-  "references": ["ISA 705 (DK)", "ISA 700 (DK)", "ISA 720", "Erklæringsbekendtgørelsen § 5, stk. 2 og 4, og § 6", "Revisorloven § 16 (LBK nr. 206 af 20/02/2025)", "Årsregnskabsloven § 135"],
+  "references": ["ISA 705 (DK)", "ISA 700 (DK)", "ISA 720", "Erklæringsbekendtgørelsen (BEK nr. 518 af 24/05/2024) § 5 og § 6, stk. 1-4 og 8", "Revisorloven § 16 (LBK nr. 206 af 20/02/2025)", "Årsregnskabsloven § 135"],
   "legal_forms": ["aps", "as", "ivs", "holding", "pmv", "andet"],
   "industry_aware": false,
   "fields": [
@@ -11,7 +11,7 @@
     {"name": "forbehold_beskrivelse", "label": "Beskrivelse af forholdet (post, note, beløb og virkning på resultat, egenkapital og evt. skat)", "type": "textarea"},
     {"name": "ledelsesberetning_paavirket", "label": "Forholdet påvirker også beløb eller omtale i ledelsesberetningen", "type": "checkbox", "default": true},
     {"name": "ledelsesberetning", "label": "Årsrapporten indeholder en ledelsesberetning", "type": "checkbox", "default": true},
-    {"name": "supplerende_oplysninger", "label": "Supplerende oplysninger efter erklæringsbekendtgørelsen § 7, stk. 2 (overskrift og tekst, valgfrit)", "type": "textarea"},
+    {"name": "supplerende_oplysninger", "label": "Supplerende oplysninger efter erklæringsbekendtgørelsen § 7, stk. 2 og 4 (overskrift tilpasset indholdet og tekst, valgfrit)", "type": "textarea"},
     {"name": "revisor_titel", "label": "Revisors titel", "type": "select", "options": ["statsautoriseret revisor", "registreret revisor"], "default": "statsautoriseret revisor"},
     {"name": "mne_nr", "label": "Revisors MNE-nr.", "type": "text"},
     {"name": "sted", "label": "Sted for underskrift (by)", "type": "text"},

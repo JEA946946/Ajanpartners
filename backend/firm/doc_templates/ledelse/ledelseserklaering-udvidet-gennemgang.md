@@ -3,7 +3,7 @@
   "title": "Ledelseserklæring – udvidet gennemgang",
   "description": "Skriftlig ledelseserklæring ved udvidet gennemgang af årsregnskab (klasse B). Følger kravene i standarden om udvidet gennemgang (som bygger på ISRE 2400) og dækker de supplerende handlinger: fortsat drift, nærtstående parter, begivenheder efter balancedagen, retssager, besvigelser og lovgivning. Branchespecifikke erklæringer om varelager, igangværende arbejder, investeringsejendomme, kontantsalg og moms.",
   "kind": "brev",
-  "references": ["Erhvervsstyrelsens erklæringsstandard for små virksomheder / FSR – danske revisorers standard om udvidet gennemgang", "ISRE 2400 (Revideret), afsnit 61-65", "Selskabsloven §§ 115-118, 127 og 179", "Selskabsloven §§ 210 og 215 (ophævet pr. 1/1 2025 – ældre lån)", "Bogføringsloven"],
+  "references": ["Erhvervsstyrelsens erklæringsstandard for små virksomheder / FSR – danske revisorers standard om udvidet gennemgang", "Erhvervsstyrelsens erklæringsstandard for små virksomheder (bilag 1 til BEK nr. 518 af 24/05/2024), afsnit 37-41", "ISRE 2400 (Revideret), afsnit 61-65", "Selskabsloven §§ 115-118, 127 og 179", "Selskabsloven § 210 (ophævet pr. 1/1 2025 ved lov nr. 1668 af 30/12/2024) og § 215 i den dagældende affattelse – ældre lån", "Bogføringsloven"],
   "legal_forms": ["aps", "as", "ivs", "holding", "pmv", "andet"],
   "industry_aware": true,
   "fields": [
@@ -42,7 +42,7 @@ Denne erklæring afgives i forbindelse med jeres udvidede gennemgang af årsregn
 
 1. Vi er ikke bekendt med besvigelser eller mistanke om besvigelser, der involverer ledelsen, medarbejdere eller andre, og som kan påvirke årsregnskabet.
 2. Vi er ikke bekendt med overtrædelser af love og øvrig regulering, herunder skatte-, moms- og afgiftslovgivningen, som kan påvirke årsregnskabet. Moms, A-skat, arbejdsmarkedsbidrag og selskabsskat er angivet og afregnet rettidigt.
-3. {% if felt.kapitalejerlaan %}Vi har oplyst jer om alle lån, mellemregninger og sikkerhedsstillelser til kapitalejere, ledelsesmedlemmer og disses nærtstående. Lån og sikkerhedsstillelser, som selskabet har ydet til kapitalejere, ledelsesmedlemmer eller disses nærtstående, er ydet i selskabets interesse og på forsvarlige vilkår, jf. selskabslovens §§ 115-118 og 127, og eventuelle lån ydet før 1. januar 2025 i strid med de dagældende regler i selskabslovens § 210 er tilbagebetalt med renter efter § 215.{% else %}Selskabet har ikke ydet lån eller stillet sikkerhed for kapitalejere, ledelsesmedlemmer eller disses nærtstående.{% endif %}
+3. {% if felt.kapitalejerlaan %}Vi har oplyst jer om alle lån, mellemregninger og sikkerhedsstillelser til kapitalejere, ledelsesmedlemmer og disses nærtstående. Lån og sikkerhedsstillelser, som selskabet har ydet til kapitalejere, ledelsesmedlemmer eller disses nærtstående, er ydet i selskabets interesse og på forsvarlige vilkår, jf. selskabslovens §§ 115-118 og 127, og eventuelle lån ydet før 1. januar 2025 i strid med de dagældende regler i selskabslovens § 210 er tilbagebetalt med renter efter den dagældende § 215.{% else %}Selskabet har ikke ydet lån eller stillet sikkerhed for kapitalejere, ledelsesmedlemmer eller disses nærtstående.{% endif %}
 4. Udlodninger til kapitalejerne er sket i overensstemmelse med selskabslovens regler, og selskabets kapitalberedskab er forsvarligt, jf. selskabslovens § 115.
 
 {% if branche.lager or branche.igangvaerende_arbejder or branche.investeringsejendomme or branche.kontantintensiv or branche.momsfritaget or branche.landbrug %}## Branchespecifikke forhold

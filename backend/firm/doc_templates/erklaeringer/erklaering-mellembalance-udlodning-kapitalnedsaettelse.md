@@ -1,14 +1,14 @@
 ---
 {
   "title": "Erklæring om mellembalance ved ekstraordinært udbytte eller kapitalnedsættelse",
-  "description": "Revisors reviewerklæring på mellembalance, der skal ligge til grund for ekstraordinært udbytte (SL §§ 182-183) eller kapitalnedsættelse med udbetaling/overkurs (SL § 188, stk. 1, nr. 2, og § 189 ff.). SL § 183 kræver, at en mellembalance gennemgås af revisor i revisionspligtige selskaber. Valgfrit afsnit med vurderingsberetning ved udlodning i andre værdier end kontanter.",
+  "description": "Revisors reviewerklæring på mellembalance, der skal ligge til grund for ekstraordinært udbytte (SL §§ 182-183) eller – efter aftale – kapitalnedsættelse til udbetaling (SL § 188, stk. 1, nr. 2). SL § 183, stk. 4, kræver, at en mellembalance ved ekstraordinært udbytte er gennemgået af revisor, hvis selskabet er revisionspligtigt; SL §§ 185-193 indeholder ikke et tilsvarende krav ved kapitalnedsættelse. Valgfrit afsnit med vurderingsberetning ved udlodning i andre værdier end kontanter (SL § 183, stk. 5, og § 190).",
   "kind": "erklaering",
-  "references": ["Selskabsloven §§ 179-183 og 188-194 (LBK nr. 331 af 20/03/2025)", "ISRE 2410 / ISRE 2400 (Revideret)", "ISAE 3000 (ved vurderingsberetning)", "Selskabsloven §§ 36-37 (udlodning i naturalier)", "Erhvervsstyrelsens vejledning om anvendelse af vurderingsberetninger"],
+  "references": ["Selskabsloven §§ 179-183 og 188-194 (LBK nr. 331 af 20/03/2025)", "ISRE 2410 / ISRE 2400 (Revideret)", "ISAE 3000 (ved vurderingsberetning)", "Selskabsloven § 183, stk. 5, og § 190, jf. §§ 36-37 (udlodning i andre værdier end kontanter)", "Erklæringsbekendtgørelsen (BEK nr. 518 af 24/05/2024) §§ 18-21", "Erhvervsstyrelsens vejledning om anvendelse af vurderingsberetninger"],
   "legal_forms": ["aps", "as", "holding", "ivs"],
   "industry_aware": false,
   "fields": [
     {"name": "formaal", "label": "Formål", "type": "select", "options": ["ekstraordinært udbytte", "kapitalnedsættelse til udbetaling til kapitalejerne"], "default": "ekstraordinært udbytte"},
-    {"name": "balancedato", "label": "Mellembalancens balancedag (højst 6 måneder før beslutningen)", "type": "text"},
+    {"name": "balancedato", "label": "Mellembalancens balancedag (ved ekstraordinært udbytte højst 6 måneder før beslutningen, SL § 183, stk. 4)", "type": "text"},
     {"name": "frie_reserver", "label": "Frie reserver ifølge mellembalancen (kr.)", "type": "number"},
     {"name": "udlodning", "label": "Foreslået udlodning/udbetaling i alt (kr.)", "type": "number"},
     {"name": "nedsaettelse_nominelt", "label": "Kapitalnedsættelse – nominelt beløb (kr., kun ved kapitalnedsættelse)", "type": "number"},
@@ -29,7 +29,7 @@ Til {{ kunde.ledelsesorgan }} og {{ kunde.kapitalejere }} i {{ kunde.navn }}, CV
 
 ## Indledning
 
-Vi har udført review af den medfølgende mellembalance for {{ kunde.navn }} pr. {{ felt.balancedato }}, der omfatter balance, egenkapitalopgørelse og noter, herunder anvendt regnskabspraksis. Mellembalancen er udarbejdet af ledelsen til brug for beslutning om {{ felt.formaal }}{% if felt.formaal == "ekstraordinært udbytte" %}, jf. selskabslovens §§ 182 og 183{% else %}, jf. selskabslovens § 188, stk. 1, nr. 2{% endif %}.
+Vi har udført review af den medfølgende mellembalance for {{ kunde.navn }} pr. {{ felt.balancedato }}, der omfatter balance, egenkapitalopgørelse og noter, herunder anvendt regnskabspraksis. Mellembalancen er udarbejdet af ledelsen til brug for beslutning om {{ felt.formaal }}{% if felt.formaal == "ekstraordinært udbytte" %}, jf. selskabslovens §§ 182 og 183{% else %}, jf. selskabslovens § 188, stk. 1, nr. 2. Selskabsloven stiller ikke krav om revisors gennemgang af en mellembalance ved kapitalnedsættelse, og erklæringen er afgivet efter aftale med selskabet{% endif %}.
 
 ## Ledelsens ansvar
 
@@ -47,21 +47,21 @@ Ved vores review er vi ikke blevet opmærksomme på forhold, der giver os grund 
 
 ## Oplysninger om udlodningsgrundlaget
 
-Det fremgår af mellembalancen, at selskabets frie reserver pr. {{ felt.balancedato }} udgør {{ felt.frie_reserver }} kr. Den foreslåede {% if felt.formaal == "ekstraordinært udbytte" %}udlodning af ekstraordinært udbytte{% else %}udbetaling i forbindelse med kapitalnedsættelsen (nominelt {{ felt.nedsaettelse_nominelt }} kr.){% endif %} udgør i alt {{ felt.udlodning }} kr. Vi har påset, at beløbet, i det omfang det overstiger et eventuelt nedsættelsesbeløb, ikke overstiger de frie reserver opgjort i mellembalancen med fradrag af udlodninger og andre dispositioner over de frie reserver efter balancedagen, som vi er blevet bekendt med.
+Det fremgår af mellembalancen, at selskabets frie reserver pr. {{ felt.balancedato }} udgør {{ felt.frie_reserver }} kr. Den foreslåede {% if felt.formaal == "ekstraordinært udbytte" %}udlodning af ekstraordinært udbytte{% else %}udbetaling i forbindelse med kapitalnedsættelsen (nominelt {{ felt.nedsaettelse_nominelt }} kr.){% endif %} udgør i alt {{ felt.udlodning }} kr.{% if felt.formaal == "ekstraordinært udbytte" %} Vi har påset, at udlodningen ikke overstiger de midler, der efter selskabslovens § 182, stk. 3, kan anvendes som ekstraordinært udbytte, opgjort på grundlag af mellembalancen med fradrag af udlodninger og andre dispositioner over de frie reserver efter balancedagen, som vi er blevet bekendt med.{% endif %}
 
-Vores konklusion omfatter ikke ledelsens vurdering af, om udlodningen er forsvarlig, jf. selskabslovens § 179, stk. 2.{% if felt.formaal == "kapitalnedsættelse til udbetaling til kapitalejerne" %} Vi gør opmærksom på, at kapitalnedsættelse til udbetaling forudsætter kreditorindkaldelse efter selskabslovens § 192, medmindre der samtidig sker en kapitalforhøjelse af mindst samme nominelle beløb med tillæg af eventuel overkurs, jf. § 192, stk. 2.{% endif %}
+Vores konklusion omfatter ikke ledelsens vurdering af, om udlodningen er forsvarlig, jf. selskabslovens § 179, stk. 2.{% if felt.formaal == "kapitalnedsættelse til udbetaling til kapitalejerne" %} Vi gør opmærksom på, at kapitalnedsættelse til udbetaling forudsætter opfordring til kreditorerne efter selskabslovens § 192, stk. 1, medmindre kapitalen samtidig forhøjes ved tegning af mindst samme nominelle beløb med tillæg af overkurs som nedsættelsesbeløbet, jf. § 192, stk. 2.{% endif %}
 
 {% if felt.naturalier %}## Vurderingsberetning ved udlodning i andre værdier end kontanter
 
-Udlodningen sker helt eller delvis i andre værdier end kontanter. Som uvildig og sagkyndig vurderingsmand, jf. selskabslovens § 37, stk. 1, har vi udført en erklæringsopgave med høj grad af sikkerhed i overensstemmelse med ISAE 3000 (Revideret) vedrørende de udloddede aktiver.
+Udlodningen sker helt eller delvis i andre værdier end kontanter. Som uvildig og sagkyndig vurderingsmand, jf. selskabslovens § 37, stk. 1, har vi efter selskabslovens {% if felt.formaal == "ekstraordinært udbytte" %}§ 183, stk. 5{% else %}§ 190{% endif %} udført en erklæringsopgave med høj grad af sikkerhed i overensstemmelse med ISAE 3000 (Revideret) vedrørende de udloddede aktiver.
 
 {{ felt.naturalier_beskrivelse }}
 
-Det er vores opfattelse, at det besluttede udlodningsbeløb mindst svarer til den ansatte økonomiske værdi af de aktiver, der udloddes, på {{ felt.naturalier_vaerdi }} kr.
+Det er vores opfattelse, at {% if felt.formaal == "ekstraordinært udbytte" %}udbyttebeløbet{% else %}kapitalnedsættelsen med tillæg af eventuel overkurs{% endif %} mindst svarer til den ansatte værdi af de andre værdier end kontanter, der udloddes, på {{ felt.naturalier_vaerdi }} kr.
 
 {% endif %}## Begrænsning i anvendelse
 
-Erklæringen er udelukkende udarbejdet til brug for selskabets beslutning om {{ felt.formaal }} og registrering heraf hos Erhvervsstyrelsen og er ikke egnet til andre formål. Mellembalancens balancedag må ikke ligge mere end 6 måneder før beslutningen.
+{% if felt.formaal == "ekstraordinært udbytte" %}Erklæringen er udelukkende udarbejdet til brug for selskabets beslutning om ekstraordinært udbytte, og mellembalancen skal indgå i protokollen som bilag til beslutningen, jf. selskabslovens § 183, stk. 6. Mellembalancen må ikke have balancedag, der ligger mere end 6 måneder forud for beslutningen, jf. § 183, stk. 4. Erklæringen er ikke egnet til andre formål.{% else %}Erklæringen er udelukkende udarbejdet til brug for selskabets beslutning om kapitalnedsættelse og er ikke egnet til andre formål.{% endif %}
 
 {{ felt.sted }}, den {{ felt.erklaeringsdato }}
 

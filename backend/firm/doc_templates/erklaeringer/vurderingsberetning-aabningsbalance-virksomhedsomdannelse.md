@@ -3,7 +3,7 @@
   "title": "Vurderingsberetning med åbningsbalance ved virksomhedsomdannelse",
   "description": "Vurderingsberetning (ISAE 3000, høj grad af sikkerhed) ved stiftelse af kapitalselskab ved indskud af en bestående personligt ejet virksomhed, herunder skattefri virksomhedsomdannelse. Indeholder revisors erklæring om åbningsbalancen uden forbehold (SL § 36, stk. 3) og omtale af perioden mellem omdannelsestidspunktet og stiftelsen.",
   "kind": "erklaering",
-  "references": ["Selskabsloven §§ 36-37 og § 36, stk. 3 (LBK nr. 331 af 20/03/2025)", "Virksomhedsomdannelsesloven §§ 2, 4 og 5", "Erhvervsstyrelsens vejledning om anvendelse af vurderingsberetninger ved registreringer", "ISAE 3000 (Revideret)", "ISA 805 (åbningsbalance)", "Årsregnskabsloven"],
+  "references": ["Selskabsloven §§ 36-37 og § 36, stk. 3 (LBK nr. 331 af 20/03/2025)", "Virksomhedsomdannelsesloven §§ 2, 3 og 6 (LBK nr. 24 af 6/1/2026)", "Erhvervsstyrelsens vejledning om anvendelse af vurderingsberetninger ved registreringer", "ISAE 3000 (Revideret)", "ISA 805 (åbningsbalance)", "Årsregnskabsloven", "Erklæringsbekendtgørelsen (BEK nr. 518 af 24/05/2024) §§ 18-21"],
   "legal_forms": ["enk", "is", "pmv", "aps", "as"],
   "industry_aware": true,
   "fields": [
@@ -12,12 +12,12 @@
     {"name": "selskab", "label": "Det nye selskabs navn (fx Navn ApS)", "type": "text"},
     {"name": "selskabsform_ny", "label": "Selskabsform", "type": "select", "options": ["anpartsselskab", "aktieselskab"], "default": "anpartsselskab"},
     {"name": "skattefri", "label": "Skattefri virksomhedsomdannelse efter virksomhedsomdannelsesloven", "type": "checkbox", "default": true},
-    {"name": "omdannelsestidspunkt", "label": "Omdannelsestidspunkt/åbningsbalancedag (fx 1. januar 2026)", "type": "text"},
+    {"name": "omdannelsestidspunkt", "label": "Omdannelsesdato/åbningsbalancedag – dagen efter statusdatoen for sidste årsregnskab (VOL § 3, stk. 1), fx 1. januar 2026", "type": "text"},
     {"name": "vurderingsdato", "label": "Dato for vurderingen (højst 4 uger før stiftelsesdokumentet)", "type": "text"},
     {"name": "nettoaktiver", "label": "Nettoaktiver ifølge åbningsbalancen (kr.)", "type": "number"},
     {"name": "nominel_kapital", "label": "Nominel selskabskapital (kr.)", "type": "number", "default": "40000"},
     {"name": "overkurs", "label": "Overkurs (kr., tom = kurs pari)", "type": "number"},
-    {"name": "gaeldsbrev", "label": "Andet vederlag end kapitalandele (ikke tilladt ved skattefri omdannelse, ud over evt. mellemregning ved tilbagevirkende kraft)", "type": "text"},
+    {"name": "gaeldsbrev", "label": "Andet vederlag end kapitalandele (ikke tilladt ved skattefri omdannelse, jf. virksomhedsomdannelseslovens § 2, stk. 1, nr. 3)", "type": "text"},
     {"name": "vurderingsmetode", "label": "Vurderingsmetode og væsentlige poster", "type": "textarea", "default": "Aktiver og forpligtelser er indregnet efter årsregnskabslovens bestemmelser og den regnskabspraksis, selskabet vil anvende. Der er ikke indregnet goodwill eller andre merværdier, der ikke er dokumenteret ved en uafhængig vurdering."},
     {"name": "revisionspligtig", "label": "Selskabet bliver revisionspligtigt (åbningsbalancen revideres)", "type": "checkbox", "default": true},
     {"name": "revisor_titel", "label": "Revisors titel", "type": "select", "options": ["statsautoriseret revisor", "registreret revisor"], "default": "statsautoriseret revisor"},
@@ -41,7 +41,7 @@ I forbindelse med stiftelsen af {{ felt.selskab }} ({{ felt.selskabsform_ny }}) 
 
 ## Beskrivelse af indskuddet
 
-Indskuddet omfatter samtlige aktiver og forpligtelser i virksomheden {{ felt.virksomhed }}, som de fremgår af den medfølgende åbningsbalance pr. {{ felt.omdannelsestidspunkt }}.{% if felt.skattefri %} Efter virksomhedsomdannelsesloven skal alle aktiver og passiver, der tilhører virksomheden, overdrages til selskabet, og vederlaget skal udelukkende bestå af kapitalandele, bortset fra en eventuel mellemregning som følge af omdannelse med tilbagevirkende kraft.{% endif %}
+Indskuddet omfatter samtlige aktiver og forpligtelser i virksomheden {{ felt.virksomhed }}, som de fremgår af den medfølgende åbningsbalance pr. {{ felt.omdannelsestidspunkt }}.{% if felt.skattefri %} Efter virksomhedsomdannelseslovens § 2, stk. 1, nr. 2 og 3, skal alle aktiver og passiver i virksomheden overdrages til selskabet (ejeren kan dog holde en ejendom uden for omdannelsen), og hele vederlaget skal ydes i form af kapitalandele.{% endif %}
 
 {% if branche.lager %}Varebeholdningerne er optalt pr. åbningsbalancedagen og målt til kostpris eller lavere nettorealisationsværdi.
 {% endif %}{% if branche.igangvaerende_arbejder %}Igangværende arbejder for fremmed regning er målt til salgsværdien af det udførte arbejde med fradrag af acontofaktureringer og forventede tab.
@@ -50,11 +50,11 @@ Indskuddet omfatter samtlige aktiver og forpligtelser i virksomheden {{ felt.vir
 {% endif %}
 ## Anvendte vurderingsmetoder
 
-{{ felt.vurderingsmetode }}{% if felt.skattefri %} Der er indregnet udskudt skat af forskellen mellem de regnskabsmæssige værdier og de skattemæssige værdier, som selskabet succederer i efter virksomhedsomdannelsesloven.{% endif %}
+{{ felt.vurderingsmetode }}{% if felt.skattefri %} Der er indregnet udskudt skat af forskellen mellem de regnskabsmæssige værdier og de skattemæssige værdier, som selskabet succederer i, jf. virksomhedsomdannelseslovens § 2, stk. 1, nr. 8, og § 6.{% endif %}
 
 ## Perioden mellem omdannelsestidspunktet og stiftelsen
 
-{% if felt.skattefri %}Omdannelsen har regnskabsmæssig og skattemæssig virkning fra {{ felt.omdannelsestidspunkt }}, jf. virksomhedsomdannelseslovens § 5. Driften i perioden fra omdannelsestidspunktet til stiftelsen anses for at være drevet for selskabets regning. {% endif %}Vi har vurderet driften og eventuelle hævninger i perioden fra {{ felt.omdannelsestidspunkt }} til {{ felt.vurderingsdato }} og har ikke konstateret forhold, der har forringet værdien af det indskudte, så den ikke længere mindst svarer til vederlaget. Ejerens private hævninger i perioden er behandlet som mellemregning med selskabet eller er fradraget ved opgørelsen af vederlaget.
+{% if felt.skattefri %}Datoen for åbningsbalancen ({{ felt.omdannelsestidspunkt }}) anses i skattemæssig henseende for omdannelsesdatoen, jf. virksomhedsomdannelseslovens § 3, stk. 1. {% endif %}Vi har vurderet driften og eventuelle hævninger i perioden fra {{ felt.omdannelsestidspunkt }} til {{ felt.vurderingsdato }} og har ikke konstateret forhold, der har forringet værdien af det indskudte, så den ikke længere mindst svarer til vederlaget. Ejerens private hævninger i perioden er behandlet som mellemregning med selskabet eller er fradraget ved opgørelsen af vederlaget.
 
 ## Grundlag for konklusion
 
@@ -64,7 +64,7 @@ Vi er uafhængige af stifteren og af det kommende selskab i overensstemmelse med
 
 ## Ledelsens og stifterens ansvar
 
-Stifteren har ansvaret for udarbejdelsen af åbningsbalancen i overensstemmelse med årsregnskabslovens indregnings- og målingsbestemmelser og den regnskabspraksis, selskabet vil anvende, og for den interne kontrol, der er nødvendig for at udarbejde en åbningsbalance uden væsentlig fejlinformation. Stifteren har ligeledes ansvaret for at fastsætte vederlaget{% if felt.skattefri %} og for, at betingelserne i virksomhedsomdannelsesloven er opfyldt, herunder at stiftelsen sker rettidigt og at Skattestyrelsen underrettes om omdannelsen inden for lovens frist{% endif %}.
+Stifteren har ansvaret for udarbejdelsen af åbningsbalancen i overensstemmelse med årsregnskabslovens indregnings- og målingsbestemmelser og den regnskabspraksis, selskabet vil anvende, og for den interne kontrol, der er nødvendig for at udarbejde en åbningsbalance uden væsentlig fejlinformation. Stifteren har ligeledes ansvaret for at fastsætte vederlaget{% if felt.skattefri %} og for, at betingelserne i virksomhedsomdannelsesloven er opfyldt, herunder at omdannelsen finder sted senest 6 måneder efter omdannelsesdatoen, og at de foreskrevne dokumenter indsendes til Skattestyrelsen senest 1 måned efter omdannelsen, jf. virksomhedsomdannelseslovens § 2, stk. 1, nr. 6 og 7{% endif %}.
 
 ## Vurderingsmandens ansvar
 

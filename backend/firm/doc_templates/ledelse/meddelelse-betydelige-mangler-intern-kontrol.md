@@ -3,7 +3,7 @@
   "title": "Meddelelse om betydelige mangler i intern kontrol (ISA 265)",
   "description": "Skriftlig meddelelse til den øverste ledelse og direktionen om betydelige mangler i den interne kontrol, som revisor har identificeret under revisionen. ISA 265 kræver skriftlig kommunikation rettidigt. Op til fire mangler med beskrivelse, mulig virkning og anbefaling; branchetypiske eksempler foreslås.",
   "kind": "brev",
-  "references": ["ISA 265, afsnit 9-11", "ISA 315 (Revideret 2019)", "Selskabsloven §§ 115 og 117", "Bogføringsloven"],
+  "references": ["ISA 265, afsnit 9-11", "ISA 315 (Revideret 2019)", "Selskabsloven §§ 115 og 118", "Bogføringsloven"],
   "legal_forms": [],
   "industry_aware": true,
   "fields": [

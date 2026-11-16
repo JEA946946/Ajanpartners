@@ -3,7 +3,7 @@
   "title": "Kommunikation med den øverste ledelse – planlægning (ISA 260)",
   "description": "Brev til den øverste ledelse (bestyrelse eller direktion) før revisionen: revisors ansvar, planlagt omfang og tidsplan, væsentlighed, betydelige risici (branchetilpasset), uafhængighed og forespørgsler om besvigelser, lovgivning og nærtstående parter.",
   "kind": "brev",
-  "references": ["ISA 260, afsnit 14-17", "ISA 240, afsnit 21", "ISA 250", "ISA 550", "ISA 300", "ISA 320", "Revisorloven § 24 (uafhængighed)"],
+  "references": ["ISA 260, afsnit 14-17", "ISA 240, afsnit 21-22", "ISA 250", "ISA 550", "ISA 300", "ISA 320", "Revisorloven § 24 (uafhængighed)"],
   "legal_forms": ["aps", "as", "ivs", "holding", "fmba", "andet"],
   "industry_aware": true,
   "fields": [

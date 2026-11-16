@@ -3,7 +3,7 @@
   "title": "Revisionspåtegning – uden modifikation (klasse B)",
   "description": "Den uafhængige revisors revisionspåtegning på årsregnskab efter årsregnskabsloven, klasse B, med konklusion uden modifikation og udtalelse om ledelsesberetningen. Struktur efter ISA 700 og erklæringsbekendtgørelsen.",
   "kind": "erklaering",
-  "references": ["ISA 700 (DK)", "ISA 720 (ledelsesberetning)", "ISA 710 (sammenligningstal)", "Erklæringsbekendtgørelsen (BEK nr. 1468 af 12/12/2017 med senere ændringer) § 5", "Revisorloven § 16 (LBK nr. 206 af 20/02/2025)", "Årsregnskabsloven § 135"],
+  "references": ["ISA 700 (DK)", "ISA 720 (ledelsesberetning)", "ISA 710 (sammenligningstal)", "Erklæringsbekendtgørelsen (BEK nr. 518 af 24/05/2024) §§ 5-8", "Revisorloven § 16 (LBK nr. 206 af 20/02/2025)", "Årsregnskabsloven § 135"],
   "legal_forms": ["aps", "as", "ivs", "holding", "pmv", "andet"],
   "industry_aware": false,
   "fields": [
@@ -34,7 +34,7 @@ Vi har udført vores revision i overensstemmelse med internationale standarder o
 
 {% if felt.sammenligningstal_ikke_revideret %}## Andre forhold
 
-Årsregnskabet for det foregående regnskabsår, der er medtaget som sammenligningstal i årsregnskabet, har {{ felt.sammenligningstal_erklaering }}. Vores konklusion omfatter ikke sammenligningstallene, og vi har ved vores revision alene påset, at åbningsbalancen ikke indeholder fejlinformation, der væsentligt påvirker årsregnskabet for {{ regnskab.aar }}. Vores konklusion er ikke modificeret som følge af dette forhold.
+Årsregnskabet for det foregående regnskabsår, der er medtaget som sammenligningstal i årsregnskabet, har {{ felt.sammenligningstal_erklaering }}. Sammenligningstallene i årsregnskabet er derfor ikke revideret.
 
 {% endif %}## Ledelsens ansvar for årsregnskabet
 

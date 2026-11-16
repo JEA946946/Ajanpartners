@@ -34,7 +34,7 @@ Vi bekræfter efter bedste overbevisning:
 7. Vi er ikke bekendt med besvigelser, mistanke om besvigelser eller overtrædelser af love og øvrig regulering, som kan påvirke årsregnskabet, herunder skatte-, moms- og afgiftslovgivningen.
 8. Vi har vurderet {% if kunde.er_kapitalselskab %}selskabets{% else %}virksomhedens{% endif %} evne til at fortsætte driften og er ikke bekendt med væsentlige usikkerheder ud over hvad der er oplyst i årsregnskabet.
 9. De væsentlige forudsætninger for regnskabsmæssige skøn er rimelige.
-{% if kunde.er_kapitalselskab %}10. Lån og sikkerhedsstillelser, som selskabet har ydet til kapitalejere, ledelsesmedlemmer eller disses nærtstående, er ydet i selskabets interesse og på forsvarlige vilkår, jf. selskabslovens §§ 115-118 og 127, og eventuelle lån ydet før 1. januar 2025 i strid med de dagældende regler i selskabslovens § 210 er tilbagebetalt med renter efter § 215, og udlodninger er sket i overensstemmelse med selskabsloven.
+{% if kunde.er_kapitalselskab %}10. Lån og sikkerhedsstillelser, som selskabet har ydet til kapitalejere, ledelsesmedlemmer eller disses nærtstående, er ydet i selskabets interesse og på forsvarlige vilkår, jf. selskabslovens §§ 115-118 og 127, og eventuelle lån ydet før 1. januar 2025 i strid med de dagældende regler i selskabslovens § 210 er tilbagebetalt med renter efter den dagældende § 215, og udlodninger er sket i overensstemmelse med selskabsloven.
 {% endif %}
 {% if branche.lager or branche.igangvaerende_arbejder or branche.investeringsejendomme or branche.kontantintensiv or branche.momsfritaget %}## Branchespecifikke forhold
 

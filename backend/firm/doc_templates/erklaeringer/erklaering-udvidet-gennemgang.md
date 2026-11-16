@@ -3,7 +3,7 @@
   "title": "Erklæring om udvidet gennemgang (klasse B)",
   "description": "Den uafhængige revisors erklæring om udvidet gennemgang af årsregnskab efter Erhvervsstyrelsens erklæringsstandard for små virksomheder og FSR – danske revisorers standard om udvidet gennemgang. Mulighed for modificeret konklusion, fremhævelse og supplerende oplysninger.",
   "kind": "erklaering",
-  "references": ["Årsregnskabsloven § 135, stk. 1, 2. pkt.", "Erhvervsstyrelsens erklæringsstandard for små virksomheder (udvidet gennemgang)", "FSR – danske revisorers standard om udvidet gennemgang af regnskaber, der udarbejdes efter årsregnskabsloven", "Erklæringsbekendtgørelsen §§ 5-7", "Revisorloven § 18, stk. 1, 2. pkt."],
+  "references": ["Årsregnskabsloven § 135, stk. 1, 2. pkt.", "Erhvervsstyrelsens erklæringsstandard for små virksomheder (udvidet gennemgang)", "FSR – danske revisorers standard om udvidet gennemgang af årsregnskaber, der udarbejdes efter årsregnskabsloven", "Erklæringsbekendtgørelsen (BEK nr. 518 af 24/05/2024) §§ 10-12, jf. § 5, stk. 7-8, og § 7", "Erhvervsstyrelsens erklæringsstandard (bilag 1 til BEK nr. 518 af 24/05/2024)"],
   "legal_forms": ["aps", "as", "ivs", "holding", "pmv", "andet"],
   "industry_aware": false,
   "fields": [
@@ -45,7 +45,7 @@ Vi har udført udvidet gennemgang af årsregnskabet for {{ kunde.navn }} for reg
 
 {% if felt.konklusion != "Uden modifikation" %}{{ felt.modifikation_beskrivelse }}
 
-{% endif %}Vi har udført vores udvidede gennemgang i overensstemmelse med Erhvervsstyrelsens erklæringsstandard for små virksomheder og FSR – danske revisorers standard om udvidet gennemgang af regnskaber, der udarbejdes efter årsregnskabsloven. Vores ansvar ifølge disse standarder og krav er nærmere beskrevet i afsnittet „Revisors ansvar for den udvidede gennemgang af årsregnskabet“. Vi er uafhængige af selskabet i overensstemmelse med International Ethics Standards Board for Accountants' internationale retningslinjer for revisorers etiske adfærd (IESBA Code) og de yderligere etiske krav, der er gældende i Danmark, ligesom vi har opfyldt vores øvrige etiske forpligtelser i henhold til disse krav og IESBA Code. Det er vores opfattelse, at det opnåede bevis er tilstrækkeligt og egnet som grundlag for vores {% if felt.konklusion == "Med forbehold" %}konklusion med forbehold{% elif felt.konklusion == "Afkræftende konklusion" %}afkræftende konklusion{% else %}konklusion{% endif %}.
+{% endif %}Vi har udført vores udvidede gennemgang i overensstemmelse med Erhvervsstyrelsens erklæringsstandard for små virksomheder og FSR – danske revisorers standard om udvidet gennemgang af årsregnskaber, der udarbejdes efter årsregnskabsloven. Vores ansvar ifølge disse standarder og krav er nærmere beskrevet i afsnittet „Revisors ansvar for den udvidede gennemgang af årsregnskabet“. Vi er uafhængige af selskabet i overensstemmelse med International Ethics Standards Board for Accountants' internationale retningslinjer for revisorers etiske adfærd (IESBA Code) og de yderligere etiske krav, der er gældende i Danmark, ligesom vi har opfyldt vores øvrige etiske forpligtelser i henhold til disse krav og IESBA Code. Det er vores opfattelse, at det opnåede bevis er tilstrækkeligt og egnet som grundlag for vores {% if felt.konklusion == "Med forbehold" %}konklusion med forbehold{% elif felt.konklusion == "Afkræftende konklusion" %}afkræftende konklusion{% else %}konklusion{% endif %}.
 
 {% endif %}{% if felt.fortsat_drift %}## Væsentlig usikkerhed vedrørende fortsat drift
 

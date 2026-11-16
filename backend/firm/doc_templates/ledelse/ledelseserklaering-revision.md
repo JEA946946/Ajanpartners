@@ -3,7 +3,7 @@
   "title": "Ledelseserklæring – revision af årsregnskab (ISA 580)",
   "description": "Skriftlig ledelseserklæring til revisor ved revision af årsregnskabet. Dækker ISA 580 og de specifikke krav i ISA 240, 250, 450, 501, 540, 550, 560 og 570 samt danske forhold (kapitalejerlån, skatter og afgifter, bogføringsloven). Branchespecifikke afsnit om varelager, igangværende arbejder, investeringsejendomme, kontantsalg, moms og biologiske aktiver. Dateres samme dag som påtegningen.",
   "kind": "brev",
-  "references": ["ISA 580", "ISA 240", "ISA 250", "ISA 450", "ISA 501", "ISA 540", "ISA 550", "ISA 560", "ISA 570", "Selskabsloven §§ 115-119, 127 og 179", "Selskabsloven §§ 210 og 215 (ophævet pr. 1/1 2025 – ældre lån)", "Ligningsloven § 16 E", "Bogføringsloven (lov nr. 700 af 24/05/2022)"],
+  "references": ["ISA 580", "ISA 240", "ISA 250", "ISA 450", "ISA 501", "ISA 540", "ISA 550", "ISA 560", "ISA 570", "Selskabsloven §§ 115-119, 127 og 179", "Selskabsloven § 210 (ophævet pr. 1/1 2025 ved lov nr. 1668 af 30/12/2024) og § 215 i den dagældende affattelse – ældre lån", "Ligningsloven § 16 E", "Bogføringsloven (lov nr. 700 af 24/05/2022)"],
   "legal_forms": ["aps", "as", "ivs", "holding", "andet"],
   "industry_aware": true,
   "fields": [
@@ -58,7 +58,7 @@ Vi bekræfter efter bedste overbevisning og efter at have foretaget de forespør
 3. Vi har oplyst jer om alle besvigelser eller mistanker om besvigelser, som vi er bekendt med, og som involverer ledelsen, medarbejdere med betydelige roller i den interne kontrol eller andre, hvor besvigelsen kan have væsentlig indvirkning på årsregnskabet, samt om påstande om besvigelser fremsat af medarbejdere, tidligere medarbejdere, analytikere, myndigheder eller andre.
 4. Vi har oplyst jer om alle kendte tilfælde af manglende overholdelse eller mulig manglende overholdelse af love og øvrig regulering, hvis virkning bør tages i betragtning ved udarbejdelsen af årsregnskabet.
 5. Selskabet har rettidigt angivet og afregnet moms, A-skat, arbejdsmarkedsbidrag, selskabsskat og øvrige skatter og afgifter, og der er ikke verserende sager med Skattestyrelsen eller andre myndigheder, som ikke er oplyst til jer.
-6. {% if felt.kapitalejerlaan %}Vi har oplyst jer om alle lån og sikkerhedsstillelser, som selskabet har ydet til kapitalejere, ledelsesmedlemmer eller disses nærtstående, herunder mellemregninger, herunder vilkår og formål. Lånene er ydet i selskabets interesse og på forsvarlige vilkår, jf. selskabslovens §§ 115-118 og 127, og eventuelle lån ydet før 1. januar 2025 i strid med de dagældende regler i selskabslovens § 210 er tilbagebetalt med renter, jf. § 215. Vi er bekendt med, at lån til personlige kapitalejere og disses nærtstående beskattes efter ligningslovens § 16 E.{% else %}Selskabet har ikke ydet lån eller stillet sikkerhed for kapitalejere, ledelsesmedlemmer eller disses nærtstående, hverken direkte eller i form af mellemregninger.{% endif %}
+6. {% if felt.kapitalejerlaan %}Vi har oplyst jer om alle lån og sikkerhedsstillelser, som selskabet har ydet til kapitalejere, ledelsesmedlemmer eller disses nærtstående, herunder mellemregninger, herunder vilkår og formål. Lånene er ydet i selskabets interesse og på forsvarlige vilkår, jf. selskabslovens §§ 115-118 og 127, og eventuelle lån ydet før 1. januar 2025 i strid med de dagældende regler i selskabslovens § 210 er tilbagebetalt med renter, jf. den dagældende § 215. Vi er bekendt med, at lån til personlige kapitalejere og disses nærtstående kan blive beskattet efter ligningslovens § 16 E.{% else %}Selskabet har ikke ydet lån eller stillet sikkerhed for kapitalejere, ledelsesmedlemmer eller disses nærtstående, hverken direkte eller i form af mellemregninger.{% endif %}
 7. Udlodninger til kapitalejerne i regnskabsåret og frem til i dag er sket i overensstemmelse med selskabslovens §§ 179-183, og selskabets kapitalberedskab er efter vores vurdering forsvarligt, jf. selskabslovens § 115.
 
 {% if branche.lager or branche.igangvaerende_arbejder or branche.investeringsejendomme or branche.kontantintensiv or branche.momsfritaget or branche.landbrug or branche.holding %}## 4. Branchespecifikke forhold
@@ -79,7 +79,7 @@ Vi bekræfter efter bedste overbevisning og efter at have foretaget de forespør
 
 - Investeringsejendommene er målt til dagsværdi efter årsregnskabslovens § 38 på grundlag af en afkastbaseret model{% if felt.ejendom_afkastkrav %} med et afkastkrav på {{ felt.ejendom_afkastkrav }}{% endif %}. Forudsætningerne for lejeindtægter, tomgang, drifts- og vedligeholdelsesudgifter og afkastkrav afspejler markedsforholdene på balancedagen.
 - Alle lejekontrakter, lejeregulering, depositum og forudbetalt leje er oplyst til jer, og der er ikke indgået aftaler om væsentlige renoveringer eller salg, som ikke er oplyst.
-- Dagsværdireguleringer er bundet på en reserve for opskrivninger efter dagsværdi, og der er hensat til udskudt skat.
+- Der er hensat til udskudt skat af dagsværdireguleringerne.
 
 {% endif %}{% if branche.kontantintensiv %}**Kontantsalg og kasse**
 

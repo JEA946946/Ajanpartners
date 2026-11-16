@@ -3,7 +3,7 @@
   "title": "Reviewerklæring på årsregnskab (ISRE 2400)",
   "description": "Den uafhængige revisors erklæring om review af årsregnskab efter ISRE 2400. Anvendes typisk, hvor revisionen er fravalgt (ÅRL § 135, stk. 1, 3. pkt.), og ledelsen ønsker en erklæring med begrænset sikkerhed. Konklusion i negativ form.",
   "kind": "erklaering",
-  "references": ["ISRE 2400 (Revideret), afsnit 86-92", "Erklæringsbekendtgørelsen §§ 1-5", "Årsregnskabsloven § 135", "Revisorloven § 16 (LBK nr. 206 af 20/02/2025)"],
+  "references": ["ISRE 2400 (Revideret), afsnit 86-92", "Erklæringsbekendtgørelsen (BEK nr. 518 af 24/05/2024) §§ 13-16", "Årsregnskabsloven § 135", "Revisorloven § 16 (LBK nr. 206 af 20/02/2025)"],
   "legal_forms": [],
   "industry_aware": false,
   "fields": [

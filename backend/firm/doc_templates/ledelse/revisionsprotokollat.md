@@ -1,9 +1,9 @@
 ---
 {
   "title": "Revisionsprotokollat til bestyrelsen – revision af årsrapport",
-  "description": "Protokollat til revisionsprotokollen for selskaber med bestyrelse (A/S og ApS med bestyrelse), jf. revisorlovens § 20. Indeholder revisionens omfang og konklusion, væsentlighed, betydelige risici (branchetilpasset), intern kontrol, besvigelser, lovpligtige erklæringer om uafhængighed og modtagne oplysninger samt bestyrelsens underskrift. Opfylder samtidig ISA 260 og ISA 265.",
+  "description": "Protokollat til revisionsprotokollen for selskaber med bestyrelse (A/S og ApS med bestyrelse). Revisorlovens § 20 om revisionsprotokollat gælder kun virksomheder af interesse for offentligheden; fører revisor en revisionsprotokol, underskrives den af det øverste ledelsesorgans medlemmer (selskabsloven § 129). Indeholder revisionens omfang og konklusion, væsentlighed, betydelige risici (branchetilpasset), intern kontrol, besvigelser, oplysninger om uafhængighed og modtagne oplysninger samt bestyrelsens underskrift. Opfylder samtidig ISA 260 og ISA 265.",
   "kind": "brev",
-  "references": ["Revisorloven § 20 (LBK nr. 206 af 20/02/2025)", "ISA 260", "ISA 265", "ISA 450", "ISA 240", "ISA 570", "Selskabsloven §§ 115 og 117", "Erklæringsbekendtgørelsen"],
+  "references": ["Revisorloven § 20 (kun virksomheder af interesse for offentligheden) og § 22 (LBK nr. 206 af 20/02/2025)", "Selskabsloven § 129", "ISA 260", "ISA 265", "ISA 450", "ISA 240", "ISA 570", "Selskabsloven §§ 115 og 117", "Erklæringsbekendtgørelsen"],
   "legal_forms": ["as", "aps", "holding", "fmba", "andet"],
   "industry_aware": true,
   "fields": [
@@ -95,11 +95,11 @@ Vi henleder bestyrelsens opmærksomhed på, at bestyrelsen efter selskabslovens 
 
 ## 11. Ledelseserklæring
 
-Vi har i overensstemmelse med god revisionsskik indhentet en skriftlig ledelseserklæring fra bestyrelsen og direktionen, som underskrives samtidig med årsrapporten.
+Vi har i overensstemmelse med ISA 580 indhentet en skriftlig ledelseserklæring fra bestyrelsen og direktionen, som underskrives samtidig med årsrapporten.
 
-## 12. Lovpligtige oplysninger
+## 12. Uafhængighed og modtagne oplysninger
 
-I henhold til revisorlovens § 20 oplyser vi:
+Vi oplyser:
 
 - at vi opfylder lovgivningens krav til uafhængighed, og at vi ikke har ydet ydelser, der er uforenelige med uafhængigheden;
 - at vi under revisionen har modtaget alle de oplysninger, vi har anmodet om;
@@ -117,7 +117,7 @@ ______________________________
 
 ## Bestyrelsens underskrift
 
-Forelagt på bestyrelsesmødet den {{ felt.moede_dato }}. Bestyrelsens medlemmer bekræfter ved deres underskrift at have gjort sig bekendt med indholdet af dette protokollat.
+Forelagt på bestyrelsesmødet den {{ felt.moede_dato }}. Bestyrelsens medlemmer underskriver revisionsprotokollen, jf. selskabslovens § 129, og bekræfter herved at have gjort sig bekendt med indholdet af dette protokollat.
 
 ______________________________ (formand)
 
