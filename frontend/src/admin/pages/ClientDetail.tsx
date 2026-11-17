@@ -19,6 +19,7 @@ import { DeadlineTable } from './Deadlines';
 import { TaskTable } from './Tasks';
 import IndustryCodeField from '../components/IndustryCodeField';
 import AuditorTools from '../components/AuditorTools';
+import KycPanel from '../components/KycPanel';
 
 const EDIT_FIELDS = ['name', 'cvr', 'legal_form', 'address', 'zip_code', 'city', 'industry_code', 'email', 'phone',
   'vat_period', 'fiscal_year_start_month', 'accounting_class'] as const;
@@ -32,7 +33,7 @@ const ClientDetail: React.FC = () => {
   const [grants, setGrants] = useState<Grant[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
   const [form, setForm] = useState<Record<string, any>>({});
-  const [tab, setTab] = useState(0);
+  const [tab, setTab] = useState(() => Number(new URLSearchParams(window.location.search).get('tab')) || 0);
   const [error, setError] = useState('');
   const [toast, setToast] = useState('');
   const [saving, setSaving] = useState(false);
@@ -167,6 +168,7 @@ const ClientDetail: React.FC = () => {
         <Tab label={`Opgaver${client.open_tasks ? ` (${client.open_tasks})` : ''}`} />
         <Tab label="Frister" />
         <Tab label="Revisorværktøjer" />
+        <Tab label="Hvidvask" />
       </Tabs>
 
       {tab === 0 && (
@@ -339,6 +341,7 @@ const ClientDetail: React.FC = () => {
       {tab === 5 && <TaskTable client={slug} />}
       {tab === 6 && <DeadlineTable rows={deadlines} showClient={false} />}
       {tab === 7 && <AuditorTools slug={slug} canWork={active} />}
+      {tab === 8 && <KycPanel slug={slug} templateClient={slug} />}
 
       <Dialog open={invite.open} onClose={() => setInvite({ ...invite, open: false })} maxWidth="xs" fullWidth>
         <DialogTitle>Invitér bruger hos {client.name}</DialogTitle>

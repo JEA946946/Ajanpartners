@@ -505,6 +505,15 @@ def firm_settings(request):
                 data["cvr"] = normalize_cvr(data["cvr"])
             except IntegrationError as e:
                 return _err(str(e))
+        if "kyc_review_months" in request.data:
+            raw = request.data["kyc_review_months"] or {}
+            try:
+                months = {k: int(raw[k]) for k in ("lav", "normal", "hoej")}
+            except (KeyError, TypeError, ValueError):
+                return _err("Angiv antal måneder for lav, normal og høj risiko.")
+            if any(not 1 <= m <= 60 for m in months.values()):
+                return _err("Antal måneder skal være mellem 1 og 60.")
+            data["kyc_review_months"] = months
         if data.get("email"):
             from django.core.exceptions import ValidationError
             from django.core.validators import validate_email
@@ -516,7 +525,8 @@ def firm_settings(request):
             setattr(firm, f, v)
         firm.save()
         _log(request, "firm_updated")
-    return _ok({"firm": firm_dict(firm)})
+    # Husets interne politik vises kun i admin-portalen (firm_dict bruges også over for kunderne).
+    return _ok({"firm": {**firm_dict(firm), "kyc_review_months": firm.kyc_review_months}})
 
 
 @api_view(["GET"])

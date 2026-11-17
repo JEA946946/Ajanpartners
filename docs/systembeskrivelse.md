@@ -16,6 +16,9 @@ Ajan Partners Bogføring er et digitalt standardbogføringssystem. Revisorhuset 
 ### Adskillelse af kunder
 Hver kunde har sit eget Postgres-skema med hele bogføringen: kontoplan, posteringer, bilag, fakturaer, løn og audit-log. Skemaet vælges for hvert kald ud fra headeren `X-Client`, men først efter at systemet har tjekket, at brugeren har adgang til netop den kunde (`backend/tenancy/middleware.py`, `access.py`). Det fælles public-skema indeholder kun brugere, kunder, pakker, revisorhusets adgange, betingelser og accepter, revisorhusets opgaver og revisorhusets log.
 
+### Revisorhusets hvidvaskdokumentation
+Kundekendskab (reelle ejere, ledelse, PEP, kopi af legitimation) og risikovurderinger ligger i public-skemaet (`firm_kyc_*`, filer under `MEDIA_ROOT/public/kyc/`) – ikke i kundens skema – så kunden aldrig kan se dem, og de indgår ikke i kundens eksport. Godkendte vurderinger er låst med en SHA-256-kontrolsum; ændringer laves som ny version. Interne registreringer af underretninger (`firm_aml_reports`) er kun tilgængelige for partnere og logges i revisorhusets log uden kunde og indhold. Oplysningerne slettes ikke automatisk (opbevaring mindst 5 år efter forretningsforbindelsens ophør, HVL § 30, stk. 2).
+
 ### Brugere og roller
 - **Kundens brugere**: administrator, bogholder og læser (`ClientMembership`). Administratoren styrer brugere, revisoradgang og eksport.
 - **Revisorhusets medarbejdere**: partner, revisor, bogholder og assistent (`FirmStaff`). Revisorhuset har adgang til en kundes bøger fra oprettelsen efter kundeaftalen/opdragsbrevet (`AccessGrant`). Bogholdere og assistenter ser kun de kunder, de er tildelt. En partner afslutter adgangen, når aftalen ophører.

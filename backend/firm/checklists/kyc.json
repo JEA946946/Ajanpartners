@@ -1,0 +1,17 @@
+{
+  "id": "kyc",
+  "version": "2026-11",
+  "title": "Kundekendskab og risikovurdering (hvidvaskloven)",
+  "source": "Hjemlerne er kontrolleret mod hvidvaskloven (LBK nr. 433/2026) – se docs/skabeloner-verifikation/opdrag-hvidvask.md.",
+  "questions": [
+    {"id": "identitet", "text": "Kundens identitet (navn og CVR-nr.) er registreret og kontrolleret på grundlag af dokumenter eller oplysninger fra en pålidelig og uafhængig kilde, herunder registreringsbevis eller ekstrakt fra Erhvervsstyrelsens it-system.", "ref": "HVL § 11, stk. 1, nr. 1-2; § 14, stk. 1, 2. pkt."},
+    {"id": "reelle_ejere", "text": "Kundens reelle ejere er identificeret, og der er taget rimelige foranstaltninger til at kontrollere deres identitet.", "ref": "HVL § 2, nr. 9; § 11, stk. 1, nr. 3"},
+    {"id": "uoverensstemmelse", "text": "Der er uoverensstemmelse mellem de reelle ejere, der er registreret hos Erhvervsstyrelsen, og vores oplysninger (i så fald skal det indberettes).", "ref": "HVL § 15 a", "risk_if": "ja"},
+    {"id": "fuldmagt", "text": "Personer, der handler på kundens vegne, er identificeret, og deres bemyndigelse er kontrolleret.", "ref": "HVL § 11, stk. 2"},
+    {"id": "formaal", "text": "Forretningsforbindelsens formål og tilsigtede beskaffenhed er vurderet (og beskrevet nedenfor).", "ref": "HVL § 11, stk. 1, nr. 4"},
+    {"id": "pep", "text": "Kunden, en reel ejer eller en nærtstående er politisk eksponeret person (tjek bl.a. Finanstilsynets PEP-liste). I så fald kræves godkendelse, oplysning om midlernes og formuens oprindelse og skærpet overvågning.", "ref": "HVL § 18, stk. 2-4; PEP-bekendtgørelsen § 2", "risk_if": "ja"},
+    {"id": "usaedvanligt", "text": "Der er komplekse eller usædvanligt store transaktioner, usædvanlige mønstre eller aktiviteter, der skal undersøges og noteres.", "ref": "HVL § 25, stk. 1-3", "risk_if": "ja"},
+    {"id": "persondata", "text": "Kunden er informeret om behandlingen af personoplysninger efter hvidvaskloven, før forretningsforbindelsen etableres.", "ref": "HVL § 16, stk. 1"},
+    {"id": "loebende", "text": "Kundekendskabet er ajourført, og forretningsforbindelsen overvåges løbende.", "ref": "HVL § 10, nr. 1; § 11, stk. 1, nr. 5"}
+  ]
+}

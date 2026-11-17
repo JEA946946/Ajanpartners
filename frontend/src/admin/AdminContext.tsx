@@ -14,6 +14,7 @@ export interface FirmSettings {
   website: string;
   logo: string;
   primary_color: string;
+  kyc_review_months?: { lav: number; normal: number; hoej: number };
 }
 
 interface AdminContextType {

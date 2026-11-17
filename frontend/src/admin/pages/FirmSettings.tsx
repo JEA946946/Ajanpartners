@@ -106,6 +106,24 @@ const FirmSettings: React.FC = () => {
             )}
           </Grid>
         </Grid>
+        <Divider sx={{ my: 2.5 }} />
+        <Typography variant="subtitle2">Hvidvask – opdatering af kundekendskab</Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+          Husets egen politik (ikke et lovkrav): antal måneder fra godkendelse til næste opdatering pr. risiko.
+          Kundekendskabet skal under alle omstændigheder ajourføres løbende (HVL § 11, stk. 1, nr. 5).
+        </Typography>
+        <Grid container spacing={2}>
+          {([['lav', 'Lav risiko'], ['normal', 'Normal risiko'], ['hoej', 'Høj risiko']] as const).map(([k, lbl]) => (
+            <Grid item xs={4} key={k}>
+              <TextField fullWidth size="small" type="number" label={`${lbl} (mdr.)`} disabled={!isPartner}
+                inputProps={{ min: 1, max: 60 }} value={form.kyc_review_months?.[k] ?? ''}
+                onChange={(e) => setForm({
+                  ...form,
+                  kyc_review_months: { lav: 36, normal: 24, hoej: 12, ...form.kyc_review_months, [k]: Number(e.target.value) },
+                })} />
+            </Grid>
+          ))}
+        </Grid>
         {msg && <Alert severity={msg.ok ? 'success' : 'error'} sx={{ mt: 2 }}>{msg.text}</Alert>}
         {isPartner ? (
           <Box sx={{ mt: 2, textAlign: 'right' }}><Button variant="contained" onClick={save}>Gem</Button></Box>

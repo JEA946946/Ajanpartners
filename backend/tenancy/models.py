@@ -13,6 +13,10 @@ from django.utils import timezone
 from django_tenants.models import DomainMixin, TenantMixin
 
 
+def default_kyc_review_months():
+    return {"lav": 36, "normal": 24, "hoej": 12}
+
+
 class Firm(models.Model):
     """Revisorhuset (Ajan Partners). Én række i dag; modellen gør white-label muligt."""
 
@@ -26,6 +30,8 @@ class Firm(models.Model):
     website = models.CharField(max_length=200, blank=True, default="")
     logo = models.TextField(blank=True, default="")  # base64 data-URL
     primary_color = models.CharField(max_length=20, default="#0B3D5C")
+    # Husets egen politik (ikke et lovkrav): måneder mellem opdatering af kundekendskab pr. risiko.
+    kyc_review_months = models.JSONField(default=default_kyc_review_months, blank=True)
 
     class Meta:
         db_table = "firm"
