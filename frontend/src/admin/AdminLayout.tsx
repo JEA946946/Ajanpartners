@@ -7,7 +7,7 @@ import {
   Business as ClientsIcon, Event as DeadlineIcon, Forum as TaskIcon, Group as StaffIcon,
   Inventory2 as PackageIcon, History as AuditIcon, Settings as SettingsIcon, SwapHoriz as SwapIcon,
   Logout as LogoutIcon, PersonAdd as NewIcon,
-  Gavel as TermsIcon, Article as TemplateIcon, Policy as RiskIcon, VerifiedUser as AmlIcon,
+  Gavel as TermsIcon, Article as TemplateIcon, Policy as RiskIcon, VerifiedUser as AmlIcon, Balance as IndependenceIcon,
 } from '@mui/icons-material';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
@@ -24,6 +24,7 @@ const ITEMS = [
   { text: 'Opgaver og forespørgsler', icon: <TaskIcon fontSize="small" />, path: '/admin/tasks' },
   { text: 'Skabeloner', icon: <TemplateIcon fontSize="small" />, path: '/admin/templates' },
   { text: 'Hvidvask (KYC)', icon: <AmlIcon fontSize="small" />, path: '/admin/aml' },
+  { text: 'Uafhængighed', icon: <IndependenceIcon fontSize="small" />, path: '/admin/independence' },
   { text: 'Brancherisiko', icon: <RiskIcon fontSize="small" />, path: '/admin/industry-risk' },
   { text: 'Medarbejdere', icon: <StaffIcon fontSize="small" />, path: '/admin/staff' },
   { text: 'Pakker', icon: <PackageIcon fontSize="small" />, path: '/admin/packages' },

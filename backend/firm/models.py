@@ -171,3 +171,76 @@ class AmlReport(models.Model):
     class Meta:
         db_table = "firm_aml_reports"
         ordering = ["-created_at"]
+
+
+# ─── Kundeaccept og uafhængighed (BEK 512/2024 § 3, stk. 1, nr. 3-4; BEK 520/2024) ──
+
+class ClientAcceptance(models.Model):
+    """Accept eller fortsættelse af klientforhold/opgave. Godkendt = låst (sha256)."""
+
+    KINDS = [("accept", "Accept af ny kunde/opgave"), ("fortsaettelse", "Fortsættelse")]
+    STATUS = [("kladde", "Kladde"), ("godkendt", "Godkendt"), ("afvist", "Afvist")]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    client = models.ForeignKey("tenancy.ClientCompany", on_delete=models.CASCADE, related_name="acceptances")
+    kind = models.CharField(max_length=15, choices=KINDS, default="accept")
+    engagement_text = models.CharField(max_length=255, blank=True, default="")  # fx "Opstilling 2026"
+    answers = models.JSONField(default=dict, blank=True)
+    conclusion = models.TextField(blank=True, default="")
+    checklist_version = models.CharField(max_length=20, blank=True, default="")
+    status = models.CharField(max_length=10, choices=STATUS, default="kladde")
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name="+")
+    created_at = models.DateTimeField(auto_now_add=True)
+    approved_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+                                    related_name="+")
+    approved_at = models.DateTimeField(null=True, blank=True)
+    sha256 = models.CharField(max_length=64, blank=True, default="")
+
+    class Meta:
+        db_table = "firm_client_acceptances"
+        ordering = ["-created_at"]
+
+
+class IndependenceDeclaration(models.Model):
+    """Medarbejderens årlige erklæring. Underskrevet = låst; nye forhold registreres som IndependenceConflict."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    staff = models.ForeignKey("tenancy.FirmStaff", on_delete=models.CASCADE, related_name="declarations")
+    year = models.IntegerField()
+    answers = models.JSONField(default=dict, blank=True)
+    checklist_version = models.CharField(max_length=20, blank=True, default="")
+    signed_at = models.DateTimeField(default=None, null=True, blank=True)
+    sha256 = models.CharField(max_length=64, blank=True, default="")
+
+    class Meta:
+        db_table = "firm_independence_declarations"
+        unique_together = [("staff", "year")]
+        ordering = ["-year"]
+
+
+class IndependenceConflict(models.Model):
+    """Et konkret forhold mellem en medarbejder og en kunde. Mens det er uafklaret, kan medarbejderen
+    ikke tildeles kunden (BEK 520/2024 § 3, stk. 3, og § 4, stk. 2)."""
+
+    RESOLUTIONS = [
+        ("fjernet", "Fjernet fra opgaven / udelukket fra beslutninger"),
+        ("afhaendet", "Økonomisk interesse afhændet / forhold ophørt"),
+        ("sikkerhed", "Sikkerhedsforanstaltninger truffet (andre trusler, § 7)"),
+        ("afstaa", "Huset afstår fra opgaven"),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    declaration = models.ForeignKey(IndependenceDeclaration, on_delete=models.CASCADE, related_name="conflicts")
+    client = models.ForeignKey("tenancy.ClientCompany", on_delete=models.CASCADE, related_name="independence_conflicts")
+    question_id = models.CharField(max_length=40)
+    note = models.TextField(blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True)
+    resolution = models.CharField(max_length=15, choices=RESOLUTIONS, blank=True, default="")
+    resolution_note = models.TextField(blank=True, default="")
+    resolved_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+                                    related_name="+")
+    resolved_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        db_table = "firm_independence_conflicts"
+        ordering = ["-created_at"]

@@ -20,6 +20,7 @@ import { TaskTable } from './Tasks';
 import IndustryCodeField from '../components/IndustryCodeField';
 import AuditorTools from '../components/AuditorTools';
 import KycPanel from '../components/KycPanel';
+import AcceptancePanel from '../components/AcceptancePanel';
 
 const EDIT_FIELDS = ['name', 'cvr', 'legal_form', 'address', 'zip_code', 'city', 'industry_code', 'email', 'phone',
   'vat_period', 'fiscal_year_start_month', 'accounting_class'] as const;
@@ -169,6 +170,7 @@ const ClientDetail: React.FC = () => {
         <Tab label="Frister" />
         <Tab label="Revisorværktøjer" />
         <Tab label="Hvidvask" />
+        <Tab label="Kundeaccept" />
       </Tabs>
 
       {tab === 0 && (
@@ -342,6 +344,7 @@ const ClientDetail: React.FC = () => {
       {tab === 6 && <DeadlineTable rows={deadlines} showClient={false} />}
       {tab === 7 && <AuditorTools slug={slug} canWork={active} />}
       {tab === 8 && <KycPanel slug={slug} templateClient={slug} />}
+      {tab === 9 && <AcceptancePanel slug={slug} />}
 
       <Dialog open={invite.open} onClose={() => setInvite({ ...invite, open: false })} maxWidth="xs" fullWidth>
         <DialogTitle>Invitér bruger hos {client.name}</DialogTitle>

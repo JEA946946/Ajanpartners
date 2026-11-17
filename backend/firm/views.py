@@ -244,6 +244,12 @@ def client_detail(request, slug):
         changes["responsible_id"] = data["responsible_id"]
     if "assigned_staff" in data and staff.sees_all_clients:
         ids = set(int(i) for i in data["assigned_staff"])
+        from .views_quality import assignment_block
+        existing = set(StaffAssignment.objects.filter(client=client).values_list("staff_id", flat=True))
+        for sid in ids - existing:
+            msg = assignment_block(sid, client)
+            if msg:
+                return _err(msg, 409)
         StaffAssignment.objects.filter(client=client).exclude(staff_id__in=ids).delete()
         for sid in ids:
             StaffAssignment.objects.get_or_create(client=client, staff_id=sid)
@@ -460,6 +466,13 @@ def staff_detail(request, pk):
             return _err(pw_error)
     if "role" in data and data["role"] not in dict(FirmStaff.ROLES):
         return _err("Ugyldig rolle")
+    if "clients" in data:  # tjek uafhængighed, før noget gemmes
+        from .views_quality import assignment_block
+        existing = set(StaffAssignment.objects.filter(staff=s).values_list("client__slug", flat=True))
+        for c in ClientCompany.objects.filter(slug__in=set(data["clients"]) - existing):
+            msg = assignment_block(s.id, c)
+            if msg:
+                return _err(msg, 409)
     for f in ("role", "title", "is_active"):
         if f in data:
             setattr(s, f, data[f])

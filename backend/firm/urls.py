@@ -1,6 +1,6 @@
 from django.urls import path
 
-from . import views, views_kyc, views_templates, views_work
+from . import views, views_kyc, views_quality, views_templates, views_work
 
 urlpatterns = [
     path("clients", views.clients),
@@ -40,4 +40,12 @@ urlpatterns = [
     path("kyc/assessments/<uuid:pk>/approve", views_kyc.kyc_assessment_approve),
     path("aml-reports", views_kyc.aml_reports),
     path("aml-reports/<uuid:pk>", views_kyc.aml_report_detail),
+    path("checklists/<slug:name>", views_quality.checklist_view),
+    path("clients/<slug:slug>/acceptances", views_quality.client_acceptances),
+    path("acceptances/<uuid:pk>", views_quality.acceptance_detail),
+    path("acceptances/<uuid:pk>/approve", views_quality.acceptance_approve),
+    path("independence", views_quality.independence),
+    path("independence/sign", views_quality.independence_sign),
+    path("independence/conflicts", views_quality.independence_conflict),
+    path("independence/conflicts/<uuid:pk>/resolve", views_quality.independence_resolve),
 ]

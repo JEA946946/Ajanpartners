@@ -1,0 +1,15 @@
+{
+  "id": "acceptance",
+  "version": "2026-11",
+  "title": "Accept og fortsættelse af klientforhold og opgave",
+  "source": "Revisorhuset skal have politikker og procedurer for accept og fortsættelse af klientforhold og specifikke opgaver (BEK nr. 512/2024 § 3, stk. 1, nr. 4). Henvisningerne er kontrolleret mod BEK nr. 512/2024 og nr. 520/2024 (begge gældende pr. 17/11 2026) og revisorloven, LBK nr. 206/2025 (senere ændret ved lov nr. 729/2026, som ikke er gennemgået).",
+  "questions": [
+    {"id": "kyc", "text": "Kundekendskab efter hvidvaskloven er gennemført, og identiteten er kontrolleret, før forretningsforbindelsen etableres (se fanen Hvidvask).", "ref": "HVL § 14, stk. 1"},
+    {"id": "trussel_altid", "text": "Foreligger der en trussel, som altid udelukker opgaven: en person knyttet til opgaven er eller har inden for 2 år været ansat i en ledelsesfunktion hos kunden; direkte eller væsentlig indirekte økonomisk interesse i kunden; gaver eller fordele ud over ubetydelig værdi; forretningsforbindelse med fælles kommerciel interesse uden for normale vilkår (krydsende revision er aldrig tilladt); tætte familiemæssige bånd til personer med ejerskab, ledende stilling eller direkte indflydelse; eller kunden har økonomisk interesse i eller udpeger bestyrelsesmedlemmer i revisionsvirksomheden?", "ref": "BEK nr. 520/2024 § 2, stk. 1-3", "block_if": "ja", "block_text": "Revisor skal afstå fra at udføre en erklæringsopgave, når en trussel efter § 2 foreligger (BEK nr. 520/2024 § 2, stk. 2)."},
+    {"id": "trussel_oevrige", "text": "Foreligger der andre trusler mod uafhængigheden, fx selvrevision (huset har inden for de seneste 2 år udført opgaver – fx bogføring eller regnskabsudarbejdelse – som erklæringen i hovedsagen vil vedrøre), partsrepræsentation for kunden i juridiske tvister inden for 2 år eller andre familiemæssige bånd? I så fald dokumentér truslerne og de trufne sikkerhedsforanstaltninger i bemærkningen.", "ref": "BEK nr. 520/2024 § 7; RL § 24, stk. 3 og 5", "note_if": "ja"},
+    {"id": "skift_revisor", "text": "Ved skift af revisor er der rettet henvendelse til den fratrædende revisor (og til den revisor, der afgav den seneste erklæring) om grundene til fratrædelsen.", "ref": "RL § 18, stk. 2", "allow_na": true},
+    {"id": "kompetence", "text": "Revisor og de øvrige personer, der er knyttet til opgaven, har de nødvendige kompetencer og færdigheder, og huset har ressourcer til at udføre opgaven.", "ref": "BEK nr. 512/2024 § 3, stk. 1, nr. 6; RL § 16, stk. 1"},
+    {"id": "god_revisorskik", "text": "Der er ikke forhold ved kunden eller ledelsen, der giver anledning til tvivl om, at opgaven kan udføres i overensstemmelse med god revisorskik, herunder med integritet, objektivitet og professionel skepsis.", "ref": "RL § 16, stk. 1-2"},
+    {"id": "vederlag", "text": "Vederlaget er ikke højere, end hvad der kan anses for rimeligt, og betalingen eller størrelsen er ikke gjort afhængig af andre forhold end det udførte arbejde.", "ref": "RL § 26, stk. 1"}
+  ]
+}

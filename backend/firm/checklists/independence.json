@@ -1,0 +1,17 @@
+{
+  "id": "independence",
+  "version": "2026-11",
+  "title": "Årlig uafhængighedserklæring",
+  "source": "Spørgsmålene gengiver BEK nr. 520/2024 om godkendte revisorers og revisionsvirksomheders uafhængighed §§ 2 og 7 (gældende pr. 17/11 2026). De gælder revisor og andre personer i revisionsvirksomheden, der er knyttet til en erklæringsopgave eller kontrollerer dens udførelse (RL § 24, stk. 1-2). Svar \"Ja\" og angiv kunden, hvis forholdet foreligger for blot én kunde.",
+  "intro": "Jeg er bekendt med revisionsvirksomhedens politikker og procedurer for uafhængighed og vil straks give besked, hvis et af forholdene opstår i løbet af året.",
+  "intro_ref": "BEK nr. 512/2024 § 1, stk. 4, og § 2, stk. 1, nr. 2",
+  "questions": [
+    {"id": "ledelse", "text": "Er du – eller har du inden for de seneste 2 år været – ansat i en ledelsesfunktion hos en af husets kunder og har som led i ansættelsen udøvet indflydelse på det, en opgave vedrører?", "ref": "BEK nr. 520/2024 § 2, stk. 1, nr. 1"},
+    {"id": "oekonomisk", "text": "Har du en direkte eller væsentlig indirekte økonomisk interesse i en af husets kunder (eller en væsentlig direkte økonomisk interesse i en virksomhed, der er tilknyttet kunden), eller deltager du i transaktioner vedrørende finansielle instrumenter, som kunden udsteder, garanterer eller understøtter?", "ref": "BEK nr. 520/2024 § 2, stk. 1, nr. 2-3"},
+    {"id": "gaver", "text": "Har du anmodet om eller modtaget pengegaver, andre gaver, erkendtligheder eller lignende fordele af mere end ubetydelig værdi fra en kunde eller en virksomhed, der er knyttet til kunden?", "ref": "BEK nr. 520/2024 § 2, stk. 1, nr. 4"},
+    {"id": "forretning", "text": "Har du en forretningsmæssig forbindelse med en kunde, som indebærer en fælles kommerciel eller økonomisk interesse, og som ikke udøves inden for begge parters normale virksomhed på almindelige forretningsmæssige vilkår?", "ref": "BEK nr. 520/2024 § 2, stk. 1, nr. 5"},
+    {"id": "familie_taet", "text": "Har din ægtefælle, samlever, et forsørgelsespligtigt barn eller et familiemedlem, du har delt husholdning med inden for det seneste år (eller en juridisk person, de leder eller kontrollerer), en væsentlig økonomisk interesse i, en ledende stilling hos eller direkte indflydelse på regnskabet hos en kunde – eller modtager gaver eller har forretningsforbindelse med kunden ud over normal virksomhed?", "ref": "BEK nr. 520/2024 § 2, stk. 1, nr. 6, og stk. 3"},
+    {"id": "partsrepr", "text": "Optræder du – eller har du inden for de seneste 2 år optrådt – udadtil som partsrepræsentant for en kunde i forbindelse med juridiske tvister?", "ref": "BEK nr. 520/2024 § 7, stk. 1, nr. 2"},
+    {"id": "familie_oevrig", "text": "Har andre familiemedlemmer end de nævnte en væsentlig økonomisk interesse i, en ledende stilling hos eller direkte indflydelse på regnskabet hos en kunde, eller modtager de gaver eller har forretningsforbindelse med kunden ud over normal virksomhed?", "ref": "BEK nr. 520/2024 § 7, stk. 1, nr. 3"}
+  ]
+}
