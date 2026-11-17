@@ -35,3 +35,6 @@ node_modules/
 
 # Nøgler til backup/restore (docker-compose monterer ./secrets)
 secrets/
+
+# Uploadede bilag og testfiler (pr. kundeskema) – aldrig i git
+backend/media/
