@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import {
   Alert, Box, Button, Card, CardContent, Container, Stack, TextField, Typography,
 } from '@mui/material';
+import { ArrowBack } from '@mui/icons-material';
 import api from '../services/api';
 import { useAuth } from '../hooks/useAuth';
 import { useClient } from '../hooks/useClient';
@@ -12,6 +13,12 @@ const Profile: React.FC = () => {
   const { user } = useAuth();
   const { mfa, refresh, firmStaff, current } = useClient();
   const navigate = useNavigate();
+  const location = useLocation();
+  // To-faktor er obligatorisk for revisorhuset: indtil den er slået til, sender alle sider tilbage hertil.
+  const locked = mfa.required && !mfa.enabled;
+  const fallback = current ? '/dashboard' : firmStaff ? '/admin' : '/select-client';
+  // Tilbage til den side, man kom fra – eller en fast side, hvis profilen blev åbnet direkte.
+  const goBack = () => (location.key !== 'default' ? navigate(-1) : navigate(fallback));
   const [msg, setMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [pw, setPw] = useState({ current_password: '', new_password: '', repeat: '' });
   const [setup, setSetup] = useState<{ secret: string; qr: string } | null>(null);
@@ -61,13 +68,17 @@ const Profile: React.FC = () => {
 
   return (
     <Container maxWidth="sm" sx={{ py: 4 }}>
+      {!locked && (
+        <Button startIcon={<ArrowBack />} onClick={goBack} sx={{ mb: 1, ml: -1 }}>Tilbage</Button>
+      )}
       <Typography variant="h5" gutterBottom>Min profil</Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
         {user?.first_name} {user?.last_name} · {user?.email || user?.username}
       </Typography>
       {mfa.required && !mfa.enabled && (
         <Alert severity="warning" sx={{ mb: 2 }}>
-          Som medarbejder i revisorhuset skal du slå to-faktor-login til, før du kan arbejde i kundernes bøger.
+          Som medarbejder i revisorhuset skal du slå to-faktor-login til, før du kan komme videre i systemet.
+          Indtil da sendes du tilbage til denne side.
         </Alert>
       )}
       {msg && <Alert severity={msg.type} sx={{ mb: 2 }}>{msg.text}</Alert>}
@@ -145,9 +156,7 @@ const Profile: React.FC = () => {
         </CardContent>
       </Card>
 
-      <Button sx={{ mt: 3 }} onClick={() => navigate(current ? '/dashboard' : firmStaff ? '/admin' : '/select-client')}>
-        Tilbage
-      </Button>
+      {!locked && <Button sx={{ mt: 3 }} startIcon={<ArrowBack />} onClick={goBack}>Tilbage</Button>}
     </Container>
   );
 };
