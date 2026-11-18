@@ -361,3 +361,66 @@ class QualityLog(models.Model):
     class Meta:
         db_table = "firm_quality_log"
         ordering = ["-created_at"]
+
+
+# ─── Tid og fakturering (fase 4) ──────────────────────────────────────────────
+# Fakturaen laves som udkast i husets egen bogføring (Firm.own_client) og udstedes dér i salgsflowet.
+
+class FeeAgreement(models.Model):
+    """Honoraraftalen på et opdrag (husets egne vilkår – ikke et lovkrav)."""
+
+    KINDS = [("timepris", "Medgået tid"), ("fast", "Fast pris"), ("aconto", "Aconto + medgået tid")]
+
+    engagement = models.OneToOneField(Engagement, on_delete=models.CASCADE, related_name="fee")
+    kind = models.CharField(max_length=10, choices=KINDS, default="timepris")
+    hourly_rate = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)  # tilsidesætter satsen
+    fixed_amount = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    note = models.TextField(blank=True, default="")
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "firm_fee_agreements"
+
+
+class FeeInstallment(models.Model):
+    """En rate (fast pris eller aconto). Faktureret = knyttet til et fakturaudkast i husets bøger."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    engagement = models.ForeignKey(Engagement, on_delete=models.CASCADE, related_name="installments")
+    due_on = models.DateField()
+    amount = models.DecimalField(max_digits=12, decimal_places=2)  # ekskl. moms
+    text = models.CharField(max_length=255, blank=True, default="")
+    invoice_id = models.UUIDField(null=True, blank=True)
+    invoiced_at = models.DateTimeField(null=True, blank=True)
+    # Aconto modregnes, når den medgåede tid faktureres (fakturaen, der modregnede).
+    offset_invoice_id = models.UUIDField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "firm_fee_installments"
+        ordering = ["due_on", "created_at"]
+
+
+class TimeEntry(models.Model):
+    """Registreret tid. Låst, når den er faktureret (knyttet til et fakturaudkast)."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+")
+    client = models.ForeignKey("tenancy.ClientCompany", on_delete=models.PROTECT, related_name="+")
+    engagement = models.ForeignKey(Engagement, on_delete=models.SET_NULL, null=True, blank=True,
+                                   related_name="time_entries")
+    date = models.DateField()
+    minutes = models.PositiveIntegerField()
+    activity = models.CharField(max_length=100, blank=True, default="")
+    note = models.TextField(blank=True, default="")
+    billable = models.BooleanField(default=True)
+    rate = models.DecimalField(max_digits=10, decimal_places=2, default=0)  # timepris ekskl. moms på registreringen
+    invoice_id = models.UUIDField(null=True, blank=True)
+    invoiced_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "firm_time_entries"
+        ordering = ["-date", "-created_at"]
+        indexes = [models.Index(fields=["user", "date"]), models.Index(fields=["client", "invoice_id"])]

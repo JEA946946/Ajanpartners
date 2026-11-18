@@ -8,7 +8,7 @@ import { firmApi } from '../../services/api';
 import { errorText, FirmClient, Staff, STAFF_ROLES } from '../api';
 import { useAdmin } from '../AdminContext';
 
-const EMPTY = { id: 0, email: '', first_name: '', last_name: '', role: 'bogholder', title: '', password: '', is_active: true, clients: [] as string[] };
+const EMPTY = { id: 0, email: '', first_name: '', last_name: '', role: 'bogholder', title: '', hourly_rate: '', password: '', is_active: true, clients: [] as string[] };
 
 const StaffPage: React.FC = () => {
   const { staff, isPartner, reload } = useAdmin();
@@ -22,7 +22,7 @@ const StaffPage: React.FC = () => {
 
   const open = (s?: Staff) => {
     setError('');
-    setEdit(s ? { id: s.id, email: s.email, first_name: s.first_name, last_name: s.last_name, role: s.role, title: s.title,
+    setEdit(s ? { id: s.id, email: s.email, first_name: s.first_name, last_name: s.last_name, role: s.role, title: s.title, hourly_rate: s.hourly_rate || '',
       password: '', is_active: s.is_active, clients: s.clients } : { ...EMPTY });
   };
 
@@ -95,6 +95,10 @@ const StaffPage: React.FC = () => {
                 </TextField>
               </Grid>
               <Grid item xs={6}><TextField fullWidth size="small" label="Titel" value={edit.title} onChange={(e) => setEdit({ ...edit, title: e.target.value })} /></Grid>
+              <Grid item xs={6}>
+                <TextField fullWidth size="small" type="number" label="Timepris (kr. ekskl. moms)" value={edit.hourly_rate}
+                  helperText="Tom = husets standardsats" onChange={(e) => setEdit({ ...edit, hourly_rate: e.target.value })} />
+              </Grid>
               <Grid item xs={12}>
                 <TextField fullWidth size="small" type="password" label={edit.id ? 'Ny adgangskode (valgfri)' : 'Adgangskode (mindst 10 tegn)'}
                   value={edit.password} onChange={(e) => setEdit({ ...edit, password: e.target.value })} />

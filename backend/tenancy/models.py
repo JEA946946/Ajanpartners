@@ -32,6 +32,10 @@ class Firm(models.Model):
     primary_color = models.CharField(max_length=20, default="#0B3D5C")
     # Husets egen politik (ikke et lovkrav): måneder mellem opdatering af kundekendskab pr. risiko.
     kyc_review_months = models.JSONField(default=default_kyc_review_months, blank=True)
+    # Tid og fakturering: standard-timepris (ekskl. moms) og husets egen bogføring (en kunde i systemet).
+    default_hourly_rate = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    own_client = models.ForeignKey("tenancy.ClientCompany", on_delete=models.SET_NULL, null=True, blank=True,
+                                   related_name="+")
 
     class Meta:
         db_table = "firm"
@@ -156,6 +160,7 @@ class FirmStaff(models.Model):
     role = models.CharField(max_length=20, choices=ROLES, default="bogholder")
     title = models.CharField(max_length=100, blank=True, default="")
     is_active = models.BooleanField(default=True)
+    hourly_rate = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)  # ekskl. moms
 
     class Meta:
         db_table = "firm_staff"

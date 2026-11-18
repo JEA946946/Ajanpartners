@@ -417,6 +417,7 @@ def staff_dict(s):
     return {"id": s.id, "user_id": s.user_id, "username": s.user.username, "email": s.user.email,
             "first_name": s.user.first_name, "last_name": s.user.last_name, "role": s.role,
             "title": s.title, "is_active": s.is_active,
+            "hourly_rate": str(s.hourly_rate) if s.hourly_rate is not None else None,
             "clients": list(s.assignments.values_list("client__slug", flat=True))}
 
 
@@ -443,8 +444,16 @@ def staff_list(request):
             user = User.objects.create_user(username=email, email=email, password=data["password"],
                                             first_name=data.get("first_name", ""),
                                             last_name=data.get("last_name", ""))
+        rate = None
+        if data.get("hourly_rate") not in (None, ""):
+            from decimal import Decimal, InvalidOperation
+            try:
+                rate = Decimal(str(data["hourly_rate"]).replace(",", "."))
+            except InvalidOperation:
+                return _err("Ugyldig timepris")
         s, _ = FirmStaff.objects.update_or_create(user=user, defaults={
-            "firm": firm, "role": data["role"], "title": data.get("title", ""), "is_active": True})
+            "firm": firm, "role": data["role"], "title": data.get("title", ""), "is_active": True,
+            "hourly_rate": rate})
         for c in ClientCompany.objects.filter(slug__in=data.get("clients") or []):
             StaffAssignment.objects.get_or_create(staff=s, client=c)
     _log(request, "staff_created", email=email, role=s.role)
@@ -473,6 +482,15 @@ def staff_detail(request, pk):
             msg = assignment_block(s.id, c)
             if msg:
                 return _err(msg, 409)
+    if "hourly_rate" in data:
+        from decimal import Decimal, InvalidOperation
+        try:
+            rate = Decimal(str(data["hourly_rate"]).replace(",", ".")) if data["hourly_rate"] not in (None, "") else None
+        except InvalidOperation:
+            return _err("Ugyldig timepris")
+        if rate is not None and rate < 0:
+            return _err("Ugyldig timepris")
+        s.hourly_rate = rate
     for f in ("role", "title", "is_active"):
         if f in data:
             setattr(s, f, data[f])
@@ -527,6 +545,16 @@ def firm_settings(request):
             if any(not 1 <= m <= 60 for m in months.values()):
                 return _err("Antal måneder skal være mellem 1 og 60.")
             data["kyc_review_months"] = months
+        if "default_hourly_rate" in request.data:
+            from decimal import Decimal, InvalidOperation
+            raw = request.data["default_hourly_rate"]
+            try:
+                rate = Decimal(str(raw).replace(",", ".")) if raw not in (None, "") else None
+            except InvalidOperation:
+                return _err("Ugyldig timepris")
+            if rate is not None and rate < 0:
+                return _err("Ugyldig timepris")
+            data["default_hourly_rate"] = rate
         if data.get("email"):
             from django.core.exceptions import ValidationError
             from django.core.validators import validate_email
@@ -539,7 +567,10 @@ def firm_settings(request):
         firm.save()
         _log(request, "firm_updated")
     # Husets interne politik vises kun i admin-portalen (firm_dict bruges også over for kunderne).
-    return _ok({"firm": {**firm_dict(firm), "kyc_review_months": firm.kyc_review_months}})
+    return _ok({"firm": {**firm_dict(firm), "kyc_review_months": firm.kyc_review_months,
+                         "default_hourly_rate": str(firm.default_hourly_rate)
+                         if firm.default_hourly_rate is not None else None,
+                         "own_client": firm.own_client.slug if firm.own_client_id else None}})
 
 
 @api_view(["GET"])

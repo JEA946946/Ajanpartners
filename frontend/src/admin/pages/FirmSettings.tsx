@@ -124,6 +124,18 @@ const FirmSettings: React.FC = () => {
             </Grid>
           ))}
         </Grid>
+        <Divider sx={{ my: 2.5 }} />
+        <Typography variant="subtitle2">Tid og fakturering</Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+          Standardsats, når hverken opdragets honoraraftale eller medarbejderen har en timepris.
+          Husets egen bogføring vælges under Fakturering.
+        </Typography>
+        <Grid container spacing={2}>
+          <Grid item xs={12} sm={4}>
+            <TextField fullWidth size="small" type="number" label="Standard-timepris (kr. ekskl. moms)" disabled={!isPartner}
+              value={form.default_hourly_rate ?? ''} onChange={(e) => setForm({ ...form, default_hourly_rate: e.target.value })} />
+          </Grid>
+        </Grid>
         {msg && <Alert severity={msg.ok ? 'success' : 'error'} sx={{ mt: 2 }}>{msg.text}</Alert>}
         {isPartner ? (
           <Box sx={{ mt: 2, textAlign: 'right' }}><Button variant="contained" onClick={save}>Gem</Button></Box>

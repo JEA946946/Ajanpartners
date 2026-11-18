@@ -11,6 +11,7 @@ import { formatDate } from '../../utils/dateFormat';
 import { errorText } from '../api';
 import { useAdmin } from '../AdminContext';
 import { Meta, STATUS_COLOR } from './Engagements';
+import FeePanel from '../components/FeePanel';
 
 interface Item { id: string; section: string; text: string; status: string; note: string; by: string | null; at: string | null }
 interface Run { id: string; template_id: string; title: string; items: Item[]; done: number; total: number }
@@ -88,6 +89,7 @@ const EngagementDetail: React.FC = () => {
         <Chip size="small" color={STATUS_COLOR[e.status]} label={e.status_label} />
         <Box sx={{ flex: 1 }} />
         <Button size="small" onClick={() => navigate(`/admin/clients/${e.client}`)}>{e.client_name}</Button>
+        <Button size="small" onClick={() => navigate(`/admin/time?client=${e.client}&engagement=${e.id}`)}>Registrér tid</Button>
         {e.letter_template && (
           <Button size="small" startIcon={<Description />} onClick={() => navigate(`/admin/templates?t=${e.letter_template}&client=${e.client}`)}>Opdragsbrev</Button>
         )}
@@ -134,6 +136,8 @@ const EngagementDetail: React.FC = () => {
           </Grid>
         </Grid>
       </Paper>
+
+      <FeePanel engagementId={e.id} />
 
       <Paper sx={{ p: 2, mb: 2 }}>
         <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1 }}>Sign-off</Typography>

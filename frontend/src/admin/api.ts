@@ -99,6 +99,7 @@ export interface Staff {
   role: 'partner' | 'revisor' | 'bogholder' | 'assistent';
   title: string;
   is_active: boolean;
+  hourly_rate?: string | null;
   clients: string[];
 }
 

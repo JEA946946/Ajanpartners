@@ -15,6 +15,8 @@ export interface FirmSettings {
   logo: string;
   primary_color: string;
   kyc_review_months?: { lav: number; normal: number; hoej: number };
+  default_hourly_rate?: string | null;
+  own_client?: string | null;
 }
 
 interface AdminContextType {

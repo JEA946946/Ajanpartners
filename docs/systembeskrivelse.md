@@ -19,6 +19,9 @@ Hver kunde har sit eget Postgres-skema med hele bogføringen: kontoplan, posteri
 ### Revisorhusets hvidvaskdokumentation
 Kundekendskab (reelle ejere, ledelse, PEP, kopi af legitimation) og risikovurderinger ligger i public-skemaet (`firm_kyc_*`, filer under `MEDIA_ROOT/public/kyc/`) – ikke i kundens skema – så kunden aldrig kan se dem, og de indgår ikke i kundens eksport. Godkendte vurderinger er låst med en SHA-256-kontrolsum; ændringer laves som ny version. Interne registreringer af underretninger (`firm_aml_reports`) er kun tilgængelige for partnere og logges i revisorhusets log uden kunde og indhold. Oplysningerne slettes ikke automatisk (opbevaring mindst 5 år efter forretningsforbindelsens ophør, HVL § 30, stk. 2).
 
+### Revisorhusets tid og fakturering
+Tidsregistreringer, honoraraftaler og rater ligger i public-skemaet (`firm_time_entries`, `firm_fee_*`) og ses ikke af kunden. Fakturaer til kunderne laves ikke dér: revisorhusets egen bogføring er en kunde i systemet (`Firm.own_client`, eget skema), og "Fakturér" opretter et fakturaudkast i dens skema. Udstedelse, fortløbende nummer, moms og bogføring sker i det almindelige salgsflow med de samme kontroller som hos alle andre kunder, og handlingen står i husets audit-log (`_via: firm`). En registrering, der er knyttet til et udkast, kan ikke ændres. Slettes udkastet, frigives den igen.
+
 ### Brugere og roller
 - **Kundens brugere**: administrator, bogholder og læser (`ClientMembership`). Administratoren styrer brugere, revisoradgang og eksport.
 - **Revisorhusets medarbejdere**: partner, revisor, bogholder og assistent (`FirmStaff`). Revisorhuset har adgang til en kundes bøger fra oprettelsen efter kundeaftalen/opdragsbrevet (`AccessGrant`). Bogholdere og assistenter ser kun de kunder, de er tildelt. En partner afslutter adgangen, når aftalen ophører.
