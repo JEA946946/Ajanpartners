@@ -1,6 +1,6 @@
 from django.urls import path
 
-from . import views, views_archive, views_engagements, views_time, views_kyc, views_quality, views_templates, views_work
+from . import views, views_archive, views_dashboard, views_engagements, views_time, views_kyc, views_quality, views_templates, views_work
 
 urlpatterns = [
     path("clients", views.clients),
@@ -72,4 +72,8 @@ urlpatterns = [
     path("clients/<slug:slug>/documents", views_archive.client_documents),
     path("documents/<uuid:pk>", views_archive.document_detail),
     path("templates/<slug:template_id>/archive", views_archive.template_archive),
+    path("clients/<slug:slug>/powers", views_dashboard.client_powers),
+    path("powers", views_dashboard.powers),
+    path("powers/<uuid:pk>", views_dashboard.power_detail),
+    path("dashboard", views_dashboard.dashboard),
 ]

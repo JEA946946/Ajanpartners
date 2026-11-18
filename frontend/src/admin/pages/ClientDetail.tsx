@@ -23,6 +23,7 @@ import KycPanel from '../components/KycPanel';
 import AcceptancePanel from '../components/AcceptancePanel';
 import ClientEngagements from '../components/ClientEngagements';
 import ClientDocuments from '../components/ClientDocuments';
+import PowersPanel from '../components/PowersPanel';
 
 const EDIT_FIELDS = ['name', 'cvr', 'legal_form', 'address', 'zip_code', 'city', 'industry_code', 'email', 'phone',
   'vat_period', 'fiscal_year_start_month', 'accounting_class'] as const;
@@ -175,6 +176,7 @@ const ClientDetail: React.FC = () => {
         <Tab label="Kundeaccept" />
         <Tab label="Opdrag" />
         <Tab label="Arkiv" />
+        <Tab label="Fuldmagter" />
       </Tabs>
 
       {tab === 0 && (
@@ -351,6 +353,7 @@ const ClientDetail: React.FC = () => {
       {tab === 9 && <AcceptancePanel slug={slug} />}
       {tab === 10 && <ClientEngagements slug={slug} name={client.name} />}
       {tab === 11 && <ClientDocuments slug={slug} />}
+      {tab === 12 && <PowersPanel slug={slug} />}
 
       <Dialog open={invite.open} onClose={() => setInvite({ ...invite, open: false })} maxWidth="xs" fullWidth>
         <DialogTitle>Invitér bruger hos {client.name}</DialogTitle>

@@ -21,6 +21,7 @@ const Independence = React.lazy(() => import('./pages/Independence'));
 const Engagements = React.lazy(() => import('./pages/Engagements'));
 const EngagementDetail = React.lazy(() => import('./pages/EngagementDetail'));
 const QualityLog = React.lazy(() => import('./pages/QualityLog'));
+const Dashboard = React.lazy(() => import('./pages/Dashboard'));
 const TimePage = React.lazy(() => import('./pages/TimePage'));
 const Billing = React.lazy(() => import('./pages/Billing'));
 const AdminSelectClient = React.lazy(() => import('./pages/SelectClient'));
@@ -35,7 +36,8 @@ const AdminApp: React.FC = () => (
     <AdminLayout>
       <Suspense fallback={<Loader />}>
         <Routes>
-          <Route index element={<Navigate to="clients" replace />} />
+          <Route index element={<Navigate to="overview" replace />} />
+          <Route path="overview" element={<Dashboard />} />
           <Route path="clients" element={<ClientsList />} />
           <Route path="clients/new" element={<CreateClient />} />
           <Route path="clients/:slug" element={<ClientDetail />} />

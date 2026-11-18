@@ -31,6 +31,8 @@ while true; do
         [ "$now" = "05:10" ] && [ "$(date +%d)" = "01" ] && run python manage.py kyc_review_report
         # Materialelister med punkter over fristen → intern opgave til den opgaveansvarlige (dagligt)
         [ "$now" = "05:20" ] && run python manage.py pbc_reminders
+        # Fuldmagter, der udløber inden for 30 dage → intern opgave (dagligt)
+        [ "$now" = "05:25" ] && run python manage.py poa_expiry_report
     fi
     sleep 20
 done

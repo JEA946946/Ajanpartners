@@ -7,7 +7,7 @@ import {
   Business as ClientsIcon, Event as DeadlineIcon, Forum as TaskIcon, Group as StaffIcon,
   Inventory2 as PackageIcon, History as AuditIcon, Settings as SettingsIcon, SwapHoriz as SwapIcon,
   Logout as LogoutIcon, PersonAdd as NewIcon,
-  Gavel as TermsIcon, Article as TemplateIcon, Policy as RiskIcon, VerifiedUser as AmlIcon, Balance as IndependenceIcon, Work as EngagementIcon, FactCheck as QualityIcon, Schedule as TimeIcon, RequestQuote as BillingIcon,
+  Gavel as TermsIcon, Article as TemplateIcon, Policy as RiskIcon, VerifiedUser as AmlIcon, Balance as IndependenceIcon, Work as EngagementIcon, FactCheck as QualityIcon, Schedule as TimeIcon, Dashboard as OverviewIcon, RequestQuote as BillingIcon,
 } from '@mui/icons-material';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
@@ -18,6 +18,7 @@ const SIDEBAR = 220;
 const BAR = 52;
 
 const ITEMS = [
+  { text: 'Overblik', icon: <OverviewIcon fontSize="small" />, path: '/admin/overview' },
   { text: 'Kunder', icon: <ClientsIcon fontSize="small" />, path: '/admin/clients' },
   { text: 'Opret kunde', icon: <NewIcon fontSize="small" />, path: '/admin/clients/new' },
   { text: 'Fristkalender', icon: <DeadlineIcon fontSize="small" />, path: '/admin/deadlines' },

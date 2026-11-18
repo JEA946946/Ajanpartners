@@ -483,3 +483,39 @@ class ClientDocument(models.Model):
         ordering = ["-created_at"]
         constraints = [models.UniqueConstraint(fields=["client", "kind", "title", "version"],
                                                name="uniq_client_document_version")]
+
+
+# ─── Fuldmagter (fase 6) ──────────────────────────────────────────────────────
+
+class PowerOfAttorney(models.Model):
+    """En fuldmagt, kunden har givet revisorhuset (registrering – selve fuldmagten gives hos myndigheden/banken).
+    Slettes ikke; en tilbagekaldt fuldmagt markeres med dato."""
+
+    KINDS = [
+        ("skat", "Skattestyrelsen"),
+        ("virk", "Virk / Erhvervsstyrelsen"),
+        ("mitid_erhverv", "MitID Erhverv"),
+        ("bank", "Bank"),
+        ("andet", "Andet"),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    client = models.ForeignKey("tenancy.ClientCompany", on_delete=models.PROTECT, related_name="powers_of_attorney")
+    kind = models.CharField(max_length=20, choices=KINDS)
+    scope = models.CharField(max_length=255)  # hvad fuldmagten omfatter, fx "Moms og A-skat"
+    holder = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+                               related_name="+")  # medarbejderen, fuldmagten er givet til (tom = huset)
+    given_on = models.DateField(null=True, blank=True)
+    expires_on = models.DateField(null=True, blank=True)
+    reference = models.CharField(max_length=255, blank=True, default="")
+    document = models.ForeignKey("firm.ClientDocument", on_delete=models.SET_NULL, null=True, blank=True,
+                                 related_name="+")
+    note = models.TextField(blank=True, default="")
+    revoked_on = models.DateField(null=True, blank=True)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name="+")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "firm_powers_of_attorney"
+        ordering = ["expires_on", "kind"]
