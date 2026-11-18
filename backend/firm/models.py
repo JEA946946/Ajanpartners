@@ -35,6 +35,11 @@ class FirmTask(models.Model):
     assigned_to = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
                                     related_name="firm_tasks")
     due_date = models.DateField(null=True, blank=True)
+    # Materialeliste (PBC): punkter fra én anmodning har samme opdrag og listenavn.
+    engagement = models.ForeignKey("firm.Engagement", on_delete=models.SET_NULL, null=True, blank=True,
+                                   related_name="pbc_items")
+    list_name = models.CharField(max_length=255, blank=True, default="")
+    position = models.IntegerField(default=0)
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
                                    related_name="+")
     created_at = models.DateTimeField(auto_now_add=True)
@@ -424,3 +429,57 @@ class TimeEntry(models.Model):
         db_table = "firm_time_entries"
         ordering = ["-date", "-created_at"]
         indexes = [models.Index(fields=["user", "date"]), models.Index(fields=["client", "invoice_id"])]
+
+
+# ─── Dokumentarkiv pr. kunde (fase 5) ─────────────────────────────────────────
+# Filerne gemmes uafhængigt af kundens skema (MEDIA_ROOT/firm_archive/<slug>/), så de kan læses både fra
+# admin-portalen og i kundens eksport. Intet slettes: en ny fil med samme type og titel bliver en ny version.
+
+def _archive_storage():
+    import os
+
+    from django.core.files.storage import FileSystemStorage
+    return FileSystemStorage(location=os.path.join(str(settings.MEDIA_ROOT), "firm_archive"))
+
+
+def archive_upload_to(instance, filename):
+    return f"{instance.client.slug}/{uuid.uuid4().hex[:12]}_{filename}"
+
+
+class ClientDocument(models.Model):
+    KINDS = [
+        ("aarsrapport", "Årsrapport"),
+        ("opdragsbrev", "Opdragsbrev"),
+        ("ledelseserklaering", "Ledelsens regnskabserklæring"),
+        ("erklaering", "Erklæring"),
+        ("referat", "Referat / notat"),
+        ("korrespondance", "Korrespondance"),
+        ("arbejdspapir", "Arbejdspapir"),
+        ("andet", "Andet"),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    client = models.ForeignKey("tenancy.ClientCompany", on_delete=models.PROTECT, related_name="firm_documents")
+    engagement = models.ForeignKey("firm.Engagement", on_delete=models.SET_NULL, null=True, blank=True,
+                                   related_name="documents")
+    kind = models.CharField(max_length=20, choices=KINDS)
+    title = models.CharField(max_length=255)
+    version = models.PositiveIntegerField(default=1)
+    file = models.FileField(storage=_archive_storage, upload_to=archive_upload_to, max_length=500)
+    filename = models.CharField(max_length=255)
+    size = models.PositiveIntegerField(default=0)
+    sha256 = models.CharField(max_length=64)
+    source = models.CharField(max_length=120, blank=True, default="")  # "upload" eller "skabelon:<id>"
+    visible_to_client = models.BooleanField(default=False)  # vises for kunden og indgår i kundens eksport
+    signed_on = models.DateField(null=True, blank=True)
+    signed_note = models.CharField(max_length=255, blank=True, default="")  # fx "Underskrevet af direktøren"
+    retain_until = models.DateField(null=True, blank=True)  # husets opbevaringsfrist (sættes manuelt)
+    note = models.TextField(blank=True, default="")
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name="+")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "firm_client_documents"
+        ordering = ["-created_at"]
+        constraints = [models.UniqueConstraint(fields=["client", "kind", "title", "version"],
+                                               name="uniq_client_document_version")]

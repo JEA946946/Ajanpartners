@@ -104,6 +104,7 @@ def task_dict(t, messages=False):
         "created_by": _user_name(t.created_by), "created_at": t.created_at.isoformat(),
         "updated_at": t.updated_at.isoformat(),
         "closed_at": t.closed_at.isoformat() if t.closed_at else None,
+        "engagement": str(t.engagement_id) if t.engagement_id else None, "list_name": t.list_name,
     }
     if messages:
         d["messages"] = [message_dict(m) for m in t.messages.select_related("author")]

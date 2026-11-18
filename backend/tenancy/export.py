@@ -91,6 +91,24 @@ def build_export(client, user=None):
                         _ref(doc, "bill", "bill_number"), _ref(doc, "expense", "id")])
         put("bilag.csv", "﻿" + rows.getvalue())
 
+        # Dokumenter fra revisorhuset, som er delt med kunden (årsrapporter, opdragsbreve m.m.). Husets interne
+        # arbejdspapirer, kundekendskab og hvidvaskregistreringer indgår aldrig.
+        from firm.models import ClientDocument
+        drows = io.StringIO()
+        dw = csv.writer(drows, delimiter=";")
+        dw.writerow(["type", "titel", "version", "filnavn", "fil_i_eksporten", "sha256", "underskrevet", "oprettet"])
+        for doc in ClientDocument.objects.filter(client=client, visible_to_client=True).order_by("kind", "title",
+                                                                                                 "version"):
+            arcname = f"revisor_dokumenter/{doc.get_kind_display()}/v{doc.version}_{os.path.basename(doc.filename)}"
+            try:
+                with doc.file.open("rb") as fh:
+                    put(arcname, fh.read())
+            except (FileNotFoundError, OSError):
+                arcname = f"MANGLER: {doc.filename}"
+            dw.writerow([doc.get_kind_display(), doc.title, doc.version, doc.filename, arcname, doc.sha256,
+                         doc.signed_on.isoformat() if doc.signed_on else "", doc.created_at.isoformat()])
+        put("revisor_dokumenter.csv", "﻿" + drows.getvalue())
+
         logs = [{"seq": a.seq, "timestamp": a.timestamp.isoformat(), "user_id": a.user_id, "action": a.action,
                  "model": a.model_name, "record_id": a.record_id, "changes": a.changes, "ip": a.ip_address,
                  "prev_hash": a.prev_hash, "hash": a.hash}

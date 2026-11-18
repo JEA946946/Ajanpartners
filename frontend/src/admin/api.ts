@@ -133,6 +133,8 @@ export interface FirmTask {
   created_at: string;
   updated_at: string;
   closed_at: string | null;
+  engagement?: string | null;
+  list_name?: string;
   message_count?: number | null;
   messages?: TaskMessage[];
 }

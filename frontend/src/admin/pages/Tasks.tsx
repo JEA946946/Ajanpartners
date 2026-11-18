@@ -90,6 +90,7 @@ export const TaskTable: React.FC<{ client?: string; clients?: FirmClient[]; show
                 {!client && <TableCell>{t.client_name}</TableCell>}
                 <TableCell>
                   <Typography fontSize={13} fontWeight={t.status === 'answered' ? 700 : 400}>{t.title}</Typography>
+                  {t.list_name && <Typography variant="caption" color="text.secondary" display="block">{t.list_name}</Typography>}
                   {t.visible_to_client === false && <Typography variant="caption" color="text.secondary">Intern</Typography>}
                 </TableCell>
                 <TableCell>{t.kind_label}</TableCell>

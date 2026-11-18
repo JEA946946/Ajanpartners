@@ -12,6 +12,8 @@ import { errorText } from '../api';
 import { useAdmin } from '../AdminContext';
 import { Meta, STATUS_COLOR } from './Engagements';
 import FeePanel from '../components/FeePanel';
+import PbcPanel from '../components/PbcPanel';
+import ClientDocuments from '../components/ClientDocuments';
 
 interface Item { id: string; section: string; text: string; status: string; note: string; by: string | null; at: string | null }
 interface Run { id: string; template_id: string; title: string; items: Item[]; done: number; total: number }
@@ -138,6 +140,8 @@ const EngagementDetail: React.FC = () => {
       </Paper>
 
       <FeePanel engagementId={e.id} />
+      <PbcPanel engagementId={e.id} yearLabel={e.year_label} />
+      <ClientDocuments slug={e.client} engagementId={e.id} />
 
       <Paper sx={{ p: 2, mb: 2 }}>
         <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1 }}>Sign-off</Typography>

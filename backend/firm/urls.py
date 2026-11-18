@@ -1,6 +1,6 @@
 from django.urls import path
 
-from . import views, views_engagements, views_time, views_kyc, views_quality, views_templates, views_work
+from . import views, views_archive, views_engagements, views_time, views_kyc, views_quality, views_templates, views_work
 
 urlpatterns = [
     path("clients", views.clients),
@@ -67,4 +67,9 @@ urlpatterns = [
     path("billing/own-client", views_time.billing_own_client),
     path("billing/clients/<slug:slug>", views_time.billing_client),
     path("billing/clients/<slug:slug>/draft", views_time.billing_draft),
+    path("engagements/<uuid:pk>/pbc", views_archive.engagement_pbc),
+    path("engagements/<uuid:pk>/pbc/preview", views_archive.pbc_preview),
+    path("clients/<slug:slug>/documents", views_archive.client_documents),
+    path("documents/<uuid:pk>", views_archive.document_detail),
+    path("templates/<slug:template_id>/archive", views_archive.template_archive),
 ]

@@ -3,7 +3,7 @@ import {
   Alert, Box, Button, Chip, CircularProgress, Divider, List, ListItemButton, ListItemText, Paper, TextField,
   ToggleButton, ToggleButtonGroup, Typography,
 } from '@mui/material';
-import { AttachFile as AttachIcon, Send as SendIcon } from '@mui/icons-material';
+import { AttachFile as AttachIcon, Download as DownloadIcon, Send as SendIcon } from '@mui/icons-material';
 import api from '../services/api';
 import { useClient } from '../hooks/useClient';
 import { formatDate } from '../utils/dateFormat';
@@ -12,7 +12,7 @@ interface Message { id: string; author: string | null; from_firm: boolean; body:
 interface Task {
   id: string; title: string; description: string; kind: string; kind_label: string; status: string; status_label: string;
   reference_type: string; reference_label: string; reference_id: string; due_date: string | null;
-  assigned_name: string | null; created_at: string; updated_at: string; message_count?: number | null; messages?: Message[];
+  assigned_name: string | null; list_name?: string; created_at: string; updated_at: string; message_count?: number | null; messages?: Message[];
 }
 
 const STATUS_COLOR: Record<string, 'warning' | 'info' | 'default' | 'primary'> = {
@@ -99,7 +99,7 @@ const Inbox: React.FC = () => {
                 <ListItemButton selected={selected?.id === t.id} onClick={() => open(t.id)}>
                   <ListItemText
                     primary={<Typography fontWeight={t.status === 'open' ? 700 : 400} fontSize={13}>{t.title}</Typography>}
-                    secondary={`${t.kind_label} · ${formatDate(t.created_at)}${t.due_date ? ` · svar senest ${formatDate(t.due_date)}` : ''}`} />
+                    secondary={`${t.list_name ? `${t.list_name} · ` : ''}${t.kind_label} · ${formatDate(t.created_at)}${t.due_date ? ` · svar senest ${formatDate(t.due_date)}` : ''}`} />
                   <Chip size="small" color={STATUS_COLOR[t.status]} label={STATUS_TEXT[t.status] || t.status_label} />
                 </ListItemButton>
                 <Divider />
@@ -155,7 +155,47 @@ const Inbox: React.FC = () => {
           )}
         </Paper>
       </Box>
+      <FirmDocuments />
     </Box>
+  );
+};
+
+interface FirmDoc { id: string; kind_label: string; title: string; version: number; filename: string; signed_on: string | null; created_at: string }
+
+/** Dokumenter, revisor har delt (årsrapport, opdragsbrev m.m.). De indgår også i "Eksportér alt". */
+const FirmDocuments: React.FC = () => {
+  const [docs, setDocs] = useState<FirmDoc[]>([]);
+  const [error, setError] = useState('');
+  useEffect(() => {
+    api.get('/firm-documents').then((r) => setDocs(r.data.data.documents)).catch(() => setDocs([]));
+  }, []);
+  const download = async (d: FirmDoc) => {
+    try {
+      const r = await api.get(`/firm-documents/${d.id}`, { responseType: 'blob' });
+      const url = URL.createObjectURL(r.data);
+      const a = document.createElement('a');
+      a.href = url; a.download = d.filename; a.click();
+      URL.revokeObjectURL(url);
+    } catch { setError('Dokumentet kunne ikke hentes'); }
+  };
+  if (docs.length === 0) return null;
+  return (
+    <Paper sx={{ mt: 3 }}>
+      <Typography variant="subtitle1" sx={{ fontWeight: 600, p: 2, pb: 1 }}>Dokumenter fra revisor</Typography>
+      {error && <Alert severity="error" sx={{ mx: 2 }}>{error}</Alert>}
+      <List dense disablePadding>
+        {docs.map((d) => (
+          <React.Fragment key={d.id}>
+            <Divider />
+            <ListItemButton onClick={() => download(d)}>
+              <ListItemText primary={`${d.title}${d.version > 1 ? ` (version ${d.version})` : ''}`}
+                secondary={`${d.kind_label} · ${formatDate(d.created_at)}${d.signed_on ? ` · underskrevet ${formatDate(d.signed_on)}` : ''}`} />
+              <DownloadIcon fontSize="small" color="action" />
+            </ListItemButton>
+          </React.Fragment>
+        ))}
+      </List>
+    </Paper>
   );
 };
 

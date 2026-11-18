@@ -66,6 +66,7 @@ const Templates: React.FC = () => {
   const [q, setQ] = useState('');
   const [kind, setKind] = useState('');
   const [error, setError] = useState('');
+  const [archived, setArchived] = useState('');
   const [toast, setToast] = useState('');
 
   const selected = params.get('t') || '';
@@ -139,6 +140,18 @@ const Templates: React.FC = () => {
       a.href = url; a.download = name; a.click();
       URL.revokeObjectURL(url);
     } catch (e) { setError(errorText(e, 'Word-filen kunne ikke dannes')); }
+  };
+
+  const saveToArchive = async () => {
+    const kind = selected.startsWith('opdragsbrev') ? 'opdragsbrev'
+      : selected.includes('regnskabserklaering') ? 'ledelseserklaering' : 'andet';
+    try {
+      const r = await firmApi.post(`/templates/${selected}/archive`, {
+        client: clientSlug, year: year || undefined, values, text, kind, engagement: params.get('engagement') || undefined,
+      });
+      const d = r.data.data.document;
+      setArchived(`Gemt i kundens arkiv som "${d.title}" v${d.version} (${d.kind_label}).`);
+    } catch (e) { setError(errorText(e, 'Dokumentet kunne ikke gemmes i arkivet')); }
   };
 
   const print = () => {
@@ -321,10 +334,12 @@ const Templates: React.FC = () => {
             {loading && <CircularProgress size={16} />}
             <Box sx={{ ml: 'auto', display: 'flex', gap: 1, py: 0.75 }}>
               <Button size="small" variant="contained" startIcon={<Description />} disabled={!text} onClick={downloadWord}>Word</Button>
+              <Button size="small" variant="outlined" disabled={!text || !clientSlug} onClick={saveToArchive}>Gem i arkiv</Button>
               <Button size="small" variant="outlined" startIcon={<Print />} disabled={!text} onClick={print}>Udskriv / PDF</Button>
               <Button size="small" startIcon={<ContentCopy />} disabled={!text} onClick={copy}>Kopiér</Button>
             </Box>
           </Box>
+          {archived && <Alert severity="success" sx={{ borderRadius: 0 }} onClose={() => setArchived('')}>{archived}</Alert>}
           {result && result.missing > 0 && (
             <Alert severity="info" sx={{ borderRadius: 0 }}>
               {result.missing} oplysning(er) mangler og er markeret med <b>[…]</b>{!client ? ' – vælg en kunde for at udfylde stamdata' : ''}.

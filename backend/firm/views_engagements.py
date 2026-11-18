@@ -98,17 +98,25 @@ def _year_dict(e):
     return {"id": e.year_start.isoformat(), "start": e.year_start, "end": e.year_end, "closed": False}
 
 
-def build_checklist(request, e, template_id, values=None):
+def render_items(request, e, template_id, values=None):
+    """Flet skabelonen for opdragets kunde og år og træk punkterne ud: (skabelon, punkter, værdier, fejl)."""
     t = templating.get(template_id)
     if t is None:
-        return None, "Skabelonen findes ikke"
+        return None, [], {}, "Skabelonen findes ikke"
     staff = staff_of(request.user)
     figures = active_grant(e.client, staff) is not None
     ctx = templating.build_context(Firm.current(), e.client, request.user, staff, _year_dict(e), with_figures=figures)
     text, vals = templating.render(t, ctx, values or {})
     items = extract_items(text)
     if not items:
-        return None, "Skabelonen indeholder ingen tjeklistepunkter"
+        return t, [], vals, "Skabelonen indeholder ingen tjeklistepunkter"
+    return t, items, vals, None
+
+
+def build_checklist(request, e, template_id, values=None):
+    t, items, vals, msg = render_items(request, e, template_id, values)
+    if msg:
+        return None, msg
     sha = hashlib.sha256(json.dumps({"body": t["body"], "fields": t["fields"]}, sort_keys=True).encode()).hexdigest()
     run = ChecklistRun.objects.create(engagement=e, template_id=template_id, title=t["title"], template_sha256=sha,
                                       values={k: v for k, v in vals.items() if isinstance(v, (str, bool, int, float))},

@@ -22,6 +22,9 @@ Kundekendskab (reelle ejere, ledelse, PEP, kopi af legitimation) og risikovurder
 ### Revisorhusets tid og fakturering
 Tidsregistreringer, honoraraftaler og rater ligger i public-skemaet (`firm_time_entries`, `firm_fee_*`) og ses ikke af kunden. Fakturaer til kunderne laves ikke dér: revisorhusets egen bogføring er en kunde i systemet (`Firm.own_client`, eget skema), og "Fakturér" opretter et fakturaudkast i dens skema. Udstedelse, fortløbende nummer, moms og bogføring sker i det almindelige salgsflow med de samme kontroller som hos alle andre kunder, og handlingen står i husets audit-log (`_via: firm`). En registrering, der er knyttet til et udkast, kan ikke ændres. Slettes udkastet, frigives den igen.
 
+### Revisorhusets dokumentarkiv og materialelister
+Arkivfiler ligger uden for kundernes skemaer (`MEDIA_ROOT/firm_archive/<kunde>/`, tabel `firm_client_documents`) med SHA-256 og versionsnummer. Der er ingen sletning, og en ny fil med samme type og titel bliver en ny version. Kunden kan kun se dokumenter, der udtrykkeligt er delt (`visible_to_client`), og kun de indgår i kundens eksport. Kundekendskab og underretninger (`firm_kyc_*`, `firm_aml_reports`) er ikke en del af arkivet. Materialelister er almindelige forespørgsler (`firm_tasks` med opdrag og listenavn) i kundens indbakke.
+
 ### Brugere og roller
 - **Kundens brugere**: administrator, bogholder og læser (`ClientMembership`). Administratoren styrer brugere, revisoradgang og eksport.
 - **Revisorhusets medarbejdere**: partner, revisor, bogholder og assistent (`FirmStaff`). Revisorhuset har adgang til en kundes bøger fra oprettelsen efter kundeaftalen/opdragsbrevet (`AccessGrant`). Bogholdere og assistenter ser kun de kunder, de er tildelt. En partner afslutter adgangen, når aftalen ophører.

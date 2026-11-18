@@ -29,6 +29,8 @@ while true; do
         [ "$now" = "05:00" ] && [ "$(date +%d)" = "01" ] && run python manage.py retention_report
         # Kundekendskab (hvidvask) forfaldent eller manglende → opgave til den ansvarlige
         [ "$now" = "05:10" ] && [ "$(date +%d)" = "01" ] && run python manage.py kyc_review_report
+        # Materialelister med punkter over fristen → intern opgave til den opgaveansvarlige (dagligt)
+        [ "$now" = "05:20" ] && run python manage.py pbc_reminders
     fi
     sleep 20
 done
