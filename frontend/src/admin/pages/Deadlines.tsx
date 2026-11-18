@@ -12,7 +12,7 @@ import { useAdmin } from '../AdminContext';
 
 const KIND_COLOR: Record<string, string> = {
   moms: '#1565c0', a_skat: '#6a1b9a', aarsrapport: '#2e7d32', selvangivelse: '#c62828',
-  oplysningsskema: '#c62828', acontoskat: '#ef6c00',
+  oplysningsskema: '#c62828', acontoskat: '#ef6c00', opdrag: '#455a64',
 };
 const WEEKDAYS = ['man', 'tir', 'ons', 'tor', 'fre', 'lør', 'søn'];
 
@@ -45,7 +45,7 @@ export const DeadlineTable: React.FC<{ rows: Deadline[]; showClient?: boolean }>
             return (
               <TableRow key={`${d.client}-${d.kind}-${d.period}-${i}`} hover
                 sx={{ cursor: showClient ? 'pointer' : undefined }}
-                onClick={() => showClient && d.client && navigate(`/admin/clients/${d.client}`)}>
+                onClick={() => (d.engagement ? navigate(`/admin/engagements/${d.engagement}`) : showClient && d.client && navigate(`/admin/clients/${d.client}`))}>
                 <TableCell>
                   <Typography fontSize={13} fontWeight={600} color={days >= 0 && days <= 7 ? 'error.main' : undefined}>
                     {formatDate(d.date)}

@@ -68,6 +68,19 @@ def deadlines(request):
                         "responsible_id": client.responsible_id,
                         "responsible_name": _user_name(client.responsible)})
             rows.append(row)
+    if not kinds or "opdrag" in kinds:
+        # Husets egne opdragsfrister (ikke lovbestemte) – vises sammen med de lovbestemte.
+        from .models import Engagement
+        eq = Engagement.objects.filter(client__in=qs, deadline__gte=start, deadline__lte=end).exclude(
+            status="leveret").select_related("client", "partner")
+        for e in eq:
+            rows.append({
+                "date": e.deadline.isoformat(), "due": e.deadline.isoformat(), "shifted": False, "kind": "opdrag",
+                "title": f"Opdrag: {e.title or e.get_kind_display()}", "period": e.get_status_display(),
+                "authority": "Internt", "note": "", "period_start": None, "period_end": None,
+                "engagement": str(e.id), "client": e.client.slug, "client_name": e.client.name, "cvr": e.client.cvr,
+                "responsible_id": e.partner_id, "responsible_name": _user_name(e.partner),
+            })
     rows.sort(key=lambda r: (r["date"], r["client_name"]))
     return _ok({"from": start.isoformat(), "to": end.isoformat(), "deadlines": rows})
 

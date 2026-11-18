@@ -7,7 +7,7 @@ import {
   Business as ClientsIcon, Event as DeadlineIcon, Forum as TaskIcon, Group as StaffIcon,
   Inventory2 as PackageIcon, History as AuditIcon, Settings as SettingsIcon, SwapHoriz as SwapIcon,
   Logout as LogoutIcon, PersonAdd as NewIcon,
-  Gavel as TermsIcon, Article as TemplateIcon, Policy as RiskIcon, VerifiedUser as AmlIcon, Balance as IndependenceIcon,
+  Gavel as TermsIcon, Article as TemplateIcon, Policy as RiskIcon, VerifiedUser as AmlIcon, Balance as IndependenceIcon, Work as EngagementIcon, FactCheck as QualityIcon,
 } from '@mui/icons-material';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
@@ -21,9 +21,11 @@ const ITEMS = [
   { text: 'Kunder', icon: <ClientsIcon fontSize="small" />, path: '/admin/clients' },
   { text: 'Opret kunde', icon: <NewIcon fontSize="small" />, path: '/admin/clients/new' },
   { text: 'Fristkalender', icon: <DeadlineIcon fontSize="small" />, path: '/admin/deadlines' },
+  { text: 'Opdrag', icon: <EngagementIcon fontSize="small" />, path: '/admin/engagements' },
   { text: 'Opgaver og forespørgsler', icon: <TaskIcon fontSize="small" />, path: '/admin/tasks' },
   { text: 'Skabeloner', icon: <TemplateIcon fontSize="small" />, path: '/admin/templates' },
   { text: 'Hvidvask (KYC)', icon: <AmlIcon fontSize="small" />, path: '/admin/aml' },
+  { text: 'Kvalitetslog', icon: <QualityIcon fontSize="small" />, path: '/admin/quality-log' },
   { text: 'Uafhængighed', icon: <IndependenceIcon fontSize="small" />, path: '/admin/independence' },
   { text: 'Brancherisiko', icon: <RiskIcon fontSize="small" />, path: '/admin/industry-risk' },
   { text: 'Medarbejdere', icon: <StaffIcon fontSize="small" />, path: '/admin/staff' },

@@ -18,6 +18,9 @@ const Templates = React.lazy(() => import('./pages/Templates'));
 const IndustryRisk = React.lazy(() => import('./pages/IndustryRisk'));
 const Aml = React.lazy(() => import('./pages/Aml'));
 const Independence = React.lazy(() => import('./pages/Independence'));
+const Engagements = React.lazy(() => import('./pages/Engagements'));
+const EngagementDetail = React.lazy(() => import('./pages/EngagementDetail'));
+const QualityLog = React.lazy(() => import('./pages/QualityLog'));
 const AdminSelectClient = React.lazy(() => import('./pages/SelectClient'));
 
 const Loader = () => (
@@ -43,6 +46,9 @@ const AdminApp: React.FC = () => (
           <Route path="industry-risk" element={<IndustryRisk />} />
           <Route path="aml" element={<Aml />} />
           <Route path="independence" element={<Independence />} />
+          <Route path="engagements" element={<Engagements />} />
+          <Route path="engagements/:id" element={<EngagementDetail />} />
+          <Route path="quality-log" element={<QualityLog />} />
           <Route path="audit-log" element={<FirmAuditLog />} />
           <Route path="settings" element={<FirmSettings />} />
           <Route path="select-client" element={<AdminSelectClient />} />

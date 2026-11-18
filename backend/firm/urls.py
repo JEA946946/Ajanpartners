@@ -1,6 +1,6 @@
 from django.urls import path
 
-from . import views, views_kyc, views_quality, views_templates, views_work
+from . import views, views_engagements, views_kyc, views_quality, views_templates, views_work
 
 urlpatterns = [
     path("clients", views.clients),
@@ -48,4 +48,13 @@ urlpatterns = [
     path("independence/sign", views_quality.independence_sign),
     path("independence/conflicts", views_quality.independence_conflict),
     path("independence/conflicts/<uuid:pk>/resolve", views_quality.independence_resolve),
+    path("engagements", views_engagements.engagements),
+    path("engagements/meta", views_engagements.engagements_meta),
+    path("engagements/<uuid:pk>", views_engagements.engagement_detail),
+    path("engagements/<uuid:pk>/checklists", views_engagements.engagement_checklist),
+    path("engagements/<uuid:pk>/signoff", views_engagements.engagement_signoff),
+    path("engagements/<uuid:pk>/reopen", views_engagements.engagement_reopen),
+    path("checklist-runs/<uuid:pk>/items/<str:item>", views_engagements.checklist_item),
+    path("quality-log", views_engagements.quality_log),
+    path("quality-log/<uuid:pk>", views_engagements.quality_log_detail),
 ]

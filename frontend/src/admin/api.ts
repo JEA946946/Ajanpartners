@@ -5,7 +5,8 @@ export interface Deadline {
   date: string;
   due: string;
   shifted: boolean;
-  kind: 'moms' | 'a_skat' | 'aarsrapport' | 'selvangivelse' | 'oplysningsskema' | 'acontoskat';
+  kind: 'moms' | 'a_skat' | 'aarsrapport' | 'selvangivelse' | 'oplysningsskema' | 'acontoskat' | 'opdrag';
+  engagement?: string;
   title: string;
   period: string;
   authority: string;
@@ -165,7 +166,7 @@ export const CLIENT_STATUS: Record<string, string> = {
 };
 export const DEADLINE_KINDS: Record<string, string> = {
   moms: 'Moms', a_skat: 'A-skat/AM', aarsrapport: 'Årsrapport', selvangivelse: 'Selvangivelse',
-  oplysningsskema: 'Oplysningsskema', acontoskat: 'Acontoskat',
+  oplysningsskema: 'Oplysningsskema', acontoskat: 'Acontoskat', opdrag: 'Opdrag (internt)',
 };
 export const TASK_KINDS: Record<string, string> = {
   bilag_mangler: 'Bilag mangler', spoergsmaal: 'Spørgsmål', opgave: 'Opgave',

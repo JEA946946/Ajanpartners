@@ -244,3 +244,120 @@ class IndependenceConflict(models.Model):
     class Meta:
         db_table = "firm_independence_conflicts"
         ordering = ["-created_at"]
+
+
+# ─── Opdrag og kvalitetsstyring (BEK 512/2024 § 3, stk. 1, nr. 5 og 8) ─────────
+
+class Engagement(models.Model):
+    """Et opdrag for en kunde og et regnskabsår (eller en periode)."""
+
+    KINDS = [
+        ("revision", "Revision"),
+        ("udvidet_gennemgang", "Udvidet gennemgang"),
+        ("review", "Review"),
+        ("opstilling", "Opstilling (assistance)"),
+        ("aftalte_handlinger", "Aftalte arbejdshandlinger"),
+        ("skat", "Skat (selvangivelse)"),
+        ("loen", "Løn"),
+        ("bogfoering", "Bogføring"),
+        ("raadgivning", "Rådgivning"),
+    ]
+    STATUS = [
+        ("planlagt", "Planlagt"),
+        ("i_gang", "I gang"),
+        ("review", "Til gennemgang"),
+        ("afsluttet", "Godkendt"),
+        ("leveret", "Leveret"),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    client = models.ForeignKey("tenancy.ClientCompany", on_delete=models.CASCADE, related_name="engagements")
+    kind = models.CharField(max_length=20, choices=KINDS)
+    title = models.CharField(max_length=255, blank=True, default="")
+    year_start = models.DateField(null=True, blank=True)
+    year_end = models.DateField(null=True, blank=True)
+    partner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+                                related_name="+")
+    manager = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+                                related_name="+")
+    status = models.CharField(max_length=12, choices=STATUS, default="planlagt")
+    deadline = models.DateField(null=True, blank=True)
+    budget_hours = models.DecimalField(max_digits=8, decimal_places=2, null=True, blank=True)
+    acceptance = models.ForeignKey(ClientAcceptance, on_delete=models.SET_NULL, null=True, blank=True,
+                                   related_name="engagements")
+    note = models.TextField(blank=True, default="")
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name="+")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "firm_engagements"
+        ordering = ["deadline", "client__name"]
+        indexes = [models.Index(fields=["client", "status"])]
+
+
+class ChecklistRun(models.Model):
+    """En udfyldt tjekliste til et opdrag. Punkterne er trukket ud af en verificeret skabelon
+    (linjer med "- [ ]"), flettet for kunden og året – systemet tilføjer ikke selv punkter."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    engagement = models.ForeignKey(Engagement, on_delete=models.CASCADE, related_name="checklists")
+    template_id = models.CharField(max_length=100)
+    title = models.CharField(max_length=255)
+    template_sha256 = models.CharField(max_length=64, blank=True, default="")  # af skabelonfilen ved oprettelse
+    values = models.JSONField(default=dict, blank=True)  # skabelonens felter (fx mikro)
+    items = models.JSONField(default=list, blank=True)   # [{id, section, text, status, note, by, at}]
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "firm_checklist_runs"
+        ordering = ["created_at"]
+
+
+class Signoff(models.Model):
+    """Udført af / gennemgået af / godkendt af (BEK 512/2024 § 3, stk. 1, nr. 5)."""
+
+    STEPS = [("udfoert", "Udført"), ("gennemgaaet", "Gennemgået"), ("godkendt", "Godkendt")]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    engagement = models.ForeignKey(Engagement, on_delete=models.CASCADE, related_name="signoffs")
+    step = models.CharField(max_length=12, choices=STEPS)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+")
+    note = models.TextField(blank=True, default="")
+    at = models.DateTimeField(auto_now_add=True)
+    revoked_at = models.DateTimeField(null=True, blank=True)  # fortrydes ved genåbning – slettes ikke
+    revoked_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+                                   related_name="+")
+
+    class Meta:
+        db_table = "firm_signoffs"
+        ordering = ["at"]
+
+
+class QualityLog(models.Model):
+    """Konsultationer, klager, hændelser og den årlige evaluering af kvalitetsstyringssystemet
+    (BEK 512/2024 § 3, stk. 1, nr. 8, og stk. 3-4)."""
+
+    KINDS = [
+        ("konsultation", "Konsultation"),
+        ("klage", "Klage"),
+        ("haendelse", "Hændelse / mulig overtrædelse"),
+        ("evaluering", "Årlig evaluering af kvalitetsstyringssystemet"),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    kind = models.CharField(max_length=15, choices=KINDS)
+    client = models.ForeignKey("tenancy.ClientCompany", on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
+    engagement = models.ForeignKey(Engagement, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
+    title = models.CharField(max_length=255)
+    description = models.TextField(blank=True, default="")
+    follow_up = models.TextField(blank=True, default="")  # opfølgning/afhjælpning (§ 3, stk. 4)
+    closed_at = models.DateTimeField(null=True, blank=True)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name="+")
+    created_at = models.DateTimeField(auto_now_add=True)
+    closed_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+                                  related_name="+")
+
+    class Meta:
+        db_table = "firm_quality_log"
+        ordering = ["-created_at"]
